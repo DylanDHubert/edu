@@ -1,0 +1,35 @@
+-- CREATE NOTES TABLE
+CREATE TABLE IF NOT EXISTS notes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  portfolio_type TEXT NOT NULL CHECK (portfolio_type IN ('general', 'hip', 'knee', 'ts_knee')),
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  is_shared BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- CREATE INDEXES FOR NOTES TABLE
+CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_notes_portfolio_type ON notes(portfolio_type);
+CREATE INDEX IF NOT EXISTS idx_notes_is_shared ON notes(is_shared);
+CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
+
+-- ENABLE ROW LEVEL SECURITY FOR NOTES
+ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+
+-- CREATE POLICIES FOR NOTES TABLE
+-- USERS CAN ACCESS THEIR OWN NOTES
+CREATE POLICY "USERS CAN ACCESS THEIR OWN NOTES" ON notes
+  FOR ALL USING (auth.uid() = user_id);
+
+-- USERS CAN ACCESS SHARED NOTES
+CREATE POLICY "USERS CAN ACCESS SHARED NOTES" ON notes
+  FOR SELECT USING (is_shared = TRUE);
+
+-- CREATE TRIGGER TO AUTOMATICALLY UPDATE UPDATED_AT FOR NOTES
+CREATE TRIGGER update_notes_updated_at
+  BEFORE UPDATE ON notes
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column(); 

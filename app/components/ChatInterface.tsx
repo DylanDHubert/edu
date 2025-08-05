@@ -86,8 +86,31 @@ export default function ChatInterface() {
       }
 
       const { messages: loadedMessages } = await response.json();
+
+      // CLEAN MESSAGES TO REMOVE NOTES CONTEXT FROM USER MESSAGES
+      const cleanedMessages = (loadedMessages || []).map((msg: any) => {
+        if (msg.role === 'user' && msg.content[0]?.text?.value) {
+          const text = msg.content[0].text.value;
+          // REMOVE NOTES CONTEXT FROM USER MESSAGES
+          const userMessageMatch = text.match(/USER MESSAGE: (.+)/);
+          if (userMessageMatch) {
+            return {
+              ...msg,
+              content: [{
+                ...msg.content[0],
+                text: {
+                  ...msg.content[0].text,
+                  value: userMessageMatch[1]
+                }
+              }]
+            };
+          }
+        }
+        return msg;
+      });
+
       // REVERSE THE MESSAGES TO SHOW IN CHRONOLOGICAL ORDER (OLDEST FIRST)
-      setMessages((loadedMessages || []).reverse());
+      setMessages(cleanedMessages.reverse());
     } catch (error) {
       console.error('ERROR LOADING MESSAGES:', error);
       setMessages([]);
@@ -492,20 +515,33 @@ export default function ChatInterface() {
                         ) : (
                           text
                         )}
-                        {message.role === 'assistant' && content.text.annotations && (
+                        {message.role === 'assistant' && content.text.annotations && content.text.annotations.length > 0 && (
                           <div className="mt-2 text-xs text-slate-400 border-t border-slate-600 pt-2">
                             <div className="font-semibold mb-1">SOURCES:</div>
-                            {content.text.annotations
+                                                        {content.text.annotations
                               .filter(ann => ann.type === 'file_citation')
                               .map((annotation, annIndex) => {
-                                // EXTRACT FILENAME FROM CITATION TEXT (E.G., "【4:1†Knee_Triathlon Knee Replacement Presentation.pdf】")
+                                // EXTRACT FILENAME AND PAGE INFO FROM CITATION TEXT (E.G., "【4:1†Knee_Triathlon Knee Replacement Presentation.pdf】")
                                 const citationText = annotation.text;
-                                const filenameMatch = citationText.match(/【\d+:\d+†(.+?)】/);
-                                const filename = filenameMatch ? filenameMatch[1] : annotation.file_citation?.quote || 'Unknown file';
+                                const citationMatch = citationText.match(/【(\d+):(\d+)†(.+?)】/);
+                                let filename = 'Unknown file';
+                                let pageInfo = '';
+                                
+                                if (citationMatch) {
+                                  const page = citationMatch[1];
+                                  const paragraph = citationMatch[2];
+                                  filename = citationMatch[3];
+                                  pageInfo = ` (Page ${page}, Paragraph ${paragraph})`;
+                                } else {
+                                  filename = annotation.file_citation?.quote || 'Unknown file';
+                                }
+                                
+                                // CLEAN UP FILENAME - REMOVE ANY REMAINING CITATION MARKERS
+                                const cleanFilename = filename.replace(/【\d+:\d+†(.+?)】/g, '$1').trim();
                                 
                                 return (
                                   <div key={annIndex} className="mb-1">
-                                    <span className="font-medium">[{annIndex + 1}]</span> {filename}
+                                    <span className="font-medium">[{annIndex + 1}]</span> {cleanFilename}{pageInfo}
                                   </div>
                                 );
                               })}
@@ -531,7 +567,7 @@ export default function ChatInterface() {
                   <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
                 <span className="text-xs text-slate-400 ml-2">
-                  {currentStep || 'ASSISTANT IS THINKING...'}
+                  {isCreatingNewChat && !currentStep ? 'STARTING NEW CHAT...' : currentStep || 'ASSISTANT IS THINKING...'}
                 </span>
               </div>
             </div>

@@ -45,7 +45,58 @@ export async function POST(request: NextRequest) {
     // GET MESSAGES FROM THREAD
     const messages = await getThreadMessages(threadId);
     
-    return NextResponse.json({ messages });
+    // PROCESS CITATIONS FOR ASSISTANT MESSAGES
+    const processedMessages = messages.map(message => {
+      if (message.role === 'assistant' && message.content[0].type === 'text') {
+        const textContent = message.content[0] as any;
+        const annotations = textContent.text.annotations;
+        
+        if (annotations && annotations.length > 0) {
+          // PROCESS CITATIONS TO EXTRACT FILENAMES
+          const processedAnnotations = annotations.map((annotation: any, index: number) => {
+            if (annotation.type === 'file_citation' && annotation.file_citation) {
+              // EXTRACT FILENAME AND PAGE/PARAGRAPH FROM CITATION TEXT
+              const citationText = annotation.text;
+              const citationMatch = citationText.match(/【(\d+):(\d+)†(.+?)】/);
+              let filename = 'Unknown file';
+              let pageInfo = '';
+              
+              if (citationMatch) {
+                const page = citationMatch[1];
+                const paragraph = citationMatch[2];
+                filename = citationMatch[3];
+                pageInfo = ` (Page ${page}, Paragraph ${paragraph})`;
+              } else {
+                filename = annotation.file_citation.quote || 'Unknown file';
+              }
+              
+              return {
+                ...annotation,
+                file_citation: {
+                  ...annotation.file_citation,
+                  quote: filename + pageInfo
+                }
+              };
+            }
+            return annotation;
+          });
+          
+          return {
+            ...message,
+            content: [{
+              ...textContent,
+              text: {
+                ...textContent.text,
+                annotations: processedAnnotations
+              }
+            }]
+          };
+        }
+      }
+      return message;
+    });
+    
+    return NextResponse.json({ messages: processedMessages });
   } catch (error) {
     console.error('ERROR LOADING MESSAGES:', error);
     return NextResponse.json(

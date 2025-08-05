@@ -90,7 +90,22 @@ export class StreamingEventHandler {
         );
         
         // ADD CITATION DETAILS
-        const citation = `[${index + 1}] ${annotation.file_citation.quote}`;
+        const citationText = annotation.text;
+        const citationMatch = citationText.match(/【(\d+):(\d+)†(.+?)】/);
+        let filename = 'Unknown file';
+        let pageInfo = '';
+        
+        if (citationMatch) {
+          const page = citationMatch[1];
+          const paragraph = citationMatch[2];
+          filename = citationMatch[3];
+          pageInfo = ` (Page ${page}, Paragraph ${paragraph})`;
+        } else {
+          filename = annotation.file_citation.quote || 'Unknown file';
+        }
+        
+        const cleanFilename = filename.replace(/【\d+:\d+†(.+?)】/g, '$1').trim();
+        const citation = `[${index + 1}] ${cleanFilename}${pageInfo}`;
         this.citations.push(citation);
       }
     }
@@ -116,7 +131,7 @@ export async function sendMessageStreaming(
 
     let messageContent = '';
     let citations: string[] = [];
-    let currentStep = 'STARTING...';
+    let currentStep = 'STARTING NEW CHAT...';
 
     // SEND INITIAL STEP UPDATE
     onUpdate(messageContent, citations, currentStep);
@@ -187,7 +202,22 @@ export async function sendMessageStreaming(
               );
               
               // ADD CITATION DETAILS
-              const citation = `[${index + 1}] ${annotation.file_citation.quote}`;
+              const citationText = annotation.text;
+              const citationMatch = citationText.match(/【(\d+):(\d+)†(.+?)】/);
+              let filename = 'Unknown file';
+              let pageInfo = '';
+              
+              if (citationMatch) {
+                const page = citationMatch[1];
+                const paragraph = citationMatch[2];
+                filename = citationMatch[3];
+                pageInfo = ` (Page ${page}, Paragraph ${paragraph})`;
+              } else {
+                filename = annotation.file_citation.quote || 'Unknown file';
+              }
+              
+              const cleanFilename = filename.replace(/【\d+:\d+†(.+?)】/g, '$1').trim();
+              const citation = `[${index + 1}] ${cleanFilename}${pageInfo}`;
               citations.push(citation);
             }
           }

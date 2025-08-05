@@ -3,6 +3,7 @@ import { Coda } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ChatProvider } from "./contexts/ChatContext";
+import { NotesProvider } from "./contexts/NotesContext";
 
 const coda = Coda({
   weight: "400",
@@ -27,7 +28,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ChatProvider>
-            {children}
+            <NotesProvider>
+              {children}
+            </NotesProvider>
           </ChatProvider>
         </AuthProvider>
       </body>

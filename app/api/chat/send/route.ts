@@ -3,6 +3,12 @@ import { createClient } from '../../../utils/supabase/server';
 import { sendMessage, sendMessageStreaming, getAssistantId } from '../../../utils/openai';
 import { PortfolioType } from '../../../utils/openai';
 import { cookies } from 'next/headers';
+import { getNotesForPortfolio, formatNotesForContext } from '../../../utils/notes';
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +51,13 @@ export async function POST(request: NextRequest) {
     // GET ASSISTANT ID
     const assistantId = await getAssistantId(portfolioType as PortfolioType);
     
+    // GET NOTES FOR THIS PORTFOLIO
+    const notes = await getNotesForPortfolio(portfolioType as PortfolioType, user.id);
+    const notesContext = formatNotesForContext(notes);
+    
+    // ADD NOTES TO MESSAGE IF AVAILABLE (BUT KEEP ORIGINAL MESSAGE FOR THREAD)
+    const messageWithNotes = notesContext ? `${notesContext}USER MESSAGE: ${message}` : message;
+    
     // IF STREAMING IS REQUESTED, RETURN STREAMING RESPONSE
     if (streaming) {
       const encoder = new TextEncoder();
@@ -54,7 +67,7 @@ export async function POST(request: NextRequest) {
           try {
             await sendMessageStreaming(
               threadId, 
-              message, 
+              messageWithNotes, 
               assistantId,
               (content: string, citations: string[], step?: string) => {
                 // SEND STREAMING UPDATE
@@ -92,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
     
     // NON-STREAMING RESPONSE (ORIGINAL IMPLEMENTATION)
-    const messages = await sendMessage(threadId, message, assistantId);
+    const messages = await sendMessage(threadId, messageWithNotes, assistantId);
     
     return NextResponse.json({ messages });
   } catch (error) {
