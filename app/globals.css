@@ -52,3 +52,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
 }
+
+/* HIDE SCROLLBAR UTILITY CLASS */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* INTERNET EXPLORER 10+ */
+  scrollbar-width: none;  /* FIREFOX */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* SAFARI AND CHROME */
+}

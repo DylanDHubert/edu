@@ -3,17 +3,28 @@
 import { useState } from "react";
 import { useNotes } from "../contexts/NotesContext";
 import { useChat } from "../contexts/ChatContext";
+import { useAuth } from "../contexts/AuthContext";
 import { PortfolioType } from "../utils/portfolios";
 import NoteModal from "./NoteModal";
 
-export default function NotesSection() {
+interface NotesSectionProps {
+  onNoteSelect?: () => void;
+}
+
+export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
   const { notes, loading, deleteNote, getNotesForPortfolio } = useNotes();
   const { currentPortfolio } = useChat();
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<any>(null);
   const [showAllNotes, setShowAllNotes] = useState(false);
 
   const handleEditNote = (note: any) => {
+    // CHECK IF USER OWNS THE NOTE OR IF IT'S NOT SHARED
+    if (note.user_id !== user?.id && note.is_shared) {
+      alert('YOU CANNOT EDIT SHARED NOTES THAT DO NOT BELONG TO YOU');
+      return;
+    }
     setEditingNote(note);
     setIsModalOpen(true);
   };
@@ -66,6 +77,11 @@ export default function NotesSection() {
     }
   };
 
+  // CHECK IF USER CAN EDIT A NOTE
+  const canEditNote = (note: any) => {
+    return note.user_id === user?.id || !note.is_shared;
+  };
+
   return (
     <>
       <div className="p-4 border-b border-slate-700">
@@ -112,7 +128,7 @@ export default function NotesSection() {
             {showAllNotes ? 'NO NOTES YET' : 'NO NOTES FOR CURRENT PORTFOLIO'}
           </div>
         ) : (
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-hide">
             {relevantNotes.map((note) => (
               <div
                 key={note.id}
@@ -125,7 +141,7 @@ export default function NotesSection() {
                   </span>
                   {note.is_shared && (
                     <span className="text-xs text-slate-400" title="SHARED NOTE">
-                      🌐
+                      SHARED
                     </span>
                   )}
                 </div>
@@ -148,23 +164,28 @@ export default function NotesSection() {
                   {new Date(note.updated_at).toLocaleDateString()}
                 </div>
 
-                {/* ACTION BUTTONS */}
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                {/* ACTION BUTTONS - MOVED TO BOTTOM RIGHT LIKE CHAT HISTORY */}
+                {canEditNote(note) && (
                   <button
-                    onClick={() => handleEditNote(note)}
-                    className="text-xs text-slate-400 hover:text-slate-200 p-1"
+                    onClick={() => {
+                      handleEditNote(note);
+                      onNoteSelect?.(); // CALL MOBILE CLOSE CALLBACK
+                    }}
+                    className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-200 text-xs p-1"
                     title="EDIT NOTE"
                   >
-                    ✏️
+                    EDIT
                   </button>
+                )}
+                {note.user_id === user?.id && (
                   <button
                     onClick={() => handleDeleteNote(note.id)}
-                    className="text-xs text-red-400 hover:text-red-300 p-1"
+                    className="absolute bottom-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs p-1"
                     title="DELETE NOTE"
                   >
-                    🗑️
+                    TRASH
                   </button>
-                </div>
+                )}
               </div>
             ))}
           </div>

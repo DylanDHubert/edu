@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -9,6 +10,7 @@ import ChatInterface from "./components/ChatInterface";
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -33,8 +35,18 @@ export default function HomePage() {
 
   return (
     <div className="flex h-screen bg-slate-900">
-      <Sidebar />
-      <ChatInterface />
+      {/* SIMPLE MOBILE MENU BUTTON - TOP RIGHT OF SCREEN */}
+      <button
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        className="lg:hidden fixed top-2 right-2 z-50 bg-slate-800 text-slate-100 p-1 rounded-md border border-slate-700"
+      >
+        ☰
+      </button>
+
+      <Sidebar isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
+      <div className="flex-1 flex flex-col lg:ml-0">
+        <ChatInterface />
+      </div>
     </div>
   );
 }

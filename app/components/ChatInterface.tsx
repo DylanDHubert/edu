@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useChat } from "../contexts/ChatContext";
-import { PORTFOLIOS } from "../utils/portfolios";
+import { PORTFOLIOS, PortfolioType } from "../utils/portfolios";
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -430,19 +430,23 @@ export default function ChatInterface() {
   if (!currentChat && !currentPortfolio) {
     return (
       <div className="flex-1 flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-100 mb-4">
+        <div className="text-center px-4 lg:px-8">
+          <h2 className="text-xl lg:text-2xl font-bold text-slate-100 mb-4">
             WELCOME TO HHB RAG ASSISTANT
           </h2>
-          <p className="text-slate-400 mb-6">
+          <p className="text-slate-400 mb-6 text-sm lg:text-base">
             SELECT A PORTFOLIO FROM THE SIDEBAR TO START A NEW CHAT
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
             {Object.entries(PORTFOLIOS).map(([key, portfolio]) => (
-              <div key={key} className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                <h3 className="font-semibold text-slate-100 mb-2">{portfolio.name}</h3>
-                <p className="text-sm text-slate-400">{portfolio.description}</p>
-              </div>
+              <button
+                key={key}
+                onClick={() => setCurrentPortfolio(key as PortfolioType)}
+                className="bg-slate-800 border border-slate-700 rounded-lg p-3 lg:p-4 text-left hover:bg-slate-700 transition-colors"
+              >
+                <h3 className="font-semibold text-slate-100 mb-2 text-sm lg:text-base">{portfolio.name}</h3>
+                <p className="text-xs lg:text-sm text-slate-400">{portfolio.description}</p>
+              </button>
             ))}
           </div>
         </div>
@@ -451,26 +455,26 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-900">
-      {/* CHAT HEADER */}
-      <div className="bg-slate-800 border-b border-slate-700 p-4">
-        <h2 className="text-lg font-semibold text-slate-100">
+    <div className="flex-1 flex flex-col bg-slate-900 h-screen">
+      {/* CHAT HEADER - FIXED */}
+      <div className="bg-slate-800 border-b border-slate-700 p-3 lg:p-4 flex-shrink-0">
+        <h2 className="text-base lg:text-lg font-semibold text-slate-100 truncate">
           {currentChat ? currentChat.title : `NEW ${currentPortfolio ? PORTFOLIOS[currentPortfolio].name : 'CHAT'}`}
         </h2>
-        <p className="text-sm text-slate-400">
+        <p className="text-xs lg:text-sm text-slate-400 truncate">
           {currentPortfolio ? PORTFOLIOS[currentPortfolio].name : 'SELECT A PORTFOLIO'}
         </p>
       </div>
 
-      {/* MESSAGES */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* MESSAGES - SCROLLABLE */}
+      <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3 lg:space-y-4 min-h-0">
         {isLoadingMessages ? (
           <div className="flex justify-center py-8">
             <div className="text-slate-400">LOADING MESSAGES...</div>
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-slate-400">
+            <p className="text-slate-400 text-sm lg:text-base">
               {currentPortfolio 
                 ? `START A CONVERSATION WITH THE ${PORTFOLIOS[currentPortfolio].name} ASSISTANT`
                 : 'SELECT A PORTFOLIO TO START CHATTING'
@@ -484,7 +488,7 @@ export default function ChatInterface() {
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-3xl rounded-lg px-4 py-2 flex items-center ${
+                className={`max-w-[85%] lg:max-w-3xl rounded-lg px-3 py-2 lg:px-4 lg:py-2 flex items-center ${
                   message.role === 'user'
                     ? 'bg-slate-600 text-slate-100'
                     : 'bg-slate-700 text-slate-100'
@@ -577,22 +581,22 @@ export default function ChatInterface() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT */}
-      <div className="bg-slate-800 border-t border-slate-700 p-4">
-        <div className="flex space-x-4">
+      {/* INPUT - FIXED AT BOTTOM */}
+      <div className="bg-slate-800 border-t border-slate-700 p-3 lg:p-4 flex-shrink-0">
+        <div className="flex space-x-2 lg:space-x-4">
           <textarea
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={currentPortfolio ? "TYPE YOUR MESSAGE HERE..." : "SELECT A PORTFOLIO TO START CHATTING"}
-            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-slate-500"
+            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 lg:px-4 lg:py-2 text-slate-100 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-slate-500 text-sm lg:text-base"
             rows={1}
             disabled={isLoading || isLoadingMessages || !currentPortfolio}
           />
           <button
             onClick={handleSendMessage}
             disabled={!inputMessage.trim() || isLoading || isLoadingMessages || !currentPortfolio}
-            className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-100 px-4 py-2 rounded-lg transition-colors"
+            className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-100 px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-colors text-sm lg:text-base whitespace-nowrap"
           >
             SEND
           </button>
