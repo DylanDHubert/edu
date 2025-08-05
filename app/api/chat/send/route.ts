@@ -56,12 +56,13 @@ export async function POST(request: NextRequest) {
               threadId, 
               message, 
               assistantId,
-              (content: string, citations: string[]) => {
+              (content: string, citations: string[], step?: string) => {
                 // SEND STREAMING UPDATE
                 const data = JSON.stringify({
                   type: 'update',
                   content,
-                  citations
+                  citations,
+                  step
                 });
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`));
               }

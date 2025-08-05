@@ -105,7 +105,7 @@ export async function sendMessageStreaming(
   threadId: string, 
   message: string, 
   assistantId: string,
-  onUpdate: (content: string, citations: string[]) => void
+  onUpdate: (content: string, citations: string[], step?: string) => void
 ) {
   try {
     // ADD MESSAGE TO THREAD
@@ -116,27 +116,62 @@ export async function sendMessageStreaming(
 
     let messageContent = '';
     let citations: string[] = [];
+    let currentStep = 'STARTING...';
+
+    // SEND INITIAL STEP UPDATE
+    onUpdate(messageContent, citations, currentStep);
 
     // STREAM THE RESPONSE USING EVENT LISTENERS
     const run = client.beta.threads.runs.stream(threadId, {
       assistant_id: assistantId
     })
+      .on('runStepCreated', (step) => {
+        // NEW STEP CREATED
+        currentStep = `STEP ${step.step_details?.type || 'PROCESSING'}...`;
+        onUpdate(messageContent, citations, currentStep);
+      })
+      .on('runStepDelta', (delta, snapshot) => {
+        // STEP UPDATED
+        if (delta.step_details?.type === 'tool_calls') {
+          const toolCalls = delta.step_details.tool_calls;
+          if (toolCalls && toolCalls.length > 0) {
+            const toolType = toolCalls[0].type;
+            if (toolType === 'file_search') {
+              currentStep = 'SEARCHING FILES...';
+            } else if (toolType === 'code_interpreter') {
+              currentStep = 'RUNNING CODE...';
+            } else {
+              currentStep = `USING ${toolType.toUpperCase()}...`;
+            }
+            onUpdate(messageContent, citations, currentStep);
+          }
+        }
+      })
       .on('textCreated', (text) => {
         // TEXT IS BEING CREATED - START STREAMING
+        currentStep = 'GENERATING RESPONSE...';
         messageContent += text.value;
-        onUpdate(messageContent, citations);
+        onUpdate(messageContent, citations, currentStep);
       })
       .on('textDelta', (textDelta, snapshot) => {
         // TEXT IS BEING UPDATED - CONTINUE STREAMING
         messageContent += textDelta.value;
-        onUpdate(messageContent, citations);
+        onUpdate(messageContent, citations, currentStep);
       })
       .on('toolCallCreated', (toolCall) => {
         // TOOL IS BEING USED (E.G., FILE SEARCH)
-        console.log('TOOL CALL:', toolCall.type);
+        if (toolCall.type === 'file_search') {
+          currentStep = 'SEARCHING FILES...';
+        } else if (toolCall.type === 'code_interpreter') {
+          currentStep = 'RUNNING CODE...';
+        } else {
+          currentStep = `USING ${toolCall.type.toUpperCase()}...`;
+        }
+        onUpdate(messageContent, citations, currentStep);
       })
       .on('messageDone', (message) => {
         // MESSAGE IS COMPLETE - PROCESS CITATIONS
+        currentStep = 'FINALIZING...';
         if (message.content[0].type === 'text') {
           const textContent = message.content[0] as any;
           const annotations = textContent.text.annotations;
@@ -158,7 +193,7 @@ export async function sendMessageStreaming(
           }
           
           // FINAL UPDATE WITH CITATIONS
-          onUpdate(messageContent, citations);
+          onUpdate(messageContent, citations, 'COMPLETE');
         }
       });
 
@@ -167,9 +202,25 @@ export async function sendMessageStreaming(
       // STREAM EVENTS ARE HANDLED BY THE EVENT LISTENERS
     }
 
-    // GET FINAL MESSAGES FOR CITATIONS
-    const messages = await client.beta.threads.messages.list(threadId);
-    return messages.data;
+    // RETURN THE PROCESSED MESSAGE CONTENT INSTEAD OF FETCHING AGAIN
+    return [{
+      id: `msg_${Date.now()}`,
+      role: 'assistant',
+      content: [{
+        type: 'text',
+        text: {
+          value: messageContent,
+          annotations: citations.map((citation, index) => ({
+            type: 'file_citation',
+            text: `[${index + 1}]`,
+            file_citation: {
+              quote: citation
+            }
+          }))
+        }
+      }],
+      created_at: Date.now() / 1000
+    }];
   } catch (error) {
     console.error('ERROR IN SENDMESSAGESTREAMING:', error);
     throw error;

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useChat } from "../contexts/ChatContext";
 import { PORTFOLIOS } from "../utils/portfolios";
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -32,6 +33,7 @@ export default function ChatInterface() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [pendingChat, setPendingChat] = useState<{portfolioType: string, message: string} | null>(null);
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
+  const [currentStep, setCurrentStep] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -180,15 +182,8 @@ export default function ChatInterface() {
           if (reader) {
             let assistantMessage = '';
             let citations: string[] = [];
-            
-            // ADD ASSISTANT MESSAGE TO STATE
-            const assistantMessageObj: Message = {
-              id: `assistant-${Date.now()}`,
-              role: 'assistant',
-              content: [{ type: 'text', text: { value: '' } }],
-              created_at: Date.now() / 1000
-            };
-            setMessages(prev => [...prev, assistantMessageObj]);
+            let currentStep = '';
+            let assistantMessageObj: Message | null = null;
             
             try {
               while (true) {
@@ -205,17 +200,34 @@ export default function ChatInterface() {
                     if (data.type === 'update') {
                       assistantMessage = data.content;
                       citations = data.citations;
+                      currentStep = data.step || '';
                       
-                      // UPDATE THE ASSISTANT MESSAGE
-                      setMessages(prev => prev.map(msg => 
-                        msg.id === assistantMessageObj.id 
-                          ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
-                          : msg
-                      ));
+                      // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
+                      if (!assistantMessageObj && assistantMessage.trim()) {
+                        assistantMessageObj = {
+                          id: `assistant-${Date.now()}`,
+                          role: 'assistant',
+                          content: [{ type: 'text', text: { value: assistantMessage } }],
+                          created_at: Date.now() / 1000
+                        };
+                        setMessages(prev => [...prev, assistantMessageObj!]);
+                      } else if (assistantMessageObj) {
+                        // UPDATE THE ASSISTANT MESSAGE
+                        setMessages(prev => prev.map(msg => 
+                          msg.id === assistantMessageObj!.id 
+                            ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
+                            : msg
+                        ));
+                      }
+                      
+                      // UPDATE CURRENT STEP
+                      setCurrentStep(data.step || '');
                     } else if (data.type === 'done') {
                       // STREAMING COMPLETE
+                      setCurrentStep('');
                       break;
                     } else if (data.type === 'error') {
+                      setCurrentStep('');
                       throw new Error(data.error);
                     }
                   }
@@ -305,15 +317,8 @@ export default function ChatInterface() {
       if (reader) {
         let assistantMessage = '';
         let citations: string[] = [];
-        
-        // ADD ASSISTANT MESSAGE TO STATE
-        const assistantMessageObj: Message = {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: [{ type: 'text', text: { value: '' } }],
-          created_at: Date.now() / 1000
-        };
-        setMessages(prev => [...prev, assistantMessageObj]);
+        let currentStep = '';
+        let assistantMessageObj: Message | null = null;
         
         try {
           while (true) {
@@ -330,17 +335,34 @@ export default function ChatInterface() {
                 if (data.type === 'update') {
                   assistantMessage = data.content;
                   citations = data.citations;
+                  currentStep = data.step || '';
                   
-                  // UPDATE THE ASSISTANT MESSAGE
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageObj.id 
-                      ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
-                      : msg
-                  ));
+                  // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
+                  if (!assistantMessageObj && assistantMessage.trim()) {
+                    assistantMessageObj = {
+                      id: `assistant-${Date.now()}`,
+                      role: 'assistant',
+                      content: [{ type: 'text', text: { value: assistantMessage } }],
+                      created_at: Date.now() / 1000
+                    };
+                    setMessages(prev => [...prev, assistantMessageObj!]);
+                  } else if (assistantMessageObj) {
+                    // UPDATE THE ASSISTANT MESSAGE
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageObj!.id 
+                        ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
+                        : msg
+                    ));
+                  }
+                  
+                  // UPDATE CURRENT STEP
+                  setCurrentStep(data.step || '');
                 } else if (data.type === 'done') {
                   // STREAMING COMPLETE
+                  setCurrentStep('');
                   break;
                 } else if (data.type === 'error') {
+                  setCurrentStep('');
                   throw new Error(data.error);
                 }
               }
@@ -463,22 +485,30 @@ export default function ChatInterface() {
                     
                     return (
                       <div key={index} className="whitespace-pre-wrap">
-                        {text}
+                        {message.role === 'assistant' ? (
+                          <div className="whitespace-pre-wrap leading-none">
+                            {text.split('\n').filter(line => line.trim() !== '').join('\n')}
+                          </div>
+                        ) : (
+                          text
+                        )}
                         {message.role === 'assistant' && content.text.annotations && (
                           <div className="mt-2 text-xs text-slate-400 border-t border-slate-600 pt-2">
                             <div className="font-semibold mb-1">SOURCES:</div>
                             {content.text.annotations
                               .filter(ann => ann.type === 'file_citation')
-                              .map((annotation, annIndex) => (
-                                <div key={annIndex} className="mb-1">
-                                  <span className="font-medium">[{annIndex + 1}]</span> {annotation.file_citation?.quote}
-                                  {annotation.file_citation?.file_id && (
-                                    <span className="text-slate-500 ml-1">
-                                      (File: {annotation.file_citation.file_id})
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
+                              .map((annotation, annIndex) => {
+                                // EXTRACT FILENAME FROM CITATION TEXT (E.G., "【4:1†Knee_Triathlon Knee Replacement Presentation.pdf】")
+                                const citationText = annotation.text;
+                                const filenameMatch = citationText.match(/【\d+:\d+†(.+?)】/);
+                                const filename = filenameMatch ? filenameMatch[1] : annotation.file_citation?.quote || 'Unknown file';
+                                
+                                return (
+                                  <div key={annIndex} className="mb-1">
+                                    <span className="font-medium">[{annIndex + 1}]</span> {filename}
+                                  </div>
+                                );
+                              })}
                           </div>
                         )}
                       </div>
@@ -494,10 +524,15 @@ export default function ChatInterface() {
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-slate-700 text-slate-100 rounded-lg px-4 py-2">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="flex items-center space-x-2">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+                <span className="text-xs text-slate-400 ml-2">
+                  {currentStep || 'ASSISTANT IS THINKING...'}
+                </span>
               </div>
             </div>
           </div>
