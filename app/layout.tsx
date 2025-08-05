@@ -14,6 +14,26 @@ const coda = Coda({
 export const metadata: Metadata = {
   title: "HHB RAG Assistant",
   description: "AI-powered RAG application with Supabase authentication",
+  manifest: "/manifest.json",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: "cover",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "HHB RAG",
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "HHB RAG",
+    "mobile-web-app-capable": "yes",
+    "theme-color": "#0f172a",
+  },
 };
 
 export default function RootLayout({
