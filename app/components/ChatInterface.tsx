@@ -37,6 +37,15 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // FORMAT MARKDOWN FOR BOLD AND ITALICS ONLY
+  const formatMarkdown = (text: string) => {
+    // REPLACE **BOLD** WITH <strong>BOLD</strong>
+    let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // REPLACE *ITALIC* WITH <em>ITALIC</em>
+    formattedText = formattedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    return formattedText;
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -513,11 +522,18 @@ export default function ChatInterface() {
                     return (
                       <div key={index} className="whitespace-pre-wrap">
                         {message.role === 'assistant' ? (
-                          <div className="whitespace-pre-wrap leading-none">
-                            {text.split('\n').filter(line => line.trim() !== '').join('\n')}
-                          </div>
+                          <div 
+                            className="whitespace-pre-wrap leading-none"
+                            dangerouslySetInnerHTML={{ 
+                              __html: formatMarkdown(text.split('\n').filter(line => line.trim() !== '').join('\n')) 
+                            }}
+                          />
                         ) : (
-                          text
+                          <span 
+                            dangerouslySetInnerHTML={{ 
+                              __html: formatMarkdown(text) 
+                            }}
+                          />
                         )}
                         {message.role === 'assistant' && content.text.annotations && content.text.annotations.length > 0 && (
                           <div className="mt-2 text-xs text-slate-400 border-t border-slate-600 pt-2">
