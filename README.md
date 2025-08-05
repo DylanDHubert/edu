@@ -1,36 +1,226 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HHB RAG ASSISTANT
 
-## Getting Started
+AN AI-POWERED CHATBOT SYSTEM FOR MEDICAL DOCUMENTATION WITH THREE SPECIALIZED PORTFOLIOS: HIP, KNEE, AND TS KNEE.
 
-First, run the development server:
+## FEATURES
+
+- 🔐 **AUTHENTICATION**: SUPABASE-BASED USER AUTHENTICATION
+- 🤖 **AI ASSISTANTS**: THREE SPECIALIZED OPENAI ASSISTANTS FOR DIFFERENT PORTFOLIOS
+- 📚 **DOCUMENT SEARCH**: VECTOR-BASED SEARCH THROUGH UPLOADED PDF DOCUMENTS
+- 💬 **CHAT INTERFACE**: CHATGPT-STYLE INTERFACE WITH CONVERSATION HISTORY
+- 📱 **RESPONSIVE DESIGN**: MODERN, DARK-THEMED UI
+
+## PORTFOLIOS
+
+### HIP PORTFOLIO
+- ACCOLADE SYSTEM SURGICAL TECHNIQUE
+- ACCOLADE II FEMORAL HIP SYSTEM SURGICAL TECHNIQUE
+- ADM/MDM SYSTEM
+- INSIGNIA DESIGN RATIONALE
+- INSIGNIA SURGICAL PROTOCOL
+- MAKO-THA SURGICAL TECHNIQUE
+- TRIDENT-CONSTRAINED ACETABULAR INSERT SURGICAL TECHNIQUE
+- TRTIIH SP 2
+
+### KNEE PORTFOLIO
+- TRIATHLON KNEE REPLACEMENT PRESENTATION
+- TRIATHLON TOTAL KNEE SYSTEM REFERENCE GUIDE
+- TRIATHLON-TRITANIUM SURGICAL TECHNIQUE
+
+### TS KNEE PORTFOLIO
+- TRIATHLON-TS BROCHURE
+
+## SETUP INSTRUCTIONS
+
+### 1. INSTALL DEPENDENCIES
+
+```bash
+npm install
+```
+
+### 2. ENVIRONMENT VARIABLES
+
+CREATE A `.env.local` FILE WITH THE FOLLOWING VARIABLES:
+
+```env
+# SUPABASE
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# OPENAI
+OPENAI_API_KEY=your_openai_api_key
+```
+
+### 3. DATABASE SETUP
+
+RUN THE FOLLOWING SQL IN YOUR SUPABASE SQL EDITOR:
+
+```sql
+-- CREATE CHAT HISTORY TABLE
+CREATE TABLE IF NOT EXISTS chat_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  portfolio_type TEXT NOT NULL CHECK (portfolio_type IN ('hip', 'knee', 'ts_knee')),
+  thread_id TEXT NOT NULL,
+  title TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- CREATE INDEXES FOR BETTER PERFORMANCE
+CREATE INDEX IF NOT EXISTS idx_chat_history_user_id ON chat_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_portfolio_type ON chat_history(portfolio_type);
+CREATE INDEX IF NOT EXISTS idx_chat_history_created_at ON chat_history(created_at);
+
+-- ENABLE ROW LEVEL SECURITY
+ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
+
+-- CREATE POLICY TO ALLOW USERS TO ACCESS THEIR OWN CHAT HISTORY
+CREATE POLICY "USERS CAN ACCESS THEIR OWN CHAT HISTORY" ON chat_history
+  FOR ALL USING (auth.uid() = user_id);
+
+-- CREATE FUNCTION TO UPDATE UPDATED_AT TIMESTAMP
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- CREATE TRIGGER TO AUTOMATICALLY UPDATE UPDATED_AT
+CREATE TRIGGER update_chat_history_updated_at
+  BEFORE UPDATE ON chat_history
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+### 4. SETUP OPENAI ASSISTANTS
+
+RUN THE SETUP SCRIPT TO CREATE ASSISTANTS AND UPLOAD DOCUMENTS:
+
+```bash
+node scripts/setup-assistants.js
+```
+
+THIS SCRIPT WILL:
+- CREATE VECTOR STORES FOR EACH PORTFOLIO
+- UPLOAD ALL PDF FILES TO OPENAI
+- CREATE SPECIALIZED ASSISTANTS
+- OUTPUT ENVIRONMENT VARIABLES TO ADD TO YOUR `.env.local`
+
+### 5. ADD ASSISTANT ENVIRONMENT VARIABLES
+
+AFTER RUNNING THE SETUP SCRIPT, ADD THE OUTPUT ENVIRONMENT VARIABLES TO YOUR `.env.local`:
+
+```env
+# ASSISTANT IDs (WILL BE OUTPUT BY SETUP SCRIPT)
+HIP_ASSISTANT_ID=asst_...
+HIP_VECTOR_STORE_ID=vst_...
+KNEE_ASSISTANT_ID=asst_...
+KNEE_VECTOR_STORE_ID=vst_...
+TS_KNEE_ASSISTANT_ID=asst_...
+TS_KNEE_VECTOR_STORE_ID=vst_...
+```
+
+### 6. RUN THE APPLICATION
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## USAGE
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **SIGN UP/LOGIN**: CREATE AN ACCOUNT OR LOGIN WITH EXISTING CREDENTIALS
+2. **SELECT PORTFOLIO**: CHOOSE FROM HIP, KNEE, OR TS KNEE PORTFOLIOS
+3. **START CHAT**: CLICK ON A PORTFOLIO TO START A NEW CHAT
+4. **ASK QUESTIONS**: THE AI WILL SEARCH THROUGH THE UPLOADED DOCUMENTS AND PROVIDE ANSWERS
+5. **VIEW HISTORY**: ALL CONVERSATIONS ARE SAVED AND ACCESSIBLE FROM THE SIDEBAR
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## TECHNICAL ARCHITECTURE
 
-## Learn More
+- **FRONTEND**: NEXT.JS 15 WITH REACT 19
+- **AUTHENTICATION**: SUPABASE AUTH
+- **DATABASE**: SUPABASE POSTGRESQL
+- **AI**: OPENAI ASSISTANTS API WITH VECTOR STORES
+- **STYLING**: TAILWIND CSS
+- **STATE MANAGEMENT**: REACT CONTEXT
 
-To learn more about Next.js, take a look at the following resources:
+## API ENDPOINTS
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `POST /api/chat/create`: CREATE NEW CHAT THREAD
+- `POST /api/chat/send`: SEND MESSAGE TO ASSISTANT
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## FOLDER STRUCTURE
 
-## Deploy on Vercel
+```
+app/
+├── api/                    # API ROUTES
+│   └── chat/
+│       ├── create/        # CREATE NEW CHAT
+│       └── send/          # SEND MESSAGE
+├── components/            # REACT COMPONENTS
+│   ├── Sidebar.tsx       # CHAT HISTORY & PORTFOLIO SELECTION
+│   └── ChatInterface.tsx # MAIN CHAT INTERFACE
+├── contexts/             # REACT CONTEXTS
+│   ├── AuthContext.tsx   # AUTHENTICATION STATE
+│   └── ChatContext.tsx   # CHAT STATE MANAGEMENT
+├── utils/                # UTILITY FUNCTIONS
+│   ├── openai.ts         # OPENAI API UTILITIES
+│   └── supabase/         # SUPABASE CLIENTS
+└── data/                 # PDF DOCUMENTS
+    ├── hip/              # HIP PORTFOLIO DOCUMENTS
+    ├── knee/             # KNEE PORTFOLIO DOCUMENTS
+    └── ts_knee/          # TS KNEE PORTFOLIO DOCUMENTS
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## DEVELOPMENT
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### ADDING NEW DOCUMENTS
+
+1. PLACE PDF FILES IN THE APPROPRIATE `data/` FOLDER
+2. UPDATE THE `PORTFOLIOS` CONFIGURATION IN `scripts/setup-assistants.js`
+3. RE-RUN THE SETUP SCRIPT TO UPLOAD NEW DOCUMENTS
+
+### CUSTOMIZING ASSISTANTS
+
+EDIT THE ASSISTANT INSTRUCTIONS IN `scripts/setup-assistants.js` TO MODIFY AI BEHAVIOR.
+
+## TROUBLESHOOTING
+
+### COMMON ISSUES
+
+1. **ASSISTANT NOT RESPONDING**: CHECK THAT ALL ENVIRONMENT VARIABLES ARE SET CORRECTLY
+2. **FILES NOT UPLOADING**: VERIFY FILE PATHS AND OPENAI API KEY
+3. **AUTHENTICATION ERRORS**: CHECK SUPABASE CONFIGURATION
+4. **DATABASE ERRORS**: RUN THE SQL SETUP SCRIPT IN SUPABASE
+
+### DEBUGGING
+
+- CHECK BROWSER CONSOLE FOR FRONTEND ERRORS
+- CHECK SERVER LOGS FOR API ERRORS
+- VERIFY ENVIRONMENT VARIABLES ARE LOADED CORRECTLY
+
+## SECURITY
+
+- ALL API ENDPOINTS VERIFY USER AUTHENTICATION
+- ROW LEVEL SECURITY ENABLED ON DATABASE
+- USERS CAN ONLY ACCESS THEIR OWN CHAT HISTORY
+- FILE ACCESS RESTRICTED TO AUTHENTICATED USERS
+
+## DEPLOYMENT
+
+### VERCEL
+
+1. CONNECT YOUR GITHUB REPOSITORY TO VERCEL
+2. ADD ALL ENVIRONMENT VARIABLES IN VERCEL DASHBOARD
+3. DEPLOY
+
+### OTHER PLATFORMS
+
+ENSURE ALL ENVIRONMENT VARIABLES ARE SET IN YOUR DEPLOYMENT PLATFORM.
+
+## LICENSE
+
+PRIVATE - HHB INC
