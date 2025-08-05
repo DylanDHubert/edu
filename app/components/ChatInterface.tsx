@@ -31,6 +31,7 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [pendingChat, setPendingChat] = useState<{portfolioType: string, message: string} | null>(null);
+  const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -53,14 +54,14 @@ export default function ChatInterface() {
 
   // LOAD MESSAGES WHEN CHAT CHANGES
   useEffect(() => {
-    if (currentChat) {
+    if (currentChat && !isCreatingNewChat) {
       loadMessages();
       setPendingChat(null);
-    } else {
+    } else if (!currentChat) {
       setMessages([]);
       setPendingChat(null);
     }
-  }, [currentChat]);
+  }, [currentChat, isCreatingNewChat]);
 
   const loadMessages = async () => {
     if (!currentChat) return;
@@ -115,6 +116,7 @@ export default function ChatInterface() {
     // IF NO CURRENT CHAT, CREATE ONE WITH THE MESSAGE
     if (!currentChat && currentPortfolio) {
       setIsLoading(true);
+      setIsCreatingNewChat(true); // PREVENT LOADING MESSAGES
       try {
         const response = await fetch('/api/chat/create', {
           method: 'POST',
@@ -160,7 +162,8 @@ export default function ChatInterface() {
             body: JSON.stringify({
               threadId: newChat.thread_id,
               message: inputMessage,
-              portfolioType: currentPortfolio
+              portfolioType: currentPortfolio,
+              streaming: true
             }),
             signal: abortControllerRef.current?.signal,
           });
@@ -170,9 +173,62 @@ export default function ChatInterface() {
             throw new Error(errorData.error || 'FAILED TO GET ASSISTANT RESPONSE');
           }
 
-          const { messages: newMessages } = await sendResponse.json();
-          // REVERSE THE MESSAGES TO SHOW IN CHRONOLOGICAL ORDER (OLDEST FIRST)
-          setMessages(newMessages.reverse());
+          // HANDLE STREAMING RESPONSE
+          const reader = sendResponse.body?.getReader();
+          const decoder = new TextDecoder();
+          
+          if (reader) {
+            let assistantMessage = '';
+            let citations: string[] = [];
+            
+            // ADD ASSISTANT MESSAGE TO STATE
+            const assistantMessageObj: Message = {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: [{ type: 'text', text: { value: '' } }],
+              created_at: Date.now() / 1000
+            };
+            setMessages(prev => [...prev, assistantMessageObj]);
+            
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                  if (line.startsWith('data: ')) {
+                    const data = JSON.parse(line.slice(6));
+                    
+                    if (data.type === 'update') {
+                      assistantMessage = data.content;
+                      citations = data.citations;
+                      
+                      // UPDATE THE ASSISTANT MESSAGE
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageObj.id 
+                          ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
+                          : msg
+                      ));
+                    } else if (data.type === 'done') {
+                      // STREAMING COMPLETE
+                      break;
+                    } else if (data.type === 'error') {
+                      throw new Error(data.error);
+                    }
+                  }
+                }
+              }
+            } finally {
+              reader.releaseLock();
+            }
+          } else {
+            // FALLBACK TO NON-STREAMING
+            const { messages: newMessages } = await sendResponse.json();
+            setMessages(newMessages.reverse());
+          }
         } catch (sendError) {
           if (sendError instanceof Error && sendError.name === 'AbortError') {
             console.log('SEND REQUEST CANCELLED');
@@ -189,6 +245,7 @@ export default function ChatInterface() {
           setMessages(prev => [...prev, errorMessage]);
         } finally {
           setIsLoading(false);
+          setIsCreatingNewChat(false); // ALLOW LOADING MESSAGES AGAIN
         }
         
         return;
@@ -199,6 +256,7 @@ export default function ChatInterface() {
         }
         console.error('ERROR CREATING NEW CHAT:', error);
         setIsLoading(false);
+        setIsCreatingNewChat(false); // ALLOW LOADING MESSAGES AGAIN
         return;
       } finally {
         clearTimeout(timeoutId);
@@ -229,7 +287,8 @@ export default function ChatInterface() {
         body: JSON.stringify({
           threadId: currentChat.thread_id,
           message: inputMessage,
-          portfolioType: currentPortfolio
+          portfolioType: currentPortfolio,
+          streaming: true
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -239,9 +298,62 @@ export default function ChatInterface() {
         throw new Error(errorData.error || 'FAILED TO SEND MESSAGE');
       }
 
-      const { messages: newMessages } = await response.json();
-      // REVERSE THE MESSAGES TO SHOW IN CHRONOLOGICAL ORDER (OLDEST FIRST)
-      setMessages(newMessages.reverse());
+      // HANDLE STREAMING RESPONSE
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (reader) {
+        let assistantMessage = '';
+        let citations: string[] = [];
+        
+        // ADD ASSISTANT MESSAGE TO STATE
+        const assistantMessageObj: Message = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: [{ type: 'text', text: { value: '' } }],
+          created_at: Date.now() / 1000
+        };
+        setMessages(prev => [...prev, assistantMessageObj]);
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.type === 'update') {
+                  assistantMessage = data.content;
+                  citations = data.citations;
+                  
+                  // UPDATE THE ASSISTANT MESSAGE
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageObj.id 
+                      ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
+                      : msg
+                  ));
+                } else if (data.type === 'done') {
+                  // STREAMING COMPLETE
+                  break;
+                } else if (data.type === 'error') {
+                  throw new Error(data.error);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      } else {
+        // FALLBACK TO NON-STREAMING
+        const { messages: newMessages } = await response.json();
+        setMessages(newMessages.reverse());
+      }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('REQUEST CANCELLED');

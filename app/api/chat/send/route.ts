@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../utils/supabase/server';
-import { sendMessage, getAssistantId } from '../../../utils/openai';
+import { sendMessage, sendMessageStreaming, getAssistantId } from '../../../utils/openai';
 import { PortfolioType } from '../../../utils/openai';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, message, portfolioType } = await request.json();
+    const { threadId, message, portfolioType, streaming = false } = await request.json();
     
     if (!threadId || !message || !portfolioType) {
       return NextResponse.json(
@@ -45,7 +45,52 @@ export async function POST(request: NextRequest) {
     // GET ASSISTANT ID
     const assistantId = await getAssistantId(portfolioType as PortfolioType);
     
-    // SEND MESSAGE WITH TIMEOUT
+    // IF STREAMING IS REQUESTED, RETURN STREAMING RESPONSE
+    if (streaming) {
+      const encoder = new TextEncoder();
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            await sendMessageStreaming(
+              threadId, 
+              message, 
+              assistantId,
+              (content: string, citations: string[]) => {
+                // SEND STREAMING UPDATE
+                const data = JSON.stringify({
+                  type: 'update',
+                  content,
+                  citations
+                });
+                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              }
+            );
+            
+            // SEND COMPLETION SIGNAL
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+            controller.close();
+          } catch (error) {
+            const errorData = JSON.stringify({
+              type: 'error',
+              error: error instanceof Error ? error.message : 'UNKNOWN ERROR'
+            });
+            controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+    
+    // NON-STREAMING RESPONSE (ORIGINAL IMPLEMENTATION)
     const messages = await sendMessage(threadId, message, assistantId);
     
     return NextResponse.json({ messages });
