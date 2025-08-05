@@ -21,6 +21,7 @@ export const metadata: Metadata = {
     maximumScale: 1,
     userScalable: false,
     viewportFit: "cover",
+    minimumScale: 1,
   },
   appleWebApp: {
     capable: true,

@@ -589,17 +589,21 @@ export default function ChatInterface() {
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={currentPortfolio ? "TYPE YOUR MESSAGE HERE..." : "SELECT A PORTFOLIO TO START CHATTING"}
-            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 lg:px-4 lg:py-2 text-slate-100 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-slate-500 text-sm lg:text-base"
+            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 lg:px-4 lg:py-2 text-slate-100 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-slate-500 text-base"
             rows={1}
             disabled={isLoading || isLoadingMessages || !currentPortfolio}
           />
           <button
             onClick={handleSendMessage}
             disabled={!inputMessage.trim() || isLoading || isLoadingMessages || !currentPortfolio}
-            className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-100 px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-colors text-sm lg:text-base whitespace-nowrap"
+            className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-100 px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-colors text-base whitespace-nowrap"
           >
             SEND
           </button>
+        </div>
+        {/* FOOTER */}
+        <div className="mt-2 text-center">
+          <p className="text-slate-500 text-sm pb-2">The HHB System can be wrong. <br />Please verify critical information.</p>
         </div>
       </div>
     </div>
