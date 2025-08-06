@@ -34,8 +34,9 @@ export default function ChatInterface() {
   const [pendingChat, setPendingChat] = useState<{portfolioType: string, message: string} | null>(null);
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>('');
-  const [messageRatings, setMessageRatings] = useState<Record<string, number>>({});
+  const [messageRatings, setMessageRatings] = useState<Record<string, any>>({});
   const [isRatingMessage, setIsRatingMessage] = useState<string | null>(null);
+  const [responseStartTimes, setResponseStartTimes] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -82,6 +83,29 @@ export default function ChatInterface() {
     
     setIsRatingMessage(messageId);
     
+    // FIND THE MESSAGE TO GET CITATIONS
+    const message = messages.find(msg => msg.id === messageId);
+    const citations: string[] = [];
+    
+    if (message && message.role === 'assistant') {
+      message.content.forEach(content => {
+        if (content.type === 'text' && content.text.annotations) {
+          content.text.annotations.forEach(annotation => {
+            if (annotation.type === 'file_citation' && annotation.file_citation) {
+              // EXTRACT FILENAME FROM CITATION
+              const citationText = annotation.text;
+              const citationMatch = citationText.match(/【\d+:\d+†(.+?)】/);
+              if (citationMatch) {
+                citations.push(citationMatch[1]);
+              } else {
+                citations.push(annotation.file_citation.quote || 'Unknown file');
+              }
+            }
+          });
+        }
+      });
+    }
+    
     try {
       const response = await fetch('/api/chat/rate', {
         method: 'POST',
@@ -91,7 +115,10 @@ export default function ChatInterface() {
         body: JSON.stringify({
           threadId: currentChat.thread_id,
           messageId,
-          rating
+          rating,
+          portfolioType: currentPortfolio,
+          responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
+          citations: citations
         }),
       });
 
@@ -99,7 +126,12 @@ export default function ChatInterface() {
         // UPDATE LOCAL STATE
         setMessageRatings(prev => ({
           ...prev,
-          [messageId]: rating
+          [messageId]: {
+            rating: rating,
+            portfolioType: currentPortfolio,
+            responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
+            citations: citations
+          }
         }));
       } else {
         console.error('FAILED TO RATE MESSAGE');
@@ -312,13 +344,19 @@ export default function ChatInterface() {
                       
                       // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                       if (!assistantMessageObj && assistantMessage.trim()) {
+                        const messageId = `assistant-${Date.now()}`;
                         assistantMessageObj = {
-                          id: `assistant-${Date.now()}`,
+                          id: messageId,
                           role: 'assistant',
                           content: [{ type: 'text', text: { value: assistantMessage } }],
                           created_at: Date.now() / 1000
                         };
                         setMessages(prev => [...prev, assistantMessageObj!]);
+                        // RECORD START TIME FOR RESPONSE TIME CALCULATION
+                        setResponseStartTimes(prev => ({
+                          ...prev,
+                          [messageId]: Date.now()
+                        }));
                       } else if (assistantMessageObj) {
                         // UPDATE THE ASSISTANT MESSAGE
                         setMessages(prev => prev.map(msg => 
@@ -447,13 +485,19 @@ export default function ChatInterface() {
                   
                   // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                   if (!assistantMessageObj && assistantMessage.trim()) {
+                    const messageId = `assistant-${Date.now()}`;
                     assistantMessageObj = {
-                      id: `assistant-${Date.now()}`,
+                      id: messageId,
                       role: 'assistant',
                       content: [{ type: 'text', text: { value: assistantMessage } }],
                       created_at: Date.now() / 1000
                     };
                     setMessages(prev => [...prev, assistantMessageObj!]);
+                    // RECORD START TIME FOR RESPONSE TIME CALCULATION
+                    setResponseStartTimes(prev => ({
+                      ...prev,
+                      [messageId]: Date.now()
+                    }));
                   } else if (assistantMessageObj) {
                     // UPDATE THE ASSISTANT MESSAGE
                     setMessages(prev => prev.map(msg => 
@@ -662,13 +706,13 @@ export default function ChatInterface() {
                               onClick={() => handleRateMessage(message.id, 1)}
                               disabled={isRatingMessage === message.id}
                               className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors ${
-                                messageRatings[message.id] === 1
+                                messageRatings[message.id]?.rating === 1
                                   ? 'text-green-400 bg-green-900/20'
                                   : 'text-slate-400 hover:text-green-400 hover:bg-slate-600'
                               }`}
                               title="THUMBS UP"
                             >
-                              <svg className="w-3 h-3" fill={messageRatings[message.id] === 1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3" fill={messageRatings[message.id]?.rating === 1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M7 10v12"/>
                                 <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12.4 2.5a.6.6 0 0 1 .6-.4.6.6 0 0 1 .6.4L15 5.88Z"/>
                               </svg>
@@ -679,13 +723,13 @@ export default function ChatInterface() {
                               onClick={() => handleRateMessage(message.id, -1)}
                               disabled={isRatingMessage === message.id}
                               className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors ${
-                                messageRatings[message.id] === -1
+                                messageRatings[message.id]?.rating === -1
                                   ? 'text-red-400 bg-red-900/20'
                                   : 'text-slate-400 hover:text-red-400 hover:bg-slate-600'
                               }`}
                               title="THUMBS DOWN"
                             >
-                              <svg className="w-3 h-3" fill={messageRatings[message.id] === -1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3" fill={messageRatings[message.id]?.rating === -1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M17 14v2"/>
                                 <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11.6 21.5a.6.6 0 0 1-.6.4.6.6 0 0 1-.6-.4L9 18.12Z"/>
                               </svg>

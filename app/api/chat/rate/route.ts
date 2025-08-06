@@ -4,11 +4,11 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, messageId, rating } = await request.json();
+    const { threadId, messageId, rating, portfolioType, responseTimeMs, citations } = await request.json();
     
-    if (!threadId || !messageId || rating === undefined) {
+    if (!threadId || !messageId || rating === undefined || !portfolioType) {
       return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE ID, AND RATING ARE REQUIRED' },
+        { error: 'THREAD ID, MESSAGE ID, RATING, AND PORTFOLIO TYPE ARE REQUIRED' },
         { status: 400 }
       );
     }
@@ -17,6 +17,14 @@ export async function POST(request: NextRequest) {
     if (rating !== 1 && rating !== -1) {
       return NextResponse.json(
         { error: 'RATING MUST BE 1 (THUMBS UP) OR -1 (THUMBS DOWN)' },
+        { status: 400 }
+      );
+    }
+
+    // VALIDATE PORTFOLIO TYPE
+    if (!['hip', 'knee', 'ts_knee'].includes(portfolioType)) {
+      return NextResponse.json(
+        { error: 'INVALID PORTFOLIO TYPE' },
         { status: 400 }
       );
     }
@@ -55,7 +63,10 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         thread_id: threadId,
         message_id: messageId,
-        rating: rating
+        rating: rating,
+        portfolio_type: portfolioType,
+        response_time_ms: responseTimeMs || null,
+        citations: citations || []
       }, {
         onConflict: 'user_id,message_id'
       })
