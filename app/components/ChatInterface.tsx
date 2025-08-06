@@ -483,7 +483,18 @@ export default function ChatInterface() {
           {currentChat ? currentChat.title : `NEW ${currentPortfolio ? PORTFOLIOS[currentPortfolio].name : 'CHAT'}`}
         </h2>
         <p className="text-xs lg:text-sm text-slate-400 truncate">
-          {currentPortfolio ? PORTFOLIOS[currentPortfolio].name : 'SELECT A PORTFOLIO'}
+          {currentPortfolio ? (
+            <span className={`font-medium ${
+              currentPortfolio === 'hip' ? 'text-blue-400' :
+              currentPortfolio === 'knee' ? 'text-green-400' :
+              currentPortfolio === 'ts_knee' ? 'text-purple-400' :
+              'text-slate-400'
+            }`}>
+              {PORTFOLIOS[currentPortfolio].name}
+            </span>
+          ) : (
+            'SELECT A PORTFOLIO'
+          )}
         </p>
       </div>
 

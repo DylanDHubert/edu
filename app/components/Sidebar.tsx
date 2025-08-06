@@ -155,16 +155,16 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                   NO CHAT HISTORY YET
                 </p>
               ) : (
-                <div className="space-y-2 flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto">
                   {chatHistory
                     .filter(chat => !currentPortfolio || chat.portfolio_type === currentPortfolio)
                     .map((chat) => (
                     <div
                       key={chat.id}
-                      className={`bg-slate-700 rounded-md p-3 text-sm group relative ${
+                      className={`rounded-md text-sm group relative mb-2 p-2 ${
                         currentChat?.id === chat.id
-                          ? 'ring-2 ring-slate-400'
-                          : ''
+                          ? 'bg-slate-600'
+                          : 'bg-slate-700'
                       }`}
                     >
                       <button

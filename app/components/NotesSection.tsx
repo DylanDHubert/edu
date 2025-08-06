@@ -176,10 +176,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
                 )}
                 {canEditNote(note) && (
                   <button
-                    onClick={() => {
-                      handleEditNote(note);
-                      onNoteSelect?.(); // CALL MOBILE CLOSE CALLBACK
-                    }}
+                    onClick={() => handleEditNote(note)}
                     className="absolute bottom-2 right-12 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-200 text-xs p-1"
                     title="EDIT NOTE"
                   >
