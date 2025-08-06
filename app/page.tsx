@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatInterface from "./components/ChatInterface";
+import DynamicThemeColor from "./components/DynamicThemeColor";
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function HomePage() {
 
   return (
     <div className="flex h-screen bg-slate-900">
+      <DynamicThemeColor />
       {/* SIMPLE MOBILE MENU BUTTON - TOP RIGHT OF SCREEN */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
