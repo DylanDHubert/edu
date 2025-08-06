@@ -184,7 +184,10 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                             chat.portfolio_type === 'ts_knee' ? 'bg-purple-500' :
                             'bg-slate-500'
                           } text-white`}>
-                            {PORTFOLIOS[chat.portfolio_type].name}
+                            {chat.portfolio_type === 'hip' ? 'HIP' :
+                             chat.portfolio_type === 'knee' ? 'KNEE' :
+                             chat.portfolio_type === 'ts_knee' ? 'TS KNEE' :
+                             (chat.portfolio_type as string).toUpperCase()}
                           </span>
                         </div>
 
