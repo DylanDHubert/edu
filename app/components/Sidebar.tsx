@@ -89,7 +89,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
               disabled={loading}
               className={`flex-1 p-2 rounded-md text-sm transition-colors ${
                 currentPortfolio === 'hip'
-                  ? 'bg-slate-600 text-slate-100'
+                  ? 'bg-blue-600 text-white'
                   : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
               } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
@@ -100,7 +100,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
               disabled={loading}
               className={`flex-1 p-2 rounded-md text-sm transition-colors ${
                 currentPortfolio === 'knee'
-                  ? 'bg-slate-600 text-slate-100'
+                  ? 'bg-green-600 text-white'
                   : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
               } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
@@ -111,7 +111,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
               disabled={loading}
               className={`flex-1 p-2 rounded-md text-sm transition-colors ${
                 currentPortfolio === 'ts_knee'
-                  ? 'bg-slate-600 text-slate-100'
+                  ? 'bg-purple-600 text-white'
                   : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
               } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
