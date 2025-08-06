@@ -1,5 +1,5 @@
 {
-  "name": "HHB RAG Assistant",
+  "name": "HHB Stryker Assistant",
   "short_name": "HHB RAG",
   "description": "AI-powered RAG application with Supabase authentication",
   "start_url": "/",

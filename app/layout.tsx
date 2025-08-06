@@ -12,7 +12,7 @@ const coda = Coda({
 });
 
 export const metadata: Metadata = {
-  title: "HHB RAG Assistant",
+  title: "HHB Stryker Assistant",
   description: "AI-powered RAG application with Supabase authentication",
   manifest: "/manifest.json",
   viewport: {

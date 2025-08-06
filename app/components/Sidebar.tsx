@@ -66,7 +66,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
       `}>
         {/* HEADER */}
         <div className="p-4 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-slate-100 mb-2">HHB RAG ASSISTANT</h1>
+          <h1 className="text-xl font-bold text-slate-100 mb-2">HHB Stryker Assistant</h1>
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-400">
               {user?.email?.toUpperCase()}

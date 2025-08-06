@@ -34,6 +34,8 @@ export default function ChatInterface() {
   const [pendingChat, setPendingChat] = useState<{portfolioType: string, message: string} | null>(null);
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>('');
+  const [messageRatings, setMessageRatings] = useState<Record<string, number>>({});
+  const [isRatingMessage, setIsRatingMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -48,6 +50,65 @@ export default function ChatInterface() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // LOAD MESSAGE RATINGS FOR CURRENT THREAD
+  const loadMessageRatings = async () => {
+    if (!currentChat?.thread_id) return;
+    
+    try {
+      const response = await fetch('/api/chat/ratings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          threadId: currentChat.thread_id
+        }),
+      });
+
+      if (response.ok) {
+        const { ratings } = await response.json();
+        setMessageRatings(ratings || {});
+      }
+    } catch (error) {
+      console.error('ERROR LOADING RATINGS:', error);
+    }
+  };
+
+  // HANDLE MESSAGE RATING
+  const handleRateMessage = async (messageId: string, rating: number) => {
+    if (!currentChat?.thread_id || isRatingMessage) return;
+    
+    setIsRatingMessage(messageId);
+    
+    try {
+      const response = await fetch('/api/chat/rate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          threadId: currentChat.thread_id,
+          messageId,
+          rating
+        }),
+      });
+
+      if (response.ok) {
+        // UPDATE LOCAL STATE
+        setMessageRatings(prev => ({
+          ...prev,
+          [messageId]: rating
+        }));
+      } else {
+        console.error('FAILED TO RATE MESSAGE');
+      }
+    } catch (error) {
+      console.error('ERROR RATING MESSAGE:', error);
+    } finally {
+      setIsRatingMessage(null);
+    }
   };
 
   useEffect(() => {
@@ -126,6 +187,9 @@ export default function ChatInterface() {
       // REVERSE THE MESSAGES TO SHOW IN CHRONOLOGICAL ORDER (OLDEST FIRST)
       // REPLACE ALL MESSAGES WITH THE REAL ONES FROM SERVER
       setMessages(cleanedMessages.reverse());
+      
+      // LOAD RATINGS FOR THIS THREAD
+      await loadMessageRatings();
     } catch (error) {
       console.error('ERROR LOADING MESSAGES:', error);
       setMessages([]);
@@ -588,6 +652,49 @@ export default function ChatInterface() {
                                   </div>
                                 );
                               })}
+                          </div>
+                        )}
+                        
+                        {/* RATING BUTTONS FOR ASSISTANT MESSAGES */}
+                        {message.role === 'assistant' && (
+                          <div className="mt-2 pt-2 border-t border-slate-600 flex items-center space-x-2">
+                            <button
+                              onClick={() => handleRateMessage(message.id, 1)}
+                              disabled={isRatingMessage === message.id}
+                              className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors ${
+                                messageRatings[message.id] === 1
+                                  ? 'text-green-400 bg-green-900/20'
+                                  : 'text-slate-400 hover:text-green-400 hover:bg-slate-600'
+                              }`}
+                              title="THUMBS UP"
+                            >
+                              <svg className="w-3 h-3" fill={messageRatings[message.id] === 1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M7 10v12"/>
+                                <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12.4 2.5a.6.6 0 0 1 .6-.4.6.6 0 0 1 .6.4L15 5.88Z"/>
+                              </svg>
+                              <span>HELPFUL</span>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleRateMessage(message.id, -1)}
+                              disabled={isRatingMessage === message.id}
+                              className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors ${
+                                messageRatings[message.id] === -1
+                                  ? 'text-red-400 bg-red-900/20'
+                                  : 'text-slate-400 hover:text-red-400 hover:bg-slate-600'
+                              }`}
+                              title="THUMBS DOWN"
+                            >
+                              <svg className="w-3 h-3" fill={messageRatings[message.id] === -1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M17 14v2"/>
+                                <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11.6 21.5a.6.6 0 0 1-.6.4.6.6 0 0 1-.6-.4L9 18.12Z"/>
+                              </svg>
+                              <span>NOT HELPFUL</span>
+                            </button>
+                            
+                            {isRatingMessage === message.id && (
+                              <span className="text-xs text-slate-500">SAVING...</span>
+                            )}
                           </div>
                         )}
                       </div>
