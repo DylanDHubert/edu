@@ -450,23 +450,28 @@ export default function ChatInterface() {
 
   if (!currentPortfolio) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-900">
+      <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="text-center px-4 lg:px-8">
           <h2 className="text-xl lg:text-2xl font-bold text-slate-100 mb-4">
             WELCOME TO HHB RAG ASSISTANT
           </h2>
           <p className="text-slate-400 mb-6 text-sm lg:text-base">
-            SELECT A PORTFOLIO FROM THE SIDEBAR TO START A NEW CHAT
+            SELECT A PORTFOLIO
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
             {Object.entries(PORTFOLIOS).map(([key, portfolio]) => (
               <button
                 key={key}
                 onClick={() => setCurrentPortfolio(key as PortfolioType)}
-                className="bg-slate-800 border border-slate-700 rounded-lg p-3 lg:p-4 text-left hover:bg-slate-700 transition-colors"
+                className={`border rounded-lg p-3 lg:p-4 text-left transition-colors ${
+                  key === 'hip' ? 'bg-blue-700 border-blue-600 hover:bg-blue-600' :
+                  key === 'knee' ? 'bg-green-700 border-green-600 hover:bg-green-600' :
+                  key === 'ts_knee' ? 'bg-purple-700 border-purple-600 hover:bg-purple-600' :
+                  'bg-slate-700 border-slate-600 hover:bg-slate-600'
+                }`}
               >
-                <h3 className="font-semibold text-slate-100 mb-2 text-sm lg:text-base">{portfolio.name}</h3>
-                <p className="text-xs lg:text-sm text-slate-400">{portfolio.description}</p>
+                <h3 className="font-semibold text-white mb-2 text-sm lg:text-base">{portfolio.name}</h3>
+                <p className="text-xs lg:text-sm text-slate-200">{portfolio.description}</p>
               </button>
             ))}
           </div>
