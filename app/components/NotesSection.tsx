@@ -84,7 +84,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
 
   return (
     <>
-      <div className="p-4 border-b border-slate-700">
+      <div className="p-4 border-b border-slate-700 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-slate-300">NOTES</h2>
           <button
@@ -128,7 +128,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
             {showAllNotes ? 'NO NOTES YET' : 'NO NOTES FOR CURRENT PORTFOLIO'}
           </div>
         ) : (
-          <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-hide">
+          <div className="space-y-2 flex-1 overflow-y-auto scrollbar-hide">
             {relevantNotes.map((note) => (
               <div
                 key={note.id}
@@ -165,25 +165,25 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
                 </div>
 
                 {/* ACTION BUTTONS - MOVED TO BOTTOM RIGHT LIKE CHAT HISTORY */}
+                {note.user_id === user?.id && (
+                  <button
+                    onClick={() => handleDeleteNote(note.id)}
+                    className="absolute bottom-2 right-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs p-1"
+                    title="DELETE NOTE"
+                  >
+                    TRASH
+                  </button>
+                )}
                 {canEditNote(note) && (
                   <button
                     onClick={() => {
                       handleEditNote(note);
                       onNoteSelect?.(); // CALL MOBILE CLOSE CALLBACK
                     }}
-                    className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-200 text-xs p-1"
+                    className="absolute bottom-2 right-12 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-200 text-xs p-1"
                     title="EDIT NOTE"
                   >
                     EDIT
-                  </button>
-                )}
-                {note.user_id === user?.id && (
-                  <button
-                    onClick={() => handleDeleteNote(note.id)}
-                    className="absolute bottom-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-xs p-1"
-                    title="DELETE NOTE"
-                  >
-                    TRASH
                   </button>
                 )}
               </div>

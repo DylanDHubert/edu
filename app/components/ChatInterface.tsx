@@ -76,6 +76,11 @@ export default function ChatInterface() {
 
   const loadMessages = async () => {
     if (!currentChat) return;
+    
+    // IF WE'RE CREATING A NEW CHAT, DON'T LOAD MESSAGES YET
+    if (isCreatingNewChat) {
+      return;
+    }
 
     setIsLoadingMessages(true);
     try {
@@ -119,6 +124,7 @@ export default function ChatInterface() {
       });
 
       // REVERSE THE MESSAGES TO SHOW IN CHRONOLOGICAL ORDER (OLDEST FIRST)
+      // REPLACE ALL MESSAGES WITH THE REAL ONES FROM SERVER
       setMessages(cleanedMessages.reverse());
     } catch (error) {
       console.error('ERROR LOADING MESSAGES:', error);
@@ -147,44 +153,50 @@ export default function ChatInterface() {
       abortControllerRef.current = null;
     }, 120000); // 2 MINUTE TIMEOUT
 
+    // STORE THE MESSAGE FOR LATER USE
+    const messageToSend = inputMessage;
+    setInputMessage("");
+
     // IF NO CURRENT CHAT, CREATE ONE WITH THE MESSAGE
     if (!currentChat && currentPortfolio) {
-      setIsLoading(true);
       setIsCreatingNewChat(true); // PREVENT LOADING MESSAGES
-      try {
-        const response = await fetch('/api/chat/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            portfolioType: currentPortfolio,
-            title: inputMessage.length > 50 ? inputMessage.substring(0, 50) + '...' : inputMessage,
-            initialMessage: inputMessage
-          }),
-          signal: abortControllerRef.current.signal,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'FAILED TO CREATE NEW CHAT');
-        }
-
-        const newChat = await response.json();
+      
+      // START LOADING STATE IMMEDIATELY
+      setIsLoading(true);
         
-        // UPDATE CHAT CONTEXT WITH THE NEW CHAT IMMEDIATELY
-        setCurrentChat(newChat);
-        await refreshChatHistory(); // REFRESH TO UPDATE SIDEBAR
-        
-        // ADD USER MESSAGE IMMEDIATELY TO SHOW IT RIGHT AWAY
-        const userMessage: Message = {
-          id: `user-${Date.now()}`,
-          role: 'user',
-          content: [{ type: 'text', text: { value: inputMessage } }],
-          created_at: Date.now() / 1000
-        };
-        setMessages([userMessage]);
-        setInputMessage("");
+        try {
+          const response = await fetch('/api/chat/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              portfolioType: currentPortfolio,
+              title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
+              initialMessage: messageToSend
+            }),
+            signal: abortControllerRef.current.signal,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'FAILED TO CREATE NEW CHAT');
+          }
+
+          const newChat = await response.json();
+          
+          // UPDATE CHAT CONTEXT WITH THE NEW CHAT IMMEDIATELY
+          setCurrentChat(newChat);
+          await refreshChatHistory(); // REFRESH TO UPDATE SIDEBAR
+          
+          // ADD TEMPORARY USER MESSAGE AFTER CHAT IS CREATED AND TITLE IS UPDATED
+          const tempUserMessage: Message = {
+            id: `temp-user-${Date.now()}`,
+            role: 'user',
+            content: [{ type: 'text', text: { value: messageToSend } }],
+            created_at: Date.now() / 1000
+          };
+          setMessages([tempUserMessage]);
         
         // NOW SEND THE MESSAGE TO GET ASSISTANT RESPONSE
         try {
@@ -310,16 +322,16 @@ export default function ChatInterface() {
     // REGULAR MESSAGE SENDING
     if (!currentChat || !currentPortfolio) return;
 
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
+    // ADD TEMPORARY USER MESSAGE FOR EXISTING CHATS
+    const tempUserMessage: Message = {
+      id: `temp-user-${Date.now()}`,
       role: 'user',
-      content: [{ type: 'text', text: { value: inputMessage } }],
+      content: [{ type: 'text', text: { value: messageToSend } }],
       created_at: Date.now() / 1000
     };
-
-    // ADD USER MESSAGE TO THE END
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage("");
+    setMessages(prev => [...prev, tempUserMessage]);
+    
+    // START LOADING STATE IMMEDIATELY
     setIsLoading(true);
 
     try {
@@ -436,7 +448,7 @@ export default function ChatInterface() {
     }
   };
 
-  if (!currentChat && !currentPortfolio) {
+  if (!currentPortfolio) {
     return (
       <div className="flex-1 flex items-center justify-center bg-slate-900">
         <div className="text-center px-4 lg:px-8">
@@ -483,12 +495,7 @@ export default function ChatInterface() {
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-slate-400 text-sm lg:text-base">
-              {currentPortfolio 
-                ? `START A CONVERSATION WITH THE ${PORTFOLIOS[currentPortfolio].name} ASSISTANT`
-                : 'SELECT A PORTFOLIO TO START CHATTING'
-              }
-            </p>
+            {/* EMPTY STATE - NO MESSAGE TO AVOID FLASHING */}
           </div>
         ) : (
           messages.map((message) => (
@@ -577,7 +584,13 @@ export default function ChatInterface() {
           ))
         )}
         
-        {isLoading && (
+        {isLoading && isCreatingNewChat && !currentStep ? (
+          // CENTERED SPINNER FOR INITIAL CHAT CREATION
+          <div className="flex justify-center items-center py-8">
+            <div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : isLoading && (
+          // TYPING INDICATOR FOR ASSISTANT RESPONSES
           <div className="flex justify-start">
             <div className="bg-slate-700 text-slate-100 rounded-lg px-4 py-2">
               <div className="flex items-center space-x-2">
@@ -587,7 +600,7 @@ export default function ChatInterface() {
                   <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
                 <span className="text-xs text-slate-400 ml-2">
-                  {isCreatingNewChat && !currentStep ? 'STARTING NEW CHAT...' : currentStep || 'ASSISTANT IS THINKING...'}
+                  {currentStep || 'ASSISTANT IS THINKING...'}
                 </span>
               </div>
             </div>

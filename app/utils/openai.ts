@@ -131,7 +131,7 @@ export async function sendMessageStreaming(
 
     let messageContent = '';
     let citations: string[] = [];
-    let currentStep = 'STARTING NEW CHAT...';
+    let currentStep = 'PROCESSING...';
 
     // SEND INITIAL STEP UPDATE
     onUpdate(messageContent, citations, currentStep);
@@ -165,7 +165,7 @@ export async function sendMessageStreaming(
       .on('textCreated', (text) => {
         // TEXT IS BEING CREATED - START STREAMING
         currentStep = 'GENERATING RESPONSE...';
-        messageContent += text.value;
+        // DON'T ADD CONTENT HERE - IT WILL BE ADDED IN TEXTDELTA
         onUpdate(messageContent, citations, currentStep);
       })
       .on('textDelta', (textDelta, snapshot) => {
