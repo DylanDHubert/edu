@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useChat } from "../contexts/ChatContext";
 import { PORTFOLIOS, PortfolioType } from "../utils/portfolios";
 import ReactMarkdown from 'react-markdown';
+import FeedbackModal from './FeedbackModal';
 
 interface Message {
   id: string;
@@ -37,6 +38,8 @@ export default function ChatInterface() {
   const [messageRatings, setMessageRatings] = useState<Record<string, any>>({});
   const [isRatingMessage, setIsRatingMessage] = useState<string | null>(null);
   const [responseStartTimes, setResponseStartTimes] = useState<Record<string, number>>({});
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState<string | null>(null);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -91,15 +94,8 @@ export default function ChatInterface() {
       message.content.forEach(content => {
         if (content.type === 'text' && content.text.annotations) {
           content.text.annotations.forEach(annotation => {
-            if (annotation.type === 'file_citation' && annotation.file_citation) {
-              // EXTRACT FILENAME FROM CITATION
-              const citationText = annotation.text;
-              const citationMatch = citationText.match(/【\d+:\d+†(.+?)】/);
-              if (citationMatch) {
-                citations.push(citationMatch[1]);
-              } else {
-                citations.push(annotation.file_citation.quote || 'Unknown file');
-              }
+            if (annotation.type === 'file_citation') {
+              citations.push('Source cited');
             }
           });
         }
@@ -118,7 +114,8 @@ export default function ChatInterface() {
           rating,
           portfolioType: currentPortfolio,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
-          citations: citations
+          citations: citations,
+          feedbackText: messageRatings[messageId]?.feedbackText || null
         }),
       });
 
@@ -130,7 +127,8 @@ export default function ChatInterface() {
             rating: rating,
             portfolioType: currentPortfolio,
             responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
-            citations: citations
+            citations: citations,
+            feedbackText: messageRatings[messageId]?.feedbackText || null
           }
         }));
       } else {
@@ -140,6 +138,65 @@ export default function ChatInterface() {
       console.error('ERROR RATING MESSAGE:', error);
     } finally {
       setIsRatingMessage(null);
+    }
+  };
+
+  // HANDLE FEEDBACK SUBMISSION
+  const handleSubmitFeedback = async (messageId: string, feedbackText: string) => {
+    if (!currentChat?.thread_id || isSubmittingFeedback) return;
+    
+    setIsSubmittingFeedback(true);
+    
+    // FIND THE MESSAGE TO GET CITATIONS
+    const message = messages.find(msg => msg.id === messageId);
+    const citations: string[] = [];
+    
+    if (message && message.role === 'assistant') {
+      message.content.forEach(content => {
+        if (content.type === 'text' && content.text.annotations) {
+          content.text.annotations.forEach(annotation => {
+            if (annotation.type === 'file_citation') {
+              citations.push('Source cited');
+            }
+          });
+        }
+      });
+    }
+    
+    try {
+      const response = await fetch('/api/chat/rate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          threadId: currentChat.thread_id,
+          messageId,
+          rating: messageRatings[messageId]?.rating || 0,
+          portfolioType: currentPortfolio,
+          responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
+          citations: citations,
+          feedbackText: feedbackText
+        }),
+      });
+
+      if (response.ok) {
+        // UPDATE LOCAL STATE
+        setMessageRatings(prev => ({
+          ...prev,
+          [messageId]: {
+            ...prev[messageId],
+            feedbackText: feedbackText
+          }
+        }));
+        setFeedbackModalOpen(null);
+      } else {
+        console.error('FAILED TO SAVE FEEDBACK');
+      }
+    } catch (error) {
+      console.error('ERROR SAVING FEEDBACK:', error);
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
 
@@ -669,76 +726,70 @@ export default function ChatInterface() {
                         {message.role === 'assistant' && content.text.annotations && content.text.annotations.length > 0 && (
                           <div className="mt-2 text-xs text-slate-400 border-t border-slate-600 pt-2">
                             <div className="font-semibold mb-1">SOURCES:</div>
-                                                        {content.text.annotations
+                            {content.text.annotations
                               .filter(ann => ann.type === 'file_citation')
-                              .map((annotation, annIndex) => {
-                                // EXTRACT FILENAME AND PAGE INFO FROM CITATION TEXT (E.G., "【4:1†Knee_Triathlon Knee Replacement Presentation.pdf】")
-                                const citationText = annotation.text;
-                                const citationMatch = citationText.match(/【(\d+):(\d+)†(.+?)】/);
-                                let filename = 'Unknown file';
-                                let pageInfo = '';
-                                
-                                if (citationMatch) {
-                                  const page = citationMatch[1];
-                                  const paragraph = citationMatch[2];
-                                  filename = citationMatch[3];
-                                  pageInfo = ` (Page ${page}, Paragraph ${paragraph})`;
-                                } else {
-                                  filename = annotation.file_citation?.quote || 'Unknown file';
-                                }
-                                
-                                // CLEAN UP FILENAME - REMOVE ANY REMAINING CITATION MARKERS
-                                const cleanFilename = filename.replace(/【\d+:\d+†(.+?)】/g, '$1').trim();
-                                
-                                return (
-                                  <div key={annIndex} className="mb-1">
-                                    <span className="font-medium">[{annIndex + 1}]</span> {cleanFilename}{pageInfo}
-                                  </div>
-                                );
-                              })}
+                              .map((annotation, annIndex) => (
+                                <div key={annIndex} className="mb-1">
+                                  [{annIndex + 1}] {annotation.file_citation?.quote || 'Unknown source'}
+                                </div>
+                              ))}
                           </div>
                         )}
                         
                         {/* RATING BUTTONS FOR ASSISTANT MESSAGES */}
                         {message.role === 'assistant' && (
-                          <div className="mt-2 pt-2 border-t border-slate-600 flex items-center space-x-2">
-                            <button
-                              onClick={() => handleRateMessage(message.id, 1)}
-                              disabled={isRatingMessage === message.id}
-                              className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors ${
-                                messageRatings[message.id]?.rating === 1
-                                  ? 'text-green-400 bg-green-900/20'
-                                  : 'text-slate-400 hover:text-green-400 hover:bg-slate-600'
-                              }`}
-                              title="THUMBS UP"
-                            >
-                              <svg className="w-3 h-3" fill={messageRatings[message.id]?.rating === 1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                                <path d="M7 10v12"/>
-                                <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12.4 2.5a.6.6 0 0 1 .6-.4.6.6 0 0 1 .6.4L15 5.88Z"/>
-                              </svg>
-                              <span>HELPFUL</span>
-                            </button>
+                          <div className="mt-2 pt-2 border-t border-slate-600 flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleRateMessage(message.id, 1)}
+                                disabled={isRatingMessage === message.id}
+                                className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
+                                  messageRatings[message.id]?.rating === 1
+                                    ? 'text-green-400 bg-green-900/20'
+                                    : 'text-slate-400 hover:text-green-400 hover:bg-slate-600'
+                                }`}
+                                title="THUMBS UP"
+                              >
+                                <svg className="w-4 h-4" fill={messageRatings[message.id]?.rating === 1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                  <path d="M7 10v12"/>
+                                  <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12.4 2.5a.6.6 0 0 1 .6-.4.6.6 0 0 1 .6.4L15 5.88Z"/>
+                                </svg>
+                              </button>
+                              
+                              <button
+                                onClick={() => handleRateMessage(message.id, -1)}
+                                disabled={isRatingMessage === message.id}
+                                className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
+                                  messageRatings[message.id]?.rating === -1
+                                    ? 'text-red-400 bg-red-900/20'
+                                    : 'text-slate-400 hover:text-red-400 hover:bg-slate-600'
+                                }`}
+                                title="THUMBS DOWN"
+                              >
+                                <svg className="w-4 h-4" fill={messageRatings[message.id]?.rating === -1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                  <path d="M17 14v2"/>
+                                  <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11.6 21.5a.6.6 0 0 1-.6.4.6.6 0 0 1-.6-.4L9 18.12Z"/>
+                                </svg>
+                              </button>
+                              
+                              {isRatingMessage === message.id && (
+                                <span className="text-xs text-slate-500">SAVING...</span>
+                              )}
+                            </div>
                             
                             <button
-                              onClick={() => handleRateMessage(message.id, -1)}
-                              disabled={isRatingMessage === message.id}
-                              className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors ${
-                                messageRatings[message.id]?.rating === -1
-                                  ? 'text-red-400 bg-red-900/20'
-                                  : 'text-slate-400 hover:text-red-400 hover:bg-slate-600'
+                              onClick={() => setFeedbackModalOpen(message.id)}
+                              className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
+                                messageRatings[message.id]?.feedbackText
+                                  ? 'text-blue-400 bg-blue-900/20'
+                                  : 'text-slate-400 hover:text-blue-400 hover:bg-slate-600'
                               }`}
-                              title="THUMBS DOWN"
+                              title="GIVE FEEDBACK"
                             >
-                              <svg className="w-3 h-3" fill={messageRatings[message.id]?.rating === -1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                                <path d="M17 14v2"/>
-                                <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11.6 21.5a.6.6 0 0 1-.6.4.6.6 0 0 1-.6-.4L9 18.12Z"/>
+                              <svg className="w-4 h-4" fill={messageRatings[message.id]?.feedbackText ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 1 14 18.469V19a2 2 0 0 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547Z" />
                               </svg>
-                              <span>NOT HELPFUL</span>
                             </button>
-                            
-                            {isRatingMessage === message.id && (
-                              <span className="text-xs text-slate-500">SAVING...</span>
-                            )}
                           </div>
                         )}
                       </div>
@@ -802,6 +853,17 @@ export default function ChatInterface() {
           <p className="text-slate-500 text-sm pb-2">The HHB System can be wrong. <br />Please verify critical information.</p>
         </div>
       </div>
+
+      {/* FEEDBACK MODAL */}
+      {feedbackModalOpen && (
+        <FeedbackModal
+          isOpen={!!feedbackModalOpen}
+          onClose={() => setFeedbackModalOpen(null)}
+          onSubmit={(feedbackText) => handleSubmitFeedback(feedbackModalOpen, feedbackText)}
+          existingFeedback={messageRatings[feedbackModalOpen]?.feedbackText}
+          isLoading={isSubmittingFeedback}
+        />
+      )}
     </div>
   );
 } 

@@ -51,9 +51,9 @@ export async function createThread() {
 export class StreamingEventHandler {
   private messageContent = '';
   private citations: string[] = [];
-  private onUpdate: (content: string, citations: string[]) => void;
+  private onUpdate: (content: string, citations: string[], step?: string) => void;
 
-  constructor(onUpdate: (content: string, citations: string[]) => void) {
+  constructor(onUpdate: (content: string, citations: string[], step?: string) => void) {
     this.onUpdate = onUpdate;
   }
 
@@ -75,43 +75,22 @@ export class StreamingEventHandler {
   }
 
   onMessageDone(message: any) {
-    // MESSAGE IS COMPLETE - PROCESS CITATIONS
+    // MESSAGE IS COMPLETE
     const messageContent = message.content[0].text;
+    
+    // SIMPLY REPLACE CITATION PLACEHOLDERS WITH NUMBERED REFERENCES
+    let processedContent = messageContent.value;
     const annotations = messageContent.annotations;
     
-    // PROCESS CITATIONS
     for (let index = 0; index < annotations.length; index++) {
       const annotation = annotations[index];
-      if (annotation.type === 'file_citation' && annotation.file_citation) {
-        // REPLACE CITATION TEXT WITH NUMBERED REFERENCE
-        this.messageContent = this.messageContent.replace(
-          annotation.text,
-          `[${index + 1}]`
-        );
-        
-        // ADD CITATION DETAILS
-        const citationText = annotation.text;
-        const citationMatch = citationText.match(/【(\d+):(\d+)†(.+?)】/);
-        let filename = 'Unknown file';
-        let pageInfo = '';
-        
-        if (citationMatch) {
-          const page = citationMatch[1];
-          const paragraph = citationMatch[2];
-          filename = citationMatch[3];
-          pageInfo = ` (Page ${page}, Paragraph ${paragraph})`;
-        } else {
-          filename = annotation.file_citation.quote || 'Unknown file';
-        }
-        
-        const cleanFilename = filename.replace(/【\d+:\d+†(.+?)】/g, '$1').trim();
-        const citation = `[${index + 1}] ${cleanFilename}${pageInfo}`;
-        this.citations.push(citation);
+      if (annotation.type === 'file_citation') {
+        processedContent = processedContent.replace(annotation.text, `[${index + 1}]`);
       }
     }
     
-    // FINAL UPDATE WITH CITATIONS
-    this.onUpdate(this.messageContent, this.citations);
+    this.messageContent = processedContent;
+    this.onUpdate(this.messageContent, [], 'COMPLETE');
   }
 }
 
@@ -132,6 +111,7 @@ export async function sendMessageStreaming(
     let messageContent = '';
     let citations: string[] = [];
     let currentStep = 'PROCESSING...';
+    let runId: string | null = null;
 
     // SEND INITIAL STEP UPDATE
     onUpdate(messageContent, citations, currentStep);
@@ -152,13 +132,9 @@ export async function sendMessageStreaming(
           if (toolCalls && toolCalls.length > 0) {
             const toolType = toolCalls[0].type;
             if (toolType === 'file_search') {
-              currentStep = 'SEARCHING FILES...';
-            } else if (toolType === 'code_interpreter') {
-              currentStep = 'RUNNING CODE...';
-            } else {
-              currentStep = `USING ${toolType.toUpperCase()}...`;
+              currentStep = 'SEARCHING DOCUMENTS...';
+              onUpdate(messageContent, citations, currentStep);
             }
-            onUpdate(messageContent, citations, currentStep);
           }
         }
       })
@@ -185,45 +161,21 @@ export async function sendMessageStreaming(
         onUpdate(messageContent, citations, currentStep);
       })
       .on('messageDone', (message) => {
-        // MESSAGE IS COMPLETE - PROCESS CITATIONS
-        currentStep = 'FINALIZING...';
+        // MESSAGE IS COMPLETE
+        currentStep = 'COMPLETE';
         if (message.content[0].type === 'text') {
           const textContent = message.content[0] as any;
           const annotations = textContent.text.annotations;
           
-          // PROCESS CITATIONS
+          // SIMPLY REPLACE CITATION PLACEHOLDERS WITH NUMBERED REFERENCES
           for (let index = 0; index < annotations.length; index++) {
             const annotation = annotations[index];
-            if (annotation.type === 'file_citation' && annotation.file_citation) {
-              // REPLACE CITATION TEXT WITH NUMBERED REFERENCE
-              messageContent = messageContent.replace(
-                annotation.text,
-                `[${index + 1}]`
-              );
-              
-              // ADD CITATION DETAILS
-              const citationText = annotation.text;
-              const citationMatch = citationText.match(/【(\d+):(\d+)†(.+?)】/);
-              let filename = 'Unknown file';
-              let pageInfo = '';
-              
-              if (citationMatch) {
-                const page = citationMatch[1];
-                const paragraph = citationMatch[2];
-                filename = citationMatch[3];
-                pageInfo = ` (Page ${page}, Paragraph ${paragraph})`;
-              } else {
-                filename = annotation.file_citation.quote || 'Unknown file';
-              }
-              
-              const cleanFilename = filename.replace(/【\d+:\d+†(.+?)】/g, '$1').trim();
-              const citation = `[${index + 1}] ${cleanFilename}${pageInfo}`;
-              citations.push(citation);
+            if (annotation.type === 'file_citation') {
+              messageContent = messageContent.replace(annotation.text, `[${index + 1}]`);
             }
           }
           
-          // FINAL UPDATE WITH CITATIONS
-          onUpdate(messageContent, citations, 'COMPLETE');
+          onUpdate(messageContent, [], currentStep);
         }
       });
 
@@ -231,28 +183,8 @@ export async function sendMessageStreaming(
     for await (const event of run) {
       // STREAM EVENTS ARE HANDLED BY THE EVENT LISTENERS
     }
-
-    // RETURN THE PROCESSED MESSAGE CONTENT INSTEAD OF FETCHING AGAIN
-    return [{
-      id: `msg_${Date.now()}`,
-      role: 'assistant',
-      content: [{
-        type: 'text',
-        text: {
-          value: messageContent,
-          annotations: citations.map((citation, index) => ({
-            type: 'file_citation',
-            text: `[${index + 1}]`,
-            file_citation: {
-              quote: citation
-            }
-          }))
-        }
-      }],
-      created_at: Date.now() / 1000
-    }];
   } catch (error) {
-    console.error('ERROR IN SENDMESSAGESTREAMING:', error);
+    console.error('ERROR IN STREAMING:', error);
     throw error;
   }
 }

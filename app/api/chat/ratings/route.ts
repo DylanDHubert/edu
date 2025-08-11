@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // GET RATINGS FOR THIS THREAD
     const { data: ratings, error: ratingsError } = await supabase
       .from('message_ratings')
-      .select('message_id, rating, portfolio_type, response_time_ms, citations')
+      .select('message_id, rating, portfolio_type, response_time_ms, citations, feedback_text')
       .eq('thread_id', threadId)
       .eq('user_id', user.id);
 
@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
         rating: rating.rating,
         portfolioType: rating.portfolio_type,
         responseTimeMs: rating.response_time_ms,
-        citations: rating.citations || []
+        citations: rating.citations || [],
+        feedbackText: rating.feedback_text || null
       };
       return acc;
     }, {} as Record<string, any>);

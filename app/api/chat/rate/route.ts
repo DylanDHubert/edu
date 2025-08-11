@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, messageId, rating, portfolioType, responseTimeMs, citations } = await request.json();
+    const { threadId, messageId, rating, portfolioType, responseTimeMs, citations, feedbackText } = await request.json();
     
     if (!threadId || !messageId || rating === undefined || !portfolioType) {
       return NextResponse.json(
@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
         rating: rating,
         portfolio_type: portfolioType,
         response_time_ms: responseTimeMs || null,
-        citations: citations || []
+        citations: citations || [],
+        feedback_text: feedbackText || null
       }, {
         onConflict: 'user_id,message_id'
       })
