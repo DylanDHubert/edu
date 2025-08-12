@@ -13,6 +13,7 @@ export async function PUT(request: NextRequest) {
     const tags = formData.get('tags') ? JSON.parse(formData.get('tags') as string) : null;
     const imageFile = formData.get('image') as File | null;
     const removeImage = formData.get('removeImage') === 'true';
+    let imageDescription = formData.get('image_description') as string | null;
     
     if (!noteId || !portfolio_type || !title || !content) {
       return NextResponse.json(
@@ -96,9 +97,18 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // SET IMAGE URL TO NULL IF REMOVING
+    // SET IMAGE URL AND DESCRIPTION TO NULL IF REMOVING
     if (removeImage) {
       imageUrl = null;
+      imageDescription = null;
+    }
+
+    // VALIDATE IMAGE DESCRIPTION IF NEW IMAGE IS PROVIDED
+    if (imageFile && imageFile.size > 0 && (!imageDescription || imageDescription.trim() === '')) {
+      return NextResponse.json(
+        { error: 'IMAGE DESCRIPTION IS REQUIRED WHEN UPLOADING AN IMAGE' },
+        { status: 400 }
+      );
     }
 
     // UPLOAD NEW IMAGE IF PROVIDED
@@ -154,6 +164,7 @@ export async function PUT(request: NextRequest) {
         title: title.trim(),
         content: content.trim(),
         image_url: imageUrl,
+        image_description: imageDescription ? imageDescription.trim() : null,
         is_shared: is_shared || false
       })
       .eq('id', noteId)

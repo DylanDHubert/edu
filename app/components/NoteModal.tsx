@@ -14,6 +14,7 @@ interface NoteModalProps {
     title: string;
     content: string;
     image_url?: string | null;
+    image_description?: string | null;
     is_shared: boolean;
     tags?: NoteTags;
   } | null;
@@ -33,6 +34,7 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
+  const [imageDescription, setImageDescription] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // RESET FORM WHEN MODAL OPENS/CLOSES OR EDITING NOTE CHANGES
@@ -47,6 +49,7 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
         setImagePreview(editingNote.image_url || null);
         setSelectedImage(null);
         setRemoveImage(false);
+        setImageDescription(editingNote.image_description || '');
       } else {
         setPortfolioType('general');
         setTitle('');
@@ -56,6 +59,7 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
         setImagePreview(null);
         setSelectedImage(null);
         setRemoveImage(false);
+        setImageDescription('');
       }
       // LOAD UNIQUE TAGS FOR AUTOCOMPLETE
       setUniqueTags(getUniqueTags());
@@ -122,6 +126,7 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
       
       if (selectedImage) {
         formData.append('image', selectedImage);
+        formData.append('image_description', imageDescription.trim());
       }
       
       if (removeImage) {
@@ -254,6 +259,24 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
               )}
             </div>
           </div>
+
+          {/* IMAGE DESCRIPTION */}
+          {(selectedImage || imagePreview) && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                IMAGE DESCRIPTION *
+              </label>
+              <textarea
+                value={imageDescription}
+                onChange={(e) => setImageDescription(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                placeholder="DESCRIBE WHAT THIS IMAGE SHOWS..."
+                rows={3}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+          )}
 
           {/* TAGS */}
           <div>

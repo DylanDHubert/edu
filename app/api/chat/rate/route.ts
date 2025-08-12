@@ -6,15 +6,15 @@ export async function POST(request: NextRequest) {
   try {
     const { threadId, messageId, rating, portfolioType, responseTimeMs, citations, feedbackText } = await request.json();
     
-    if (!threadId || !messageId || rating === undefined || !portfolioType) {
+    if (!threadId || !messageId || !portfolioType) {
       return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE ID, RATING, AND PORTFOLIO TYPE ARE REQUIRED' },
+        { error: 'THREAD ID, MESSAGE ID, AND PORTFOLIO TYPE ARE REQUIRED' },
         { status: 400 }
       );
     }
 
-    // VALIDATE RATING VALUE
-    if (rating !== 1 && rating !== -1) {
+    // VALIDATE RATING VALUE (ALLOW NULL/UNDEFINED FOR FEEDBACK-ONLY UPDATES)
+    if (rating !== undefined && rating !== null && rating !== 1 && rating !== -1) {
       return NextResponse.json(
         { error: 'RATING MUST BE 1 (THUMBS UP) OR -1 (THUMBS DOWN)' },
         { status: 400 }
@@ -57,18 +57,24 @@ export async function POST(request: NextRequest) {
     }
 
     // UPSERT RATING (INSERT OR UPDATE IF EXISTS)
+    const upsertData: any = {
+      user_id: user.id,
+      thread_id: threadId,
+      message_id: messageId,
+      portfolio_type: portfolioType,
+      response_time_ms: responseTimeMs || null,
+      citations: citations || [],
+      feedback_text: feedbackText || null
+    };
+    
+    // ONLY INCLUDE RATING IF IT'S PROVIDED
+    if (rating !== undefined && rating !== null) {
+      upsertData.rating = rating;
+    }
+    
     const { data: ratingData, error: ratingError } = await supabase
       .from('message_ratings')
-      .upsert({
-        user_id: user.id,
-        thread_id: threadId,
-        message_id: messageId,
-        rating: rating,
-        portfolio_type: portfolioType,
-        response_time_ms: responseTimeMs || null,
-        citations: citations || [],
-        feedback_text: feedbackText || null
-      }, {
+      .upsert(upsertData, {
         onConflict: 'user_id,message_id'
       })
       .select()

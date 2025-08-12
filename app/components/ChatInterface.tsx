@@ -65,6 +65,7 @@ export default function ChatInterface() {
     // EXTRACT FROM [IMAGE URL: ...] FORMAT
     let match;
     while ((match = imageUrlFormatRegex.exec(text)) !== null) {
+      console.log('🖼️ FOUND [IMAGE URL: ...] FORMAT:', match[1]);
       imageUrls.push(match[1]);
     }
     
@@ -72,44 +73,47 @@ export default function ChatInterface() {
     while ((match = markdownImageRegex.exec(text)) !== null) {
       const urlMatch = match[0].match(/\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)/i);
       if (urlMatch) {
+        console.log('🖼️ FOUND MARKDOWN LINK FORMAT:', urlMatch[0]);
         imageUrls.push(urlMatch[0]);
       }
     }
     
     // EXTRACT FROM PLAIN URLS
     while ((match = plainUrlRegex.exec(text)) !== null) {
+      console.log('🖼️ FOUND PLAIN URL FORMAT:', match[0]);
       imageUrls.push(match[0]);
     }
     
-    console.log('🖼️ EXTRACTED IMAGE URLS:', imageUrls);
-    return imageUrls;
+    // REMOVE DUPLICATES
+    const uniqueUrls = [...new Set(imageUrls)];
+    console.log('🖼️ EXTRACTED IMAGE URLS (WITH DUPLICATES):', imageUrls);
+    console.log('🖼️ UNIQUE IMAGE URLS:', uniqueUrls);
+    
+    return uniqueUrls;
   };
 
-  // RENDER TEXT WITHOUT IMAGE URLS
-  const renderTextWithoutImages = (text: string) => {
-    console.log('🔥 renderTextWithoutImages INPUT:', text);
+  // RENDER TEXT WITHOUT IMAGE URLS (CLEAN TEXT)
+  const renderTextWithImageUrlsAsText = (text: string) => {
+    console.log('🔥 renderTextWithImageUrlsAsText INPUT:', text);
     
-    // REMOVE [IMAGE URL: ...] FORMAT
+    // REMOVE [IMAGE URL: ...] FORMAT COMPLETELY
     let processedText = text.replace(/\[IMAGE URL:\s*\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp)\]/gi, '');
-    console.log('🔥 AFTER REMOVING [IMAGE URL: ...]:', processedText);
+    console.log('🔥 AFTER REMOVING [IMAGE URL: ...] FORMAT:', processedText);
     
-    // REMOVE MARKDOWN IMAGE LINKS
+    // REMOVE MARKDOWN IMAGE LINKS COMPLETELY
     processedText = processedText.replace(/\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi, '');
     console.log('🔥 AFTER REMOVING MARKDOWN LINKS:', processedText);
     
-    // REMOVE PLAIN IMAGE URLS
+    // REMOVE PLAIN IMAGE URLS COMPLETELY
     processedText = processedText.replace(/\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi, '');
     console.log('🔥 AFTER REMOVING PLAIN URLS:', processedText);
     
-    // FINAL CLEANUP: REMOVE ANY REMAINING IMAGE URLS (MORE AGGRESSIVE)
-    processedText = processedText.replace(/\/api\/images\/[^\s\n]*/gi, '');
-    console.log('🔥 AFTER FINAL CLEANUP:', processedText);
+    // CLEAN UP EXTRA SPACES AND PUNCTUATION
+    processedText = processedText.replace(/\s*\.\s*\./g, '.'); // REMOVE DOUBLE PERIODS
+    processedText = processedText.replace(/\s+/g, ' '); // NORMALIZE SPACES
+    processedText = processedText.trim(); // REMOVE LEADING/TRAILING SPACES
     
-    // CHECK IF ANY IMAGE URLS REMAIN
-    const remainingUrls = processedText.match(/\/api\/images\/[^\s\n]*/gi);
-    if (remainingUrls) {
-      console.log('⚠️ WARNING: REMAINING IMAGE URLS FOUND:', remainingUrls);
-    }
+    console.log('🔥 FINAL CLEAN TEXT:', processedText);
     
     return (
       <span
@@ -240,7 +244,7 @@ export default function ChatInterface() {
         body: JSON.stringify({
           threadId: currentChat.thread_id,
           messageId,
-          rating: messageRatings[messageId]?.rating || 0,
+          rating: messageRatings[messageId]?.rating || null,
           portfolioType: currentPortfolio,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
           citations: citations,
@@ -779,7 +783,7 @@ export default function ChatInterface() {
                       <div key={index} className="whitespace-pre-wrap">
                         {message.role === 'assistant' ? (
                           <div className="whitespace-pre-wrap leading-none">
-                            {renderTextWithoutImages(text.split('\n').filter(line => line.trim() !== '').join('\n'))}
+                            {renderTextWithImageUrlsAsText(text.split('\n').filter(line => line.trim() !== '').join('\n'))}
                             
                             {/* RENDER IMAGES BELOW TEXT */}
                             {(() => {

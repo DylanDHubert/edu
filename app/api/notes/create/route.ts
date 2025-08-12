@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const is_shared = formData.get('is_shared') === 'true';
     const tags = formData.get('tags') ? JSON.parse(formData.get('tags') as string) : null;
     const imageFile = formData.get('image') as File | null;
+    const imageDescription = formData.get('image_description') as string | null;
     
     if (!portfolio_type || !title || !content) {
       return NextResponse.json(
@@ -51,6 +52,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'UNAUTHORIZED' },
         { status: 401 }
+      );
+    }
+
+    // VALIDATE IMAGE DESCRIPTION IF IMAGE IS PROVIDED
+    if (imageFile && imageFile.size > 0 && (!imageDescription || imageDescription.trim() === '')) {
+      return NextResponse.json(
+        { error: 'IMAGE DESCRIPTION IS REQUIRED WHEN UPLOADING AN IMAGE' },
+        { status: 400 }
       );
     }
 
@@ -109,6 +118,7 @@ export async function POST(request: NextRequest) {
         title: title.trim(),
         content: content.trim(),
         image_url: imageUrl,
+        image_description: imageDescription ? imageDescription.trim() : null,
         is_shared: is_shared || false
       })
       .select()

@@ -13,6 +13,7 @@ interface Note {
   title: string;
   content: string;
   image_url?: string | null;
+  image_description?: string | null;
   is_shared: boolean;
   created_at: string;
   updated_at: string;

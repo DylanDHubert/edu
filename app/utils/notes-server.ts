@@ -62,7 +62,8 @@ export function formatNotesForContext(notes: any[]): string {
       const urlParts = note.image_url.split('/');
       const filename = urlParts[urlParts.length - 1];
       const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
-      imageInfo = ` [IMAGE URL: ${proxyUrl}]`;
+      const description = note.image_description ? ` (${note.image_description})` : '';
+      imageInfo = ` [IMAGE URL: ${proxyUrl}${description}]`;
     }
     
     return `NOTE ${index + 1} - ${portfolioLabel}${sharedLabel}:
@@ -71,7 +72,7 @@ CONTENT: ${note.content}${imageInfo}
 ---`;
   }).join('\n\n');
 
-  const contextText = `\n\nADDITIONAL NOTES FOR REFERENCE:\n${notesText}\n\nIMPORTANT: WHEN REFERENCING NOTES WITH IMAGES, ALWAYS INCLUDE THE EXACT IMAGE URL IN YOUR RESPONSE SO THE USER CAN VIEW THE IMAGE. DO NOT EXPLAIN THAT YOU CANNOT SHOW IMAGES - JUST INCLUDE THE URL IN THIS FORMAT: [IMAGE URL: /api/images/filename.jpg]`;
+  const contextText = `\n\nADDITIONAL NOTES FOR REFERENCE:\n${notesText}\n\nIMPORTANT: WHEN REFERENCING NOTES WITH IMAGES, ONLY INCLUDE THE EXACT IMAGE URL IN YOUR RESPONSE SO THE USER CAN VIEW THE IMAGE. DO NOT EXPLAIN LINKS OR ANYATHING - JUST INCLUDE THE URL IN THIS FORMAT AT THE END OF THE NOTE (WITHOUT A FOLLOWING PERIOD): [IMAGE URL: /api/images/filename.jpg]`;
   
   return contextText;
 }

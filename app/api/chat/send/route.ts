@@ -173,7 +173,8 @@ export async function POST(request: NextRequest) {
     const messages = await sendMessage(threadId, messageWithNotes, assistantId);
     
     // DEBUG LOG: PRINT AI RESPONSE
-    const lastMessage = messages[messages.length - 1]?.content?.[0]?.text?.value || 'No content';
+    const lastMessageContent = messages[messages.length - 1]?.content?.[0];
+    const lastMessage = lastMessageContent?.type === 'text' ? lastMessageContent.text.value : 'No content';
     console.log('🤖 AI RESPONSE RECEIVED:', {
       messagesCount: messages.length,
       lastMessage: lastMessage,
