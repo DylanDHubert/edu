@@ -1,62 +1,57 @@
-import { createClient } from "./supabase/server";
-import { cookies } from "next/headers";
-import { PortfolioType } from "./portfolios";
+// NOTE UTILITIES AND TAG MANAGEMENT (CLIENT-SIDE)
 
-export async function getNotesForPortfolio(portfolioType: PortfolioType, userId: string) {
-  const cookieStore = cookies();
-  const supabase = await createClient(cookieStore);
+export interface NoteTag {
+  id: string;
+  note_id: string;
+  tag_name: 'account' | 'team' | 'priority' | 'status';
+  tag_value: string;
+  created_at: string;
+}
 
-  try {
-    // GET USER'S PERSONAL NOTES FOR THIS PORTFOLIO
-    const { data: personalNotes, error: personalError } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', userId)
-      .or(`portfolio_type.eq.${portfolioType},portfolio_type.eq.general`);
+export interface NoteTags {
+  account?: string;
+  team?: string;
+  priority?: string;
+  status?: string;
+}
 
-    if (personalError) {
-      console.error('ERROR LOADING PERSONAL NOTES:', personalError);
-      return [];
-    }
+// CONVERT ARRAY OF TAGS TO OBJECT FORMAT
+export function tagsArrayToObject(tags: NoteTag[]): NoteTags {
+  const tagObject: NoteTags = {};
+  tags.forEach(tag => {
+    tagObject[tag.tag_name] = tag.tag_value;
+  });
+  return tagObject;
+}
 
-    // GET SHARED NOTES FOR THIS PORTFOLIO
-    const { data: sharedNotes, error: sharedError } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('is_shared', true)
-      .or(`portfolio_type.eq.${portfolioType},portfolio_type.eq.general`);
+// CONVERT OBJECT TO ARRAY FORMAT FOR API
+export function tagsObjectToArray(tags: NoteTags): Omit<NoteTag, 'id' | 'note_id' | 'created_at'>[] {
+  return Object.entries(tags)
+    .filter(([_, value]) => value && value.trim() !== '')
+    .map(([tag_name, tag_value]) => ({
+      tag_name: tag_name as 'account' | 'team' | 'priority' | 'status',
+      tag_value: tag_value!.trim()
+    }));
+}
 
-    if (sharedError) {
-      console.error('ERROR LOADING SHARED NOTES:', sharedError);
-      return personalNotes || [];
-    }
-
-    // COMBINE AND REMOVE DUPLICATES
-    const allNotes = [...(personalNotes || []), ...(sharedNotes || [])];
-    const uniqueNotes = allNotes.filter((note, index, self) => 
-      index === self.findIndex(n => n.id === note.id)
-    );
-
-    return uniqueNotes;
-  } catch (error) {
-    console.error('ERROR GETTING NOTES FOR PORTFOLIO:', error);
-    return [];
+// GET TAG COLOR BY CATEGORY
+export function getTagColor(tagName: string): string {
+  switch (tagName) {
+    case 'account': return 'bg-blue-500';
+    case 'team': return 'bg-green-500';
+    case 'priority': return 'bg-yellow-500';
+    case 'status': return 'bg-purple-500';
+    default: return 'bg-slate-500';
   }
 }
 
-export function formatNotesForContext(notes: any[]): string {
-  if (!notes || notes.length === 0) {
-    return '';
+// GET TAG DISPLAY NAME
+export function getTagDisplayName(tagName: string): string {
+  switch (tagName) {
+    case 'account': return 'ACCOUNT';
+    case 'team': return 'TEAM';
+    case 'priority': return 'PRIORITY';
+    case 'status': return 'STATUS';
+    default: return tagName.toUpperCase();
   }
-
-  const notesText = notes.map((note, index) => {
-    const portfolioLabel = note.portfolio_type === 'general' ? 'GENERAL' : note.portfolio_type.toUpperCase();
-    const sharedLabel = note.is_shared ? ' (SHARED)' : '';
-    return `NOTE ${index + 1} - ${portfolioLabel}${sharedLabel}:
-TITLE: ${note.title}
-CONTENT: ${note.content}
----`;
-  }).join('\n\n');
-
-  return `\n\nADDITIONAL NOTES FOR REFERENCE:\n${notesText}\n\n`;
 } 

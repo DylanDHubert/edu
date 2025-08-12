@@ -52,6 +52,74 @@ export default function ChatInterface() {
     return formattedText;
   };
 
+  // EXTRACT IMAGE URLS FROM TEXT
+  const extractImageUrls = (text: string) => {
+    console.log('🔥 extractImageUrls CALLED WITH TEXT:', text);
+    
+    const imageUrlFormatRegex = /\[IMAGE URL:\s*(\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp))\]/gi;
+    const markdownImageRegex = /\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi;
+    const plainUrlRegex = /\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi;
+    
+    const imageUrls: string[] = [];
+    
+    // EXTRACT FROM [IMAGE URL: ...] FORMAT
+    let match;
+    while ((match = imageUrlFormatRegex.exec(text)) !== null) {
+      imageUrls.push(match[1]);
+    }
+    
+    // EXTRACT FROM MARKDOWN LINKS
+    while ((match = markdownImageRegex.exec(text)) !== null) {
+      const urlMatch = match[0].match(/\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)/i);
+      if (urlMatch) {
+        imageUrls.push(urlMatch[0]);
+      }
+    }
+    
+    // EXTRACT FROM PLAIN URLS
+    while ((match = plainUrlRegex.exec(text)) !== null) {
+      imageUrls.push(match[0]);
+    }
+    
+    console.log('🖼️ EXTRACTED IMAGE URLS:', imageUrls);
+    return imageUrls;
+  };
+
+  // RENDER TEXT WITHOUT IMAGE URLS
+  const renderTextWithoutImages = (text: string) => {
+    console.log('🔥 renderTextWithoutImages INPUT:', text);
+    
+    // REMOVE [IMAGE URL: ...] FORMAT
+    let processedText = text.replace(/\[IMAGE URL:\s*\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp)\]/gi, '');
+    console.log('🔥 AFTER REMOVING [IMAGE URL: ...]:', processedText);
+    
+    // REMOVE MARKDOWN IMAGE LINKS
+    processedText = processedText.replace(/\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi, '');
+    console.log('🔥 AFTER REMOVING MARKDOWN LINKS:', processedText);
+    
+    // REMOVE PLAIN IMAGE URLS
+    processedText = processedText.replace(/\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi, '');
+    console.log('🔥 AFTER REMOVING PLAIN URLS:', processedText);
+    
+    // FINAL CLEANUP: REMOVE ANY REMAINING IMAGE URLS (MORE AGGRESSIVE)
+    processedText = processedText.replace(/\/api\/images\/[^\s\n]*/gi, '');
+    console.log('🔥 AFTER FINAL CLEANUP:', processedText);
+    
+    // CHECK IF ANY IMAGE URLS REMAIN
+    const remainingUrls = processedText.match(/\/api\/images\/[^\s\n]*/gi);
+    if (remainingUrls) {
+      console.log('⚠️ WARNING: REMAINING IMAGE URLS FOUND:', remainingUrls);
+    }
+    
+    return (
+      <span
+        dangerouslySetInnerHTML={{ 
+          __html: formatMarkdown(processedText) 
+        }}
+      />
+    );
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -710,12 +778,43 @@ export default function ChatInterface() {
                     return (
                       <div key={index} className="whitespace-pre-wrap">
                         {message.role === 'assistant' ? (
-                          <div 
-                            className="whitespace-pre-wrap leading-none"
-                            dangerouslySetInnerHTML={{ 
-                              __html: formatMarkdown(text.split('\n').filter(line => line.trim() !== '').join('\n')) 
-                            }}
-                          />
+                          <div className="whitespace-pre-wrap leading-none">
+                            {renderTextWithoutImages(text.split('\n').filter(line => line.trim() !== '').join('\n'))}
+                            
+                            {/* RENDER IMAGES BELOW TEXT */}
+                            {(() => {
+                              const imageUrls = extractImageUrls(text);
+                              if (imageUrls.length > 0) {
+                                return (
+                                  <div className="mt-4 space-y-2">
+                                    {imageUrls.map((imageUrl, imgIndex) => (
+                                      <div key={imgIndex} className="my-2">
+                                        <img
+                                          src={imageUrl}
+                                          alt="NOTE IMAGE"
+                                          className="max-w-full max-h-64 rounded-lg border border-slate-600"
+                                          onError={(e) => {
+                                            console.log('❌ IMAGE FAILED TO LOAD:', imageUrl);
+                                            // IF IMAGE FAILS TO LOAD, SHOW AS TEXT LINK
+                                            e.currentTarget.style.display = 'none';
+                                            const linkElement = document.createElement('a');
+                                            linkElement.href = imageUrl;
+                                            linkElement.textContent = 'View Image';
+                                            linkElement.className = 'text-blue-400 hover:text-blue-300 underline';
+                                            e.currentTarget.parentNode?.appendChild(linkElement);
+                                          }}
+                                          onLoad={() => {
+                                            console.log('✅ IMAGE LOADED SUCCESSFULLY IN CHAT:', imageUrl);
+                                          }}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
                         ) : (
                           <span 
                             dangerouslySetInnerHTML={{ 

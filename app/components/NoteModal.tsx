@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNotes } from "../contexts/NotesContext";
 import { PortfolioType } from "../utils/portfolios";
+import { NoteTags, getTagColor, getTagDisplayName } from "../utils/notes";
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -12,17 +13,27 @@ interface NoteModalProps {
     portfolio_type: PortfolioType | 'general';
     title: string;
     content: string;
+    image_url?: string | null;
     is_shared: boolean;
+    tags?: NoteTags;
   } | null;
 }
 
 export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalProps) {
-  const { createNote, updateNote } = useNotes();
+  const { createNote, updateNote, getUniqueTags } = useNotes();
   const [portfolioType, setPortfolioType] = useState<PortfolioType | 'general'>('general');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isShared, setIsShared] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tags, setTags] = useState<NoteTags>({});
+  const [uniqueTags, setUniqueTags] = useState<{ [key: string]: string[] }>({});
+  
+  // IMAGE UPLOAD STATE
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // RESET FORM WHEN MODAL OPENS/CLOSES OR EDITING NOTE CHANGES
   useEffect(() => {
@@ -32,14 +43,64 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
         setTitle(editingNote.title);
         setContent(editingNote.content);
         setIsShared(editingNote.is_shared);
+        setTags(editingNote.tags || {});
+        setImagePreview(editingNote.image_url || null);
+        setSelectedImage(null);
+        setRemoveImage(false);
       } else {
         setPortfolioType('general');
         setTitle('');
         setContent('');
         setIsShared(false);
+        setTags({});
+        setImagePreview(null);
+        setSelectedImage(null);
+        setRemoveImage(false);
       }
+      // LOAD UNIQUE TAGS FOR AUTOCOMPLETE
+      setUniqueTags(getUniqueTags());
     }
-  }, [isOpen, editingNote]);
+  }, [isOpen, editingNote, getUniqueTags]);
+
+  // HANDLE IMAGE SELECTION
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // VALIDATE FILE TYPE
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('INVALID FILE TYPE. ONLY JPEG, PNG, GIF, AND WEBP ARE ALLOWED');
+        return;
+      }
+
+      // VALIDATE FILE SIZE (5MB MAX)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        alert('FILE TOO LARGE. MAXIMUM SIZE IS 5MB');
+        return;
+      }
+
+      setSelectedImage(file);
+      setRemoveImage(false);
+      
+      // CREATE PREVIEW
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // REMOVE SELECTED IMAGE
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    setRemoveImage(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,20 +112,27 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
 
     setIsSubmitting(true);
     try {
+      // CREATE FORMDATA FOR IMAGE UPLOAD
+      const formData = new FormData();
+      formData.append('portfolio_type', portfolioType);
+      formData.append('title', title.trim());
+      formData.append('content', content.trim());
+      formData.append('is_shared', isShared.toString());
+      formData.append('tags', JSON.stringify(tags));
+      
+      if (selectedImage) {
+        formData.append('image', selectedImage);
+      }
+      
+      if (removeImage) {
+        formData.append('removeImage', 'true');
+      }
+
       if (editingNote) {
-        await updateNote(editingNote.id, {
-          portfolio_type: portfolioType,
-          title: title.trim(),
-          content: content.trim(),
-          is_shared: isShared
-        });
+        formData.append('noteId', editingNote.id);
+        await updateNote(formData);
       } else {
-        await createNote({
-          portfolio_type: portfolioType,
-          title: title.trim(),
-          content: content.trim(),
-          is_shared: isShared
-        });
+        await createNote(formData);
       }
       onClose();
     } catch (error) {
@@ -120,7 +188,7 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
               placeholder="ENTER NOTE TITLE..."
               disabled={isSubmitting}
               required
@@ -135,12 +203,160 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
               placeholder="ENTER NOTE CONTENT..."
               rows={8}
               disabled={isSubmitting}
               required
             />
+          </div>
+
+          {/* IMAGE UPLOAD */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              IMAGE (OPTIONAL)
+            </label>
+            <div className="space-y-3">
+              {/* FILE INPUT */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                onChange={handleImageSelect}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                disabled={isSubmitting}
+              />
+              
+              {/* IMAGE PREVIEW */}
+              {imagePreview && (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="PREVIEW"
+                    className="max-w-full max-h-48 rounded-lg border border-slate-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                    disabled={isSubmitting}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              {/* FILE INFO */}
+              {selectedImage && (
+                <div className="text-xs text-slate-400">
+                  SELECTED: {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* TAGS */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              TAGS (OPTIONAL)
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {/* ACCOUNT TAG */}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">ACCOUNT</label>
+                <input
+                  type="text"
+                  value={tags.account || ''}
+                  onChange={(e) => setTags(prev => ({ ...prev, account: e.target.value }))}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  placeholder="ENTER ACCOUNT..."
+                  disabled={isSubmitting}
+                  list="account-tags"
+                />
+                <datalist id="account-tags">
+                  {uniqueTags.account?.map(tag => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* TEAM TAG */}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">TEAM</label>
+                <input
+                  type="text"
+                  value={tags.team || ''}
+                  onChange={(e) => setTags(prev => ({ ...prev, team: e.target.value }))}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  placeholder="ENTER TEAM..."
+                  disabled={isSubmitting}
+                  list="team-tags"
+                />
+                <datalist id="team-tags">
+                  {uniqueTags.team?.map(tag => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* PRIORITY TAG */}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">PRIORITY</label>
+                <input
+                  type="text"
+                  value={tags.priority || ''}
+                  onChange={(e) => setTags(prev => ({ ...prev, priority: e.target.value }))}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  placeholder="ENTER PRIORITY..."
+                  disabled={isSubmitting}
+                  list="priority-tags"
+                />
+                <datalist id="priority-tags">
+                  {uniqueTags.priority?.map(tag => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* STATUS TAG */}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">STATUS</label>
+                <input
+                  type="text"
+                  value={tags.status || ''}
+                  onChange={(e) => setTags(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  placeholder="ENTER STATUS..."
+                  disabled={isSubmitting}
+                  list="status-tags"
+                />
+                <datalist id="status-tags">
+                  {uniqueTags.status?.map(tag => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+
+            {/* TAG PREVIEW */}
+            {Object.values(tags).some(tag => tag && tag.trim() !== '') && (
+              <div className="mt-3 p-2 bg-slate-700 rounded-md">
+                <div className="text-xs text-slate-400 mb-2">TAGS:</div>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(tags).map(([category, value]) => {
+                    if (!value || value.trim() === '') return null;
+                    return (
+                      <span
+                        key={category}
+                        className={`inline-block text-xs px-2 py-1 rounded ${getTagColor(category)} text-white`}
+                      >
+                        {getTagDisplayName(category)}: {value}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SHARED TOGGLE */}

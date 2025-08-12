@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS notes (
   portfolio_type TEXT NOT NULL CHECK (portfolio_type IN ('general', 'hip', 'knee', 'ts_knee')),
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  image_url TEXT, -- SUPABASE STORAGE URL FOR NOTE IMAGE
   is_shared BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

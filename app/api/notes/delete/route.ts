@@ -25,6 +25,44 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // GET NOTE TO CHECK FOR IMAGE BEFORE DELETING
+    const { data: note, error: fetchError } = await supabase
+      .from('notes')
+      .select('image_url')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError) {
+      console.error('ERROR FETCHING NOTE:', fetchError);
+      return NextResponse.json(
+        { error: 'NOTE NOT FOUND OR ACCESS DENIED' },
+        { status: 404 }
+      );
+    }
+
+    // DELETE ASSOCIATED IMAGE IF IT EXISTS
+    if (note.image_url) {
+      try {
+        // EXTRACT FILENAME FROM URL (FLAT STORAGE)
+        const urlParts = note.image_url.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+
+        // DELETE FROM STORAGE
+        const { error: deleteImageError } = await supabase.storage
+          .from('user_note_images')
+          .remove([fileName]);
+
+        if (deleteImageError) {
+          console.error('ERROR DELETING IMAGE:', deleteImageError);
+          // DON'T FAIL THE REQUEST IF IMAGE DELETE FAILS
+        }
+      } catch (error) {
+        console.error('ERROR PROCESSING IMAGE DELETE:', error);
+        // DON'T FAIL THE REQUEST IF IMAGE DELETE FAILS
+      }
+    }
+
     // DELETE NOTE (ENSURE USER OWNS THE NOTE)
     const { error } = await supabase
       .from('notes')

@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNotes } from "../contexts/NotesContext";
 import { useChat } from "../contexts/ChatContext";
 import { useAuth } from "../contexts/AuthContext";
 import { PortfolioType } from "../utils/portfolios";
 import NoteModal from "./NoteModal";
+import NotesFilter, { NotesFilter as NotesFilterType } from "./NotesFilter";
+import { getTagColor, getTagDisplayName } from "../utils/notes";
 
 interface NotesSectionProps {
   onNoteSelect?: () => void;
@@ -18,6 +20,13 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<any>(null);
   const [showAllNotes, setShowAllNotes] = useState(false);
+  const [filters, setFilters] = useState<NotesFilterType>({
+    portfolio: currentPortfolio,
+    account: [],
+    team: [],
+    priority: [],
+    status: []
+  });
 
   const handleEditNote = (note: any) => {
     // CHECK IF USER OWNS THE NOTE OR IF IT'S NOT SHARED
@@ -50,11 +59,56 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
     setIsModalOpen(true);
   };
 
+  // UPDATE FILTERS WHEN PORTFOLIO CHANGES
+  useEffect(() => {
+    setFilters(prev => ({
+      ...prev,
+      portfolio: currentPortfolio
+    }));
+  }, [currentPortfolio]);
+
+  // APPLY FILTERS TO NOTES
+  const applyFilters = (notes: any[]) => {
+    return notes.filter(note => {
+      // PORTFOLIO FILTER
+      if (filters.portfolio && note.portfolio_type !== 'general' && note.portfolio_type !== filters.portfolio) {
+        return false;
+      }
+
+      // TAG FILTERS
+      if (filters.account.length > 0) {
+        if (!note.tags?.account || !filters.account.includes(note.tags.account)) {
+          return false;
+        }
+      }
+
+      if (filters.team.length > 0) {
+        if (!note.tags?.team || !filters.team.includes(note.tags.team)) {
+          return false;
+        }
+      }
+
+      if (filters.priority.length > 0) {
+        if (!note.tags?.priority || !filters.priority.includes(note.tags.priority)) {
+          return false;
+        }
+      }
+
+      if (filters.status.length > 0) {
+        if (!note.tags?.status || !filters.status.includes(note.tags.status)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
   // GET RELEVANT NOTES BASED ON CURRENT PORTFOLIO OR SHOW ALL
   const relevantNotes = showAllNotes 
-    ? notes 
+    ? applyFilters(notes)
     : currentPortfolio 
-      ? getNotesForPortfolio(currentPortfolio)
+      ? applyFilters(getNotesForPortfolio(currentPortfolio))
       : [];
 
   const getPortfolioDisplayName = (portfolioType: string) => {
@@ -84,6 +138,13 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
 
   return (
     <>
+      {/* FILTER SECTION */}
+      <NotesFilter
+        currentPortfolio={currentPortfolio}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+
       <div className="p-4 border-b border-slate-700 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-slate-300">NOTES</h2>
@@ -134,11 +195,26 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
                 key={note.id}
                 className="bg-slate-700 rounded-md p-3 text-sm group relative"
               >
-                {/* PORTFOLIO BADGE */}
+                {/* PORTFOLIO BADGE AND TAGS */}
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs px-2 py-1 rounded ${getPortfolioColor(note.portfolio_type)} text-white`}>
-                    {getPortfolioDisplayName(note.portfolio_type)}
-                  </span>
+                  <div className="flex items-center space-x-1">
+                    <span className={`text-xs px-2 py-1 rounded ${getPortfolioColor(note.portfolio_type)} text-white`}>
+                      {getPortfolioDisplayName(note.portfolio_type)}
+                    </span>
+                    {/* CUSTOM TAGS */}
+                    {note.tags && Object.entries(note.tags).map(([category, value]) => {
+                      if (!value || typeof value !== 'string' || value.trim() === '') return null;
+                      return (
+                        <span
+                          key={category}
+                          className={`text-xs px-1 py-0.5 rounded ${getTagColor(category)} text-white`}
+                          title={`${getTagDisplayName(category)}: ${value}`}
+                        >
+                          {value}
+                        </span>
+                      );
+                    })}
+                  </div>
                   {note.is_shared && (
                     <span className="text-xs text-slate-400" title="SHARED NOTE">
                       SHARED
@@ -158,6 +234,21 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
                     : note.content
                   }
                 </div>
+
+                {/* IMAGE PREVIEW */}
+                {note.image_url && (
+                  <div className="mb-2">
+                    <img
+                      src={note.image_url}
+                      alt="NOTE IMAGE"
+                      className="w-full h-20 object-cover rounded-md border border-slate-600"
+                      onError={(e) => {
+                        // HIDE IMAGE IF IT FAILS TO LOAD
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
 
                 {/* NOTE METADATA */}
                 <div className="text-xs text-slate-500 mb-2">

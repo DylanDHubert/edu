@@ -3,7 +3,7 @@ import { createClient } from '../../../utils/supabase/server';
 import { sendMessage, sendMessageStreaming, getAssistantId } from '../../../utils/openai';
 import { PortfolioType } from '../../../utils/openai';
 import { cookies } from 'next/headers';
-import { getNotesForPortfolio, formatNotesForContext } from '../../../utils/notes';
+import { getNotesForPortfolio, formatNotesForContext } from '../../../utils/notes-server';
 import OpenAI from 'openai';
 
 const client = new OpenAI({
@@ -65,11 +65,15 @@ export async function POST(request: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           try {
+            let finalContent = '';
+            
             await sendMessageStreaming(
               threadId, 
               messageWithNotes, 
               assistantId,
               (content: string, citations: string[], step?: string) => {
+                finalContent = content; // CAPTURE FINAL CONTENT
+                
                 // SEND STREAMING UPDATE
                 const data = JSON.stringify({
                   type: 'update',
@@ -80,6 +84,67 @@ export async function POST(request: NextRequest) {
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`));
               }
             );
+            
+            // DEBUG LOG: PRINT FINAL AI RESPONSE
+            console.log('🤖 STREAMING AI RESPONSE RECEIVED:', {
+              finalContent: finalContent,
+              containsImageUrl: finalContent.includes('supabase.co/storage'),
+              containsImageUrlText: finalContent.includes('IMAGE URL:'),
+              containsProxyUrl: finalContent.includes('/api/images/'),
+              originalUserMessage: message,
+              userAskedAboutImage: message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')
+            });
+            
+            // DEBUG: IF USER ASKED ABOUT IMAGE, PRINT FULL RESPONSE
+            if (message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')) {
+              console.log('🔍 FULL STREAMING AI RESPONSE FOR IMAGE QUERY:');
+              console.log('---START RESPONSE---');
+              console.log(finalContent);
+              console.log('---END RESPONSE---');
+            }
+            
+            // DEBUG: CHECK FOR MARKDOWN LINKS IN AI RESPONSE
+            const markdownLinkRegex = /\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi;
+            const markdownMatches = finalContent.match(markdownLinkRegex);
+            if (markdownMatches) {
+              console.log('🖼️ MARKDOWN LINKS FOUND IN AI RESPONSE:', markdownMatches);
+            }
+            
+            // DEBUG: CHECK FOR PLAIN IMAGE URLS IN AI RESPONSE
+            const plainUrlRegex = /\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi;
+            const plainMatches = finalContent.match(plainUrlRegex);
+            if (plainMatches) {
+              console.log('🖼️ PLAIN IMAGE URLS FOUND IN AI RESPONSE:', plainMatches);
+              
+              // MAKE SERVER-SIDE FETCH TO TEST IMAGE API
+              for (const imageUrl of plainMatches) {
+                console.log('🚀 SERVER-SIDE: TESTING FETCH TO IMAGE API:', imageUrl);
+                try {
+                  const imageResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}${imageUrl}`, {
+                    method: 'GET',
+                    headers: {
+                      'Cookie': request.headers.get('cookie') || '', // FORWARD AUTH COOKIES
+                    }
+                  });
+                  
+                  console.log('📡 SERVER-SIDE: IMAGE API RESPONSE:', {
+                    url: imageUrl,
+                    status: imageResponse.status,
+                    statusText: imageResponse.statusText,
+                    headers: Object.fromEntries(imageResponse.headers.entries())
+                  });
+                  
+                  if (imageResponse.ok) {
+                    const blob = await imageResponse.blob();
+                    console.log('✅ SERVER-SIDE: IMAGE BLOB RECEIVED:', imageUrl, blob.size, 'bytes');
+                  } else {
+                    console.log('❌ SERVER-SIDE: IMAGE API FAILED:', imageUrl, imageResponse.status);
+                  }
+                } catch (error) {
+                  console.log('❌ SERVER-SIDE: IMAGE FETCH ERROR:', imageUrl, error);
+                }
+              }
+            }
             
             // SEND COMPLETION SIGNAL
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
@@ -106,6 +171,26 @@ export async function POST(request: NextRequest) {
     
     // NON-STREAMING RESPONSE (ORIGINAL IMPLEMENTATION)
     const messages = await sendMessage(threadId, messageWithNotes, assistantId);
+    
+    // DEBUG LOG: PRINT AI RESPONSE
+    const lastMessage = messages[messages.length - 1]?.content?.[0]?.text?.value || 'No content';
+    console.log('🤖 AI RESPONSE RECEIVED:', {
+      messagesCount: messages.length,
+      lastMessage: lastMessage,
+      containsImageUrl: lastMessage.includes('supabase.co/storage'),
+      containsImageUrlText: lastMessage.includes('IMAGE URL:'),
+      containsProxyUrl: lastMessage.includes('/api/images/'),
+      originalUserMessage: message,
+      userAskedAboutImage: message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')
+    });
+    
+    // DEBUG: IF USER ASKED ABOUT IMAGE, PRINT FULL RESPONSE
+    if (message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')) {
+      console.log('🔍 FULL AI RESPONSE FOR IMAGE QUERY:');
+      console.log('---START RESPONSE---');
+      console.log(lastMessage);
+      console.log('---END RESPONSE---');
+    }
     
     return NextResponse.json({ messages });
   } catch (error) {
