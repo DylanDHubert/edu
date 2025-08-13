@@ -11,9 +11,44 @@ export async function PUT(request: NextRequest) {
     const content = formData.get('content') as string;
     const is_shared = formData.get('is_shared') === 'true';
     const tags = formData.get('tags') ? JSON.parse(formData.get('tags') as string) : null;
+    // HANDLE MULTIPLE IMAGES
+    const imageFiles: File[] = [];
+    const imageDescriptions: string[] = [];
+    
+    // EXTRACT ALL IMAGE FILES AND DESCRIPTIONS FROM FORMDATA
+    const imageEntries: {[key: string]: {file?: File, description?: string}} = {};
+    
+    for (const [key, value] of formData.entries()) {
+      if (key.startsWith('image_') && value instanceof File) {
+        const index = key.replace('image_', '');
+        if (!imageEntries[index]) imageEntries[index] = {};
+        imageEntries[index].file = value;
+      }
+      if (key.startsWith('image_description_') && typeof value === 'string') {
+        const index = key.replace('image_description_', '');
+        if (!imageEntries[index]) imageEntries[index] = {};
+        imageEntries[index].description = value;
+      }
+    }
+    
+    // CONVERT TO ARRAYS IN CORRECT ORDER
+    Object.keys(imageEntries).sort().forEach(index => {
+      const entry = imageEntries[index];
+      if (entry.file && entry.description) {
+        imageFiles.push(entry.file);
+        imageDescriptions.push(entry.description);
+      }
+    });
+    
+    // BACKWARD COMPATIBILITY: HANDLE SINGLE IMAGE
     const imageFile = formData.get('image') as File | null;
     const removeImage = formData.get('removeImage') === 'true';
     let imageDescription = formData.get('image_description') as string | null;
+    
+    if (imageFile && imageDescription) {
+      imageFiles.push(imageFile);
+      imageDescriptions.push(imageDescription);
+    }
     
     if (!noteId || !portfolio_type || !title || !content) {
       return NextResponse.json(
@@ -72,101 +107,124 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // HANDLE IMAGE UPLOAD/REMOVAL
-    let imageUrl = existingNote.image_url;
-
-    // DELETE OLD IMAGE IF REMOVING OR REPLACING
-    if ((removeImage || imageFile) && existingNote.image_url) {
+    // HANDLE MULTIPLE IMAGES UPLOAD/REMOVAL
+    let images = existingNote.images || [];
+    
+    // DELETE OLD IMAGES IF REMOVING ALL OR REPLACING
+    if ((removeImage || imageFiles.length > 0) && existingNote.images && existingNote.images.length > 0) {
       try {
-        // EXTRACT FILENAME FROM URL
-        const urlParts = existingNote.image_url.split('/');
-        const fileName = urlParts[urlParts.length - 1];
-        const fullPath = `${user.id}/${fileName}`;
+        // DELETE ALL EXISTING IMAGES FROM STORAGE
+        for (const image of existingNote.images) {
+          if (image.url) {
+            const urlParts = image.url.split('/');
+            const fileName = urlParts[urlParts.length - 1];
+            
+            const { error: deleteError } = await supabase.storage
+              .from('user_note_images')
+              .remove([fileName]);
 
-        // DELETE FROM STORAGE
-        const { error: deleteError } = await supabase.storage
-          .from('user_note_images')
-          .remove([fullPath]);
-
-        if (deleteError) {
-          console.error('ERROR DELETING OLD IMAGE:', deleteError);
-          // DON'T FAIL THE REQUEST IF DELETE FAILS
+            if (deleteError) {
+              console.error('ERROR DELETING OLD IMAGE:', deleteError);
+              // DON'T FAIL THE REQUEST IF DELETE FAILS
+            }
+          }
         }
       } catch (error) {
-        console.error('ERROR PROCESSING OLD IMAGE:', error);
+        console.error('ERROR PROCESSING OLD IMAGES:', error);
       }
     }
 
-    // SET IMAGE URL AND DESCRIPTION TO NULL IF REMOVING
+    // SET IMAGES TO EMPTY ARRAY IF REMOVING ALL
     if (removeImage) {
-      imageUrl = null;
-      imageDescription = null;
+      images = [];
     }
 
-    // PRESERVE EXISTING IMAGE DESCRIPTION IF NO NEW ONE PROVIDED AND IMAGE IS NOT BEING REPLACED
-    if (!imageFile && !removeImage && existingNote.image_url && (!imageDescription || imageDescription.trim() === '')) {
-      imageDescription = existingNote.image_description;
-    }
-
-    // VALIDATE IMAGE DESCRIPTION IF NEW IMAGE IS PROVIDED
-    if (imageFile && imageFile.size > 0 && (!imageDescription || imageDescription.trim() === '')) {
-      return NextResponse.json(
-        { error: 'IMAGE DESCRIPTION IS REQUIRED WHEN UPLOADING AN IMAGE' },
-        { status: 400 }
-      );
-    }
-
-    // UPLOAD NEW IMAGE IF PROVIDED
-    if (imageFile && imageFile.size > 0) {
-      // VALIDATE FILE TYPE
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(imageFile.type)) {
+    // VALIDATE IMAGE DESCRIPTIONS IF NEW IMAGES ARE PROVIDED
+    if (imageFiles.length > 0) {
+      if (imageFiles.length !== imageDescriptions.length) {
         return NextResponse.json(
-          { error: 'INVALID FILE TYPE. ONLY JPEG, PNG, GIF, AND WEBP ARE ALLOWED' },
+          { error: 'EACH IMAGE MUST HAVE A DESCRIPTION' },
           { status: 400 }
         );
       }
-
-      // VALIDATE FILE SIZE (5MB MAX)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (imageFile.size > maxSize) {
-        return NextResponse.json(
-          { error: 'FILE TOO LARGE. MAXIMUM SIZE IS 5MB' },
-          { status: 400 }
-        );
+      
+      for (let i = 0; i < imageDescriptions.length; i++) {
+        if (!imageDescriptions[i] || imageDescriptions[i].trim() === '') {
+          return NextResponse.json(
+            { error: 'ALL IMAGES MUST HAVE DESCRIPTIONS' },
+            { status: 400 }
+          );
+        }
       }
-
-      // GENERATE UNIQUE FILENAME (FLAT STORAGE)
-      const fileExtension = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
-
-      // UPLOAD TO SUPABASE STORAGE
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('user_note_images')
-        .upload(fileName, imageFile);
-
-      if (uploadError) {
-        console.error('ERROR UPLOADING IMAGE:', uploadError);
-        return NextResponse.json(
-          { error: 'FAILED TO UPLOAD IMAGE' },
-          { status: 500 }
-        );
-      }
-
-      // GET PUBLIC URL
-      const { data: urlData } = supabase.storage
-        .from('user_note_images')
-        .getPublicUrl(fileName);
-
-      imageUrl = urlData.publicUrl;
     }
 
-    // FINAL VALIDATION: ENSURE IMAGE DESCRIPTION IS PROVIDED IF IMAGE URL EXISTS
-    if (imageUrl && (!imageDescription || imageDescription.trim() === '')) {
-      return NextResponse.json(
-        { error: 'IMAGE DESCRIPTION IS REQUIRED WHEN AN IMAGE IS PRESENT' },
-        { status: 400 }
-      );
+    // UPLOAD NEW IMAGES IF PROVIDED
+    if (imageFiles.length > 0) {
+      const newImages: Array<{url: string, description: string}> = [];
+      
+      for (let i = 0; i < imageFiles.length; i++) {
+        const imageFile = imageFiles[i];
+        const imageDescription = imageDescriptions[i];
+        
+        // VALIDATE FILE TYPE
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(imageFile.type)) {
+          return NextResponse.json(
+            { error: 'INVALID FILE TYPE. ONLY JPEG, PNG, GIF, AND WEBP ARE ALLOWED' },
+            { status: 400 }
+          );
+        }
+
+        // VALIDATE FILE SIZE (5MB MAX)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (imageFile.size > maxSize) {
+          return NextResponse.json(
+            { error: 'FILE TOO LARGE. MAXIMUM SIZE IS 5MB' },
+            { status: 400 }
+          );
+        }
+
+        // GENERATE UNIQUE FILENAME (FLAT STORAGE)
+        const fileExtension = imageFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
+
+        // UPLOAD TO SUPABASE STORAGE
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('user_note_images')
+          .upload(fileName, imageFile);
+
+        if (uploadError) {
+          console.error('ERROR UPLOADING IMAGE:', uploadError);
+          return NextResponse.json(
+            { error: 'FAILED TO UPLOAD IMAGE' },
+            { status: 500 }
+          );
+        }
+
+        // GET PUBLIC URL
+        const { data: urlData } = supabase.storage
+          .from('user_note_images')
+          .getPublicUrl(fileName);
+
+        newImages.push({
+          url: urlData.publicUrl,
+          description: imageDescription.trim()
+        });
+      }
+      
+      images = newImages;
+    }
+
+    // FINAL VALIDATION: ENSURE ALL IMAGES HAVE DESCRIPTIONS
+    if (images.length > 0) {
+      for (const image of images) {
+        if (!image.description || image.description.trim() === '') {
+          return NextResponse.json(
+            { error: 'ALL IMAGES MUST HAVE DESCRIPTIONS' },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // UPDATE NOTE
@@ -176,8 +234,7 @@ export async function PUT(request: NextRequest) {
         portfolio_type,
         title: title.trim(),
         content: content.trim(),
-        image_url: imageUrl,
-        image_description: imageDescription ? imageDescription.trim() : null,
+        images: images.length > 0 ? images : null,
         is_shared: is_shared || false
       })
       .eq('id', noteId)

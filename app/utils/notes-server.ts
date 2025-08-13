@@ -55,10 +55,27 @@ export function formatNotesForContext(notes: any[]): string {
     const portfolioLabel = note.portfolio_type === 'general' ? 'GENERAL' : note.portfolio_type.toUpperCase();
     const sharedLabel = note.is_shared ? ' (SHARED)' : '';
     
-    // CONVERT SUPABASE URL TO PROXY URL
+    // HANDLE MULTIPLE IMAGES
     let imageInfo = '';
-    if (note.image_url) {
-      // EXTRACT FILENAME FROM SUPABASE URL
+    if (note.images && Array.isArray(note.images) && note.images.length > 0) {
+      const imageUrls = note.images.map((image: any) => {
+        if (image.url) {
+          // EXTRACT FILENAME FROM SUPABASE URL
+          const urlParts = image.url.split('/');
+          const filename = urlParts[urlParts.length - 1];
+          const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+          const description = image.description ? ` (${image.description})` : '';
+          return `[IMAGE URL: ${proxyUrl}${description}]`;
+        }
+        return '';
+      }).filter((url: string) => url !== '');
+      
+      if (imageUrls.length > 0) {
+        imageInfo = ` ${imageUrls.join(' ')}`;
+      }
+    }
+    // BACKWARD COMPATIBILITY: HANDLE OLD SINGLE IMAGE FORMAT
+    else if (note.image_url) {
       const urlParts = note.image_url.split('/');
       const filename = urlParts[urlParts.length - 1];
       const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;

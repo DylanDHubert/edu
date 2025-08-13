@@ -13,8 +13,9 @@ interface NoteModalProps {
     portfolio_type: PortfolioType | 'general';
     title: string;
     content: string;
-    image_url?: string | null;
-    image_description?: string | null;
+    images?: Array<{url: string, description: string}> | null;
+    image_url?: string | null; // BACKWARD COMPATIBILITY
+    image_description?: string | null; // BACKWARD COMPATIBILITY
     is_shared: boolean;
     tags?: NoteTags;
   } | null;
@@ -30,11 +31,10 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
   const [tags, setTags] = useState<NoteTags>({});
   const [uniqueTags, setUniqueTags] = useState<{ [key: string]: string[] }>({});
   
-  // IMAGE UPLOAD STATE
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [removeImage, setRemoveImage] = useState(false);
-  const [imageDescription, setImageDescription] = useState('');
+  // MULTIPLE IMAGE UPLOAD STATE
+  const [selectedImages, setSelectedImages] = useState<Array<{file: File, preview: string, description: string}>>([]);
+  const [existingImages, setExistingImages] = useState<Array<{url: string, description: string}>>([]);
+  const [removeAllImages, setRemoveAllImages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // RESET FORM WHEN MODAL OPENS/CLOSES OR EDITING NOTE CHANGES
@@ -46,64 +46,113 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
         setContent(editingNote.content);
         setIsShared(editingNote.is_shared);
         setTags(editingNote.tags || {});
-        setImagePreview(editingNote.image_url || null);
-        setSelectedImage(null);
-        setRemoveImage(false);
-        setImageDescription(editingNote.image_description || '');
+        
+        // HANDLE MULTIPLE IMAGES (NEW FORMAT)
+        if (editingNote.images && editingNote.images.length > 0) {
+          setExistingImages(editingNote.images);
+        }
+        // BACKWARD COMPATIBILITY: HANDLE SINGLE IMAGE
+        else if (editingNote.image_url && editingNote.image_description) {
+          setExistingImages([{
+            url: editingNote.image_url,
+            description: editingNote.image_description
+          }]);
+        } else {
+          setExistingImages([]);
+        }
+        
+        setSelectedImages([]);
+        setRemoveAllImages(false);
       } else {
         setPortfolioType('general');
         setTitle('');
         setContent('');
         setIsShared(false);
         setTags({});
-        setImagePreview(null);
-        setSelectedImage(null);
-        setRemoveImage(false);
-        setImageDescription('');
+        setExistingImages([]);
+        setSelectedImages([]);
+        setRemoveAllImages(false);
       }
       // LOAD UNIQUE TAGS FOR AUTOCOMPLETE
       setUniqueTags(getUniqueTags());
     }
   }, [isOpen, editingNote, getUniqueTags]);
 
-  // HANDLE IMAGE SELECTION
+  // HANDLE MULTIPLE IMAGE SELECTION
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // VALIDATE FILE TYPE
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        alert('INVALID FILE TYPE. ONLY JPEG, PNG, GIF, AND WEBP ARE ALLOWED');
-        return;
-      }
-
-      // VALIDATE FILE SIZE (5MB MAX)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-        alert('FILE TOO LARGE. MAXIMUM SIZE IS 5MB');
-        return;
-      }
-
-      setSelectedImage(file);
-      setRemoveImage(false);
+    const files = event.target.files;
+    if (files) {
+      let processedCount = 0;
+      const totalFiles = files.length;
       
-      // CREATE PREVIEW
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // VALIDATE FILE TYPE
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          alert(`INVALID FILE TYPE FOR ${file.name}. ONLY JPEG, PNG, GIF, AND WEBP ARE ALLOWED`);
+          continue;
+        }
+
+        // VALIDATE FILE SIZE (5MB MAX)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+          alert(`FILE TOO LARGE: ${file.name}. MAXIMUM SIZE IS 5MB`);
+          continue;
+        }
+
+        // VALIDATE MAX IMAGES (10 TOTAL)
+        if (selectedImages.length + existingImages.length >= 10) {
+          alert('MAXIMUM 10 IMAGES ALLOWED PER NOTE');
+          break;
+        }
+
+        // CREATE PREVIEW
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const newImage = {
+            file,
+            preview: e.target?.result as string,
+            description: ''
+          };
+          
+          setSelectedImages(prev => [...prev, newImage]);
+          
+          processedCount++;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    
+    // RESET FILE INPUT
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   // REMOVE SELECTED IMAGE
-  const handleRemoveImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-    setRemoveImage(true);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const handleRemoveSelectedImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // REMOVE EXISTING IMAGE
+  const handleRemoveExistingImage = (index: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // UPDATE IMAGE DESCRIPTION
+  const handleUpdateImageDescription = (index: number, description: string) => {
+    setSelectedImages(prev => prev.map((img, i) => 
+      i === index ? { ...img, description } : img
+    ));
+  };
+
+  // REMOVE ALL IMAGES
+  const handleRemoveAllImages = () => {
+    setSelectedImages([]);
+    setExistingImages([]);
+    setRemoveAllImages(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,6 +162,19 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
       alert('PLEASE FILL IN ALL REQUIRED FIELDS');
       return;
     }
+
+    // VALIDATE ALL SELECTED IMAGES HAVE DESCRIPTIONS
+    const imagesWithoutDescriptions = selectedImages.filter(img => !img.description.trim());
+    if (imagesWithoutDescriptions.length > 0) {
+      alert('ALL IMAGES MUST HAVE DESCRIPTIONS');
+      return;
+    }
+
+    console.log('🖼️ SUBMITTING NOTE WITH IMAGES:', {
+      selectedImages: selectedImages.length,
+      existingImages: existingImages.length,
+      removeAllImages
+    });
 
     setIsSubmitting(true);
     try {
@@ -124,13 +186,20 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
       formData.append('is_shared', isShared.toString());
       formData.append('tags', JSON.stringify(tags));
       
-      if (selectedImage) {
-        formData.append('image', selectedImage);
-        formData.append('image_description', imageDescription.trim());
-      }
+      // ADD SELECTED IMAGES
+      selectedImages.forEach((img, index) => {
+        console.log(`🖼️ ADDING IMAGE ${index}:`, img.file.name, img.description);
+        formData.append(`image_${index}`, img.file);
+        formData.append(`image_description_${index}`, img.description.trim());
+      });
       
-      if (removeImage) {
+      if (removeAllImages) {
         formData.append('removeImage', 'true');
+      }
+
+      console.log('🖼️ FORMDATA ENTRIES:');
+      for (const [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value instanceof File ? `File(${value.name})` : value);
       }
 
       if (editingNote) {
@@ -216,67 +285,105 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
             />
           </div>
 
-          {/* IMAGE UPLOAD */}
+          {/* MULTIPLE IMAGE UPLOAD */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              IMAGE (OPTIONAL)
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-slate-300">
+                IMAGES (OPTIONAL) - MAX 10
+              </label>
+              {(selectedImages.length > 0 || existingImages.length > 0) && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAllImages}
+                  className="text-xs text-red-400 hover:text-red-300"
+                  disabled={isSubmitting}
+                >
+                  REMOVE ALL
+                </button>
+              )}
+            </div>
+            
             <div className="space-y-3">
               {/* FILE INPUT */}
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                 onChange={handleImageSelect}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (selectedImages.length + existingImages.length >= 10)}
               />
               
-              {/* IMAGE PREVIEW */}
-              {imagePreview && (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="PREVIEW"
-                    className="max-w-full max-h-48 rounded-lg border border-slate-600"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
-                    disabled={isSubmitting}
-                  >
-                    ✕
-                  </button>
+              {/* IMAGE COUNT */}
+              <div className="text-xs text-slate-400">
+                {selectedImages.length + existingImages.length} / 10 IMAGES
+              </div>
+              
+              {/* EXISTING IMAGES */}
+              {existingImages.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs text-slate-400 font-medium">EXISTING IMAGES:</div>
+                  {existingImages.map((image, index) => (
+                    <div key={`existing-${index}`} className="relative bg-slate-700 rounded-lg p-3 border border-slate-600">
+                      <img
+                        src={image.url}
+                        alt="EXISTING IMAGE"
+                        className="max-w-full max-h-32 rounded-lg border border-slate-600"
+                      />
+                      <div className="text-xs text-slate-300 mt-2">
+                        <strong>DESCRIPTION:</strong> {image.description}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExistingImage(index)}
+                        className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                        disabled={isSubmitting}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               
-              {/* FILE INFO */}
-              {selectedImage && (
-                <div className="text-xs text-slate-400">
-                  SELECTED: {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
+              {/* SELECTED IMAGES */}
+              {selectedImages.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs text-slate-400 font-medium">NEW IMAGES:</div>
+                  {selectedImages.map((image, index) => (
+                    <div key={`selected-${index}`} className="relative bg-slate-700 rounded-lg p-3 border border-slate-600">
+                      <img
+                        src={image.preview}
+                        alt="PREVIEW"
+                        className="max-w-full max-h-32 rounded-lg border border-slate-600"
+                      />
+                      <div className="text-xs text-slate-400 mt-2">
+                        FILE: {image.file.name} ({(image.file.size / 1024 / 1024).toFixed(2)} MB)
+                      </div>
+                      <textarea
+                        value={image.description}
+                        onChange={(e) => handleUpdateImageDescription(index, e.target.value)}
+                        className="w-full mt-2 bg-slate-600 border border-slate-500 rounded px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                        placeholder="DESCRIBE WHAT THIS IMAGE SHOWS... *"
+                        rows={2}
+                        disabled={isSubmitting}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSelectedImage(index)}
+                        className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                        disabled={isSubmitting}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
-
-          {/* IMAGE DESCRIPTION */}
-          {(selectedImage || imagePreview) && (
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                IMAGE DESCRIPTION *
-              </label>
-              <textarea
-                value={imageDescription}
-                onChange={(e) => setImageDescription(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                placeholder="DESCRIBE WHAT THIS IMAGE SHOWS..."
-                rows={3}
-                disabled={isSubmitting}
-                required
-              />
-            </div>
-          )}
 
           {/* TAGS */}
           <div>

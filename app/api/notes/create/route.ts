@@ -10,8 +10,43 @@ export async function POST(request: NextRequest) {
     const content = formData.get('content') as string;
     const is_shared = formData.get('is_shared') === 'true';
     const tags = formData.get('tags') ? JSON.parse(formData.get('tags') as string) : null;
+    // HANDLE MULTIPLE IMAGES
+    const imageFiles: File[] = [];
+    const imageDescriptions: string[] = [];
+    
+    // EXTRACT ALL IMAGE FILES AND DESCRIPTIONS FROM FORMDATA
+    const imageEntries: {[key: string]: {file?: File, description?: string}} = {};
+    
+    for (const [key, value] of formData.entries()) {
+      if (key.startsWith('image_') && value instanceof File) {
+        const index = key.replace('image_', '');
+        if (!imageEntries[index]) imageEntries[index] = {};
+        imageEntries[index].file = value;
+      }
+      if (key.startsWith('image_description_') && typeof value === 'string') {
+        const index = key.replace('image_description_', '');
+        if (!imageEntries[index]) imageEntries[index] = {};
+        imageEntries[index].description = value;
+      }
+    }
+    
+    // CONVERT TO ARRAYS IN CORRECT ORDER
+    Object.keys(imageEntries).sort().forEach(index => {
+      const entry = imageEntries[index];
+      if (entry.file && entry.description) {
+        imageFiles.push(entry.file);
+        imageDescriptions.push(entry.description);
+      }
+    });
+    
+    // BACKWARD COMPATIBILITY: HANDLE SINGLE IMAGE
     const imageFile = formData.get('image') as File | null;
     const imageDescription = formData.get('image_description') as string | null;
+    
+    if (imageFile && imageDescription) {
+      imageFiles.push(imageFile);
+      imageDescriptions.push(imageDescription);
+    }
     
     if (!portfolio_type || !title || !content) {
       return NextResponse.json(
@@ -55,17 +90,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // VALIDATE IMAGE DESCRIPTION IF IMAGE IS PROVIDED
-    if (imageFile && imageFile.size > 0 && (!imageDescription || imageDescription.trim() === '')) {
-      return NextResponse.json(
-        { error: 'IMAGE DESCRIPTION IS REQUIRED WHEN UPLOADING AN IMAGE' },
-        { status: 400 }
-      );
+    // VALIDATE IMAGE DESCRIPTIONS IF IMAGES ARE PROVIDED
+    if (imageFiles.length > 0) {
+      if (imageFiles.length !== imageDescriptions.length) {
+        return NextResponse.json(
+          { error: 'EACH IMAGE MUST HAVE A DESCRIPTION' },
+          { status: 400 }
+        );
+      }
+      
+      for (let i = 0; i < imageDescriptions.length; i++) {
+        if (!imageDescriptions[i] || imageDescriptions[i].trim() === '') {
+          return NextResponse.json(
+            { error: 'ALL IMAGES MUST HAVE DESCRIPTIONS' },
+            { status: 400 }
+          );
+        }
+      }
     }
 
-    // UPLOAD IMAGE TO SUPABASE STORAGE IF PROVIDED
-    let imageUrl = null;
-    if (imageFile && imageFile.size > 0) {
+    // UPLOAD IMAGES TO SUPABASE STORAGE IF PROVIDED
+    const images: Array<{url: string, description: string}> = [];
+    
+    for (let i = 0; i < imageFiles.length; i++) {
+      const imageFile = imageFiles[i];
+      const imageDescription = imageDescriptions[i];
+      
       // VALIDATE FILE TYPE
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(imageFile.type)) {
@@ -106,7 +156,10 @@ export async function POST(request: NextRequest) {
         .from('user_note_images')
         .getPublicUrl(fileName);
 
-      imageUrl = urlData.publicUrl;
+      images.push({
+        url: urlData.publicUrl,
+        description: imageDescription.trim()
+      });
     }
 
     // CREATE NOTE
@@ -117,8 +170,7 @@ export async function POST(request: NextRequest) {
         portfolio_type,
         title: title.trim(),
         content: content.trim(),
-        image_url: imageUrl,
-        image_description: imageDescription ? imageDescription.trim() : null,
+        images: images.length > 0 ? images : null,
         is_shared: is_shared || false
       })
       .select()

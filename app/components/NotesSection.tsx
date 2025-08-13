@@ -223,8 +223,36 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
                   }
                 </div>
 
-                {/* IMAGE PREVIEW */}
-                {note.image_url && (
+                {/* MULTIPLE IMAGE PREVIEW */}
+                {(note.images && note.images.length > 0) && (
+                  <div className="mb-2">
+                    <div className="text-xs text-slate-400 mb-1">
+                      {note.images.length} IMAGE{note.images.length > 1 ? 'S' : ''}
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {note.images.slice(0, 4).map((image: any, index: number) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={image.url}
+                            alt={`NOTE IMAGE ${index + 1}`}
+                            className="w-full h-16 object-cover rounded-md border border-slate-600"
+                            onError={(e) => {
+                              // HIDE IMAGE IF IT FAILS TO LOAD
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          {index === 3 && note.images.length > 4 && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-md">
+                              <span className="text-xs text-white">+{note.images.length - 4}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* BACKWARD COMPATIBILITY: SINGLE IMAGE */}
+                {(!note.images || note.images.length === 0) && note.image_url && (
                   <div className="mb-2">
                     <img
                       src={note.image_url}
