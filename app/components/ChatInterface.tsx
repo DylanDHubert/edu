@@ -612,13 +612,34 @@ export default function ChatInterface() {
                   citations = data.citations;
                   currentStep = data.step || '';
                   
+                  // DEBUG: LOG WHAT THE FRONTEND IS RECEIVING
+                  console.log('🔍 FRONTEND RECEIVED:', {
+                    content: assistantMessage,
+                    citations: citations,
+                    step: currentStep
+                  });
+                  
                   // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                   if (!assistantMessageObj && assistantMessage.trim()) {
                     const messageId = `assistant-${Date.now()}`;
                     assistantMessageObj = {
                       id: messageId,
                       role: 'assistant',
-                      content: [{ type: 'text', text: { value: assistantMessage } }],
+                      content: [{ 
+                        type: 'text', 
+                        text: { 
+                          value: assistantMessage,
+                          // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
+                          annotations: citations.length > 0 ? citations.map((citation, index) => ({
+                            type: 'file_citation',
+                            text: `[${index + 1}]`,
+                            file_citation: {
+                              file_id: `citation-${index}`,
+                              quote: citation.replace(`[${index + 1}] `, '')
+                            }
+                          })) : undefined
+                        } 
+                      }],
                       created_at: Date.now() / 1000
                     };
                     setMessages(prev => [...prev, assistantMessageObj!]);
@@ -631,7 +652,24 @@ export default function ChatInterface() {
                     // UPDATE THE ASSISTANT MESSAGE
                     setMessages(prev => prev.map(msg => 
                       msg.id === assistantMessageObj!.id 
-                        ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
+                        ? { 
+                            ...msg, 
+                            content: [{ 
+                              type: 'text', 
+                              text: { 
+                                value: assistantMessage,
+                                // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
+                                annotations: citations.length > 0 ? citations.map((citation, index) => ({
+                                  type: 'file_citation',
+                                  text: `[${index + 1}]`,
+                                  file_citation: {
+                                    file_id: `citation-${index}`,
+                                    quote: citation.replace(`[${index + 1}] `, '')
+                                  }
+                                })) : undefined
+                              } 
+                            }] 
+                          }
                         : msg
                     ));
                   }
@@ -833,7 +871,7 @@ export default function ChatInterface() {
                               .filter(ann => ann.type === 'file_citation')
                               .map((annotation, annIndex) => (
                                 <div key={annIndex} className="mb-1">
-                                  [{annIndex + 1}] {annotation.file_citation?.quote || 'Unknown source'}
+                                  [{annIndex + 1}] {annotation.file_citation?.quote || annotation.text || 'Unknown source'}
                                 </div>
                               ))}
                           </div>

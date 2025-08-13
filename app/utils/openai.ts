@@ -78,19 +78,32 @@ export class StreamingEventHandler {
     // MESSAGE IS COMPLETE
     const messageContent = message.content[0].text;
     
-    // SIMPLY REPLACE CITATION PLACEHOLDERS WITH NUMBERED REFERENCES
+    // LOG BACKEND CITATION DATA FOR DEBUGGING
+    console.log('🔍 STREAMING HANDLER ANNOTATIONS:', JSON.stringify(messageContent.annotations, null, 2));
+    
+    // EXTRACT CITATION DATA AND BUILD CITATIONS ARRAY
     let processedContent = messageContent.value;
     const annotations = messageContent.annotations;
+    const extractedCitations: string[] = [];
     
     for (let index = 0; index < annotations.length; index++) {
       const annotation = annotations[index];
       if (annotation.type === 'file_citation') {
         processedContent = processedContent.replace(annotation.text, `[${index + 1}]`);
+        
+        // EXTRACT CITATION INFORMATION
+        if (annotation.file_citation) {
+          // USE THE ANNOTATION TEXT WHICH CONTAINS THE ACTUAL CITATION INFO
+          const citationInfo = annotation.text || annotation.file_citation.quote || 'Unknown source';
+          extractedCitations.push(`[${index + 1}] ${citationInfo}`);
+          console.log(`📚 STREAMING CITATION [${index + 1}]:`, citationInfo);
+        }
       }
     }
     
+    console.log('📚 STREAMING FINAL CITATIONS:', extractedCitations);
     this.messageContent = processedContent;
-    this.onUpdate(this.messageContent, [], 'COMPLETE');
+    this.onUpdate(this.messageContent, extractedCitations, 'COMPLETE');
   }
 }
 
@@ -167,15 +180,30 @@ export async function sendMessageStreaming(
           const textContent = message.content[0] as any;
           const annotations = textContent.text.annotations;
           
-          // SIMPLY REPLACE CITATION PLACEHOLDERS WITH NUMBERED REFERENCES
+          // LOG BACKEND CITATION DATA FOR DEBUGGING
+          console.log('🔍 BACKEND MESSAGE ANNOTATIONS:', JSON.stringify(annotations, null, 2));
+          
+          // EXTRACT CITATION DATA AND BUILD CITATIONS ARRAY
+          const extractedCitations: string[] = [];
+          
+          // REPLACE CITATION PLACEHOLDERS WITH NUMBERED REFERENCES
           for (let index = 0; index < annotations.length; index++) {
             const annotation = annotations[index];
             if (annotation.type === 'file_citation') {
               messageContent = messageContent.replace(annotation.text, `[${index + 1}]`);
+              
+              // EXTRACT CITATION INFORMATION
+              if (annotation.file_citation) {
+                // USE THE ANNOTATION TEXT WHICH CONTAINS THE ACTUAL CITATION INFO
+                const citationInfo = annotation.text || annotation.file_citation.quote || 'Unknown source';
+                extractedCitations.push(`[${index + 1}] ${citationInfo}`);
+                console.log(`📚 EXTRACTED CITATION [${index + 1}]:`, citationInfo);
+              }
             }
           }
           
-          onUpdate(messageContent, [], currentStep);
+          console.log('📚 FINAL EXTRACTED CITATIONS:', extractedCitations);
+          onUpdate(messageContent, extractedCitations, currentStep);
         }
       });
 
