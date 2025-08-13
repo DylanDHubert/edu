@@ -49,12 +49,31 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
         
         // HANDLE MULTIPLE IMAGES (NEW FORMAT)
         if (editingNote.images && editingNote.images.length > 0) {
-          setExistingImages(editingNote.images);
+          // CONVERT SUPABASE URLS TO PROXY URLS
+          const convertedImages = editingNote.images.map((image: any) => {
+            if (image.url) {
+              // EXTRACT FILENAME FROM SUPABASE URL
+              const urlParts = image.url.split('/');
+              const filename = urlParts[urlParts.length - 1];
+              const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+              return {
+                url: proxyUrl,
+                description: image.description
+              };
+            }
+            return image;
+          });
+          setExistingImages(convertedImages);
         }
         // BACKWARD COMPATIBILITY: HANDLE SINGLE IMAGE
         else if (editingNote.image_url && editingNote.image_description) {
+          // CONVERT SUPABASE URL TO PROXY URL
+          const urlParts = editingNote.image_url.split('/');
+          const filename = urlParts[urlParts.length - 1];
+          const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+          
           setExistingImages([{
-            url: editingNote.image_url,
+            url: proxyUrl,
             description: editingNote.image_description
           }]);
         } else {
