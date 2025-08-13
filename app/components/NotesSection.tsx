@@ -23,9 +23,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
   const [filters, setFilters] = useState<NotesFilterType>({
     portfolio: currentPortfolio,
     account: [],
-    team: [],
-    priority: [],
-    status: []
+    team: []
   });
 
   const handleEditNote = (note: any) => {
@@ -88,17 +86,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
         }
       }
 
-      if (filters.priority.length > 0) {
-        if (!note.tags?.priority || !filters.priority.includes(note.tags.priority)) {
-          return false;
-        }
-      }
 
-      if (filters.status.length > 0) {
-        if (!note.tags?.status || !filters.status.includes(note.tags.status)) {
-          return false;
-        }
-      }
 
       return true;
     });

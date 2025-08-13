@@ -190,9 +190,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const getUniqueTags = (): { [key: string]: string[] } => {
     const tagCategories: { [key: string]: Set<string> } = {
       account: new Set(),
-      team: new Set(),
-      priority: new Set(),
-      status: new Set()
+      team: new Set()
     };
 
     notes.forEach(note => {
@@ -207,9 +205,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
     return {
       account: Array.from(tagCategories.account).sort(),
-      team: Array.from(tagCategories.team).sort(),
-      priority: Array.from(tagCategories.priority).sort(),
-      status: Array.from(tagCategories.status).sort()
+      team: Array.from(tagCategories.team).sort()
     };
   };
 

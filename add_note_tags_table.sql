@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS note_tags (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   note_id UUID REFERENCES notes(id) ON DELETE CASCADE,
-  tag_name TEXT NOT NULL CHECK (tag_name IN ('account', 'team', 'priority', 'status')),
+  tag_name TEXT NOT NULL CHECK (tag_name IN ('account', 'team')),
   tag_value TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

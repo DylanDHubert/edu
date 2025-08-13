@@ -322,43 +322,7 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
                 </datalist>
               </div>
 
-              {/* PRIORITY TAG */}
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">PRIORITY</label>
-                <input
-                  type="text"
-                  value={tags.priority || ''}
-                  onChange={(e) => setTags(prev => ({ ...prev, priority: e.target.value }))}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                  placeholder="ENTER PRIORITY..."
-                  disabled={isSubmitting}
-                  list="priority-tags"
-                />
-                <datalist id="priority-tags">
-                  {uniqueTags.priority?.map(tag => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-              </div>
 
-              {/* STATUS TAG */}
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">STATUS</label>
-                <input
-                  type="text"
-                  value={tags.status || ''}
-                  onChange={(e) => setTags(prev => ({ ...prev, status: e.target.value }))}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                  placeholder="ENTER STATUS..."
-                  disabled={isSubmitting}
-                  list="status-tags"
-                />
-                <datalist id="status-tags">
-                  {uniqueTags.status?.map(tag => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-              </div>
             </div>
 
             {/* TAG PREVIEW */}

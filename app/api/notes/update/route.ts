@@ -33,7 +33,7 @@ export async function PUT(request: NextRequest) {
 
     // VALIDATE TAGS IF PROVIDED
     if (tags) {
-      const validTagNames = ['account', 'team', 'priority', 'status'];
+      const validTagNames = ['account', 'team'];
       const providedTagNames = Object.keys(tags);
       const invalidTags = providedTagNames.filter(name => !validTagNames.includes(name));
       
@@ -103,6 +103,11 @@ export async function PUT(request: NextRequest) {
       imageDescription = null;
     }
 
+    // PRESERVE EXISTING IMAGE DESCRIPTION IF NO NEW ONE PROVIDED AND IMAGE IS NOT BEING REPLACED
+    if (!imageFile && !removeImage && existingNote.image_url && (!imageDescription || imageDescription.trim() === '')) {
+      imageDescription = existingNote.image_description;
+    }
+
     // VALIDATE IMAGE DESCRIPTION IF NEW IMAGE IS PROVIDED
     if (imageFile && imageFile.size > 0 && (!imageDescription || imageDescription.trim() === '')) {
       return NextResponse.json(
@@ -154,6 +159,14 @@ export async function PUT(request: NextRequest) {
         .getPublicUrl(fileName);
 
       imageUrl = urlData.publicUrl;
+    }
+
+    // FINAL VALIDATION: ENSURE IMAGE DESCRIPTION IS PROVIDED IF IMAGE URL EXISTS
+    if (imageUrl && (!imageDescription || imageDescription.trim() === '')) {
+      return NextResponse.json(
+        { error: 'IMAGE DESCRIPTION IS REQUIRED WHEN AN IMAGE IS PRESENT' },
+        { status: 400 }
+      );
     }
 
     // UPDATE NOTE

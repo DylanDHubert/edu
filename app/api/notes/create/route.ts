@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     // VALIDATE TAGS IF PROVIDED
     if (tags) {
-      const validTagNames = ['account', 'team', 'priority', 'status'];
+      const validTagNames = ['account', 'team'];
       const providedTagNames = Object.keys(tags);
       const invalidTags = providedTagNames.filter(name => !validTagNames.includes(name));
       

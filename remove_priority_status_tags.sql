@@ -1,0 +1,13 @@
+-- REMOVE PRIORITY AND STATUS TAGS FROM NOTE TAGS SYSTEM
+
+-- DELETE EXISTING PRIORITY AND STATUS TAGS FROM THE DATABASE
+DELETE FROM note_tags WHERE tag_name IN ('priority', 'status');
+
+-- UPDATE THE DATABASE CONSTRAINT TO ONLY ALLOW ACCOUNT AND TEAM TAGS
+ALTER TABLE note_tags DROP CONSTRAINT IF EXISTS note_tags_tag_name_check;
+ALTER TABLE note_tags ADD CONSTRAINT note_tags_tag_name_check 
+  CHECK (tag_name IN ('account', 'team'));
+
+-- DROP AND RECREATE INDEXES TO REFLECT THE CHANGES
+DROP INDEX IF EXISTS idx_note_tags_name_value;
+CREATE INDEX IF NOT EXISTS idx_note_tags_name_value ON note_tags(tag_name, tag_value);

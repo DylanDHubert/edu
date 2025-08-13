@@ -3,7 +3,7 @@
 export interface NoteTag {
   id: string;
   note_id: string;
-  tag_name: 'account' | 'team' | 'priority' | 'status';
+  tag_name: 'account' | 'team';
   tag_value: string;
   created_at: string;
 }
@@ -11,8 +11,6 @@ export interface NoteTag {
 export interface NoteTags {
   account?: string;
   team?: string;
-  priority?: string;
-  status?: string;
 }
 
 // CONVERT ARRAY OF TAGS TO OBJECT FORMAT
@@ -29,7 +27,7 @@ export function tagsObjectToArray(tags: NoteTags): Omit<NoteTag, 'id' | 'note_id
   return Object.entries(tags)
     .filter(([_, value]) => value && value.trim() !== '')
     .map(([tag_name, tag_value]) => ({
-      tag_name: tag_name as 'account' | 'team' | 'priority' | 'status',
+      tag_name: tag_name as 'account' | 'team',
       tag_value: tag_value!.trim()
     }));
 }
@@ -39,8 +37,6 @@ export function getTagColor(tagName: string): string {
   switch (tagName) {
     case 'account': return 'bg-blue-500';
     case 'team': return 'bg-green-500';
-    case 'priority': return 'bg-yellow-500';
-    case 'status': return 'bg-purple-500';
     default: return 'bg-slate-500';
   }
 }
@@ -50,8 +46,6 @@ export function getTagDisplayName(tagName: string): string {
   switch (tagName) {
     case 'account': return 'ACCOUNT';
     case 'team': return 'TEAM';
-    case 'priority': return 'PRIORITY';
-    case 'status': return 'STATUS';
     default: return tagName.toUpperCase();
   }
 } 
