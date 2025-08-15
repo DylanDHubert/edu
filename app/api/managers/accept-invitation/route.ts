@@ -4,10 +4,9 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { invitationToken } = await request.json();
+    const { token } = await request.json();
 
-    // Validate required fields
-    if (!invitationToken) {
+    if (!token) {
       return NextResponse.json(
         { error: 'Invitation token is required' },
         { status: 400 }
@@ -26,72 +25,110 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the invitation by token
+    // Find the invitation
     const { data: invitation, error: inviteError } = await supabase
-      .from('manager_invitations')
-      .select('*')
-      .eq('invitation_token', invitationToken)
+      .from('team_member_invitations')
+      .select(`
+        *,
+        teams:team_id (
+          name
+        )
+      `)
+      .eq('invitation_token', token)
       .eq('status', 'pending')
       .single();
 
     if (inviteError || !invitation) {
       return NextResponse.json(
-        { error: 'Invitation not found or has been used' },
+        { error: 'Invalid or expired invitation' },
         { status: 404 }
       );
     }
 
     // Check if invitation has expired
-    const now = new Date();
     const expiresAt = new Date(invitation.expires_at);
+    const now = new Date();
+    
     if (now > expiresAt) {
-      // Mark as expired
-      await supabase
-        .from('manager_invitations')
-        .update({ status: 'expired' })
-        .eq('id', invitation.id);
-
       return NextResponse.json(
         { error: 'This invitation has expired' },
-        { status: 410 }
+        { status: 400 }
       );
     }
 
-    // Verify email matches the logged-in user
-    if (user.email !== invitation.email) {
+    // Verify user email matches invitation email
+    if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
       return NextResponse.json(
-        { error: 'Email mismatch. Please log in with the invited email address.' },
+        { error: 'This invitation is not for your email address' },
         { status: 403 }
       );
     }
 
-    // Accept the invitation
-    const { data: updatedInvitation, error: updateError } = await supabase
-      .from('manager_invitations')
-      .update({ 
-        status: 'accepted',
-        accepted_at: new Date().toISOString()
+    // Check if user is already a member of this team
+    const { data: existingMember } = await supabase
+      .from('team_members')
+      .select('*')
+      .eq('team_id', invitation.team_id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .single();
+
+    if (existingMember) {
+      return NextResponse.json(
+        { error: 'You are already a member of this team' },
+        { status: 400 }
+      );
+    }
+
+    // Start a transaction to:
+    // 1. Create team member record
+    // 2. Update invitation status to 'accepted'
+    
+    // Create team member record
+    const { data: newMember, error: memberError } = await supabase
+      .from('team_members')
+      .insert({
+        team_id: invitation.team_id,
+        user_id: user.id,
+        role: invitation.role,
+        status: 'active',
+        is_original_manager: false
       })
-      .eq('id', invitation.id)
       .select()
       .single();
 
-    if (updateError) {
-      console.error('Error accepting invitation:', updateError);
+    if (memberError) {
+      console.error('Error creating team member:', memberError);
       return NextResponse.json(
-        { error: 'Failed to accept invitation' },
+        { error: 'Failed to add you to the team' },
         { status: 500 }
       );
     }
 
+    // Update invitation status
+    const { error: updateError } = await supabase
+      .from('team_member_invitations')
+      .update({
+        status: 'accepted',
+        accepted_at: new Date().toISOString()
+      })
+      .eq('id', invitation.id);
+
+    if (updateError) {
+      console.error('Error updating invitation status:', updateError);
+      // Don't fail the request since the important part (adding member) succeeded
+      // Just log the error
+    }
+
     return NextResponse.json({
       success: true,
-      invitation: updatedInvitation,
-      message: 'Invitation accepted successfully. You can now create your team.'
+      message: `Welcome to ${invitation.teams?.name || 'the team'}!`,
+      teamId: invitation.team_id,
+      role: invitation.role
     });
 
   } catch (error) {
-    console.error('Error in accepting invitation:', error);
+    console.error('Error accepting invitation:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
