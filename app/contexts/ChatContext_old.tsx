@@ -3,15 +3,11 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { createClient } from "../utils/supabase/client";
-import { PortfolioType, PORTFOLIOS } from "../utils/portfolios";
+// Removed portfolio dependencies - now using dynamic assistants
 
 interface ChatHistory {
   id: string;
-  portfolio_type?: PortfolioType;  // Optional for individual chats
-  team_id?: string;                // Optional for team chats
-  account_id?: string;             // Optional for team chats
-  portfolio_id?: string;           // Optional for team chats
-  assistant_id?: string;           // Optional for team chats
+  portfolio_type: PortfolioType;
   thread_id: string;
   title: string;
   created_at: string;
@@ -38,28 +34,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [currentChat, setCurrentChat] = useState<ChatHistory | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeAssistant, setActiveAssistant] = useState<any>(null);
   const supabase = createClient();
 
-  // Load active assistant from localStorage on mount
-  useEffect(() => {
-    const storedAssistant = localStorage.getItem('activeAssistant');
-    if (storedAssistant) {
-      try {
-        const assistant = JSON.parse(storedAssistant);
-        setActiveAssistant(assistant);
-      } catch (error) {
-        console.error('Error parsing activeAssistant from localStorage:', error);
-      }
-    }
-  }, []);
-
-  // LOAD CHAT HISTORY WHEN USER OR ACTIVE ASSISTANT CHANGES
+  // LOAD CHAT HISTORY WHEN USER CHANGES
   useEffect(() => {
     if (user) {
       refreshChatHistory();
     }
-  }, [user, activeAssistant]);
+  }, [user]);
 
   const refreshChatHistory = async () => {
     if (!user) return;
@@ -76,21 +58,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      let filteredData = data || [];
-      
-      // If we have an active team assistant, only show chats for that team
-      if (activeAssistant) {
-        filteredData = filteredData.filter(chat => 
-          chat.team_id === activeAssistant.teamId &&
-          chat.account_id === activeAssistant.accountId &&
-          chat.portfolio_id === activeAssistant.portfolioId
-        );
-      } else {
-        // If no team assistant, only show individual chats (those with portfolio_type)
-        filteredData = filteredData.filter(chat => chat.portfolio_type);
-      }
-
-      setChatHistory(filteredData);
+      setChatHistory(data || []);
     } catch (error) {
       console.error('ERROR LOADING CHAT HISTORY:', error);
     }

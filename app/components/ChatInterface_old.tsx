@@ -26,22 +26,13 @@ interface Message {
   created_at: number;
 }
 
-interface ActiveAssistant {
-  assistantId: string;
-  assistantName: string;
-  teamId: string;
-  accountId: string;
-  portfolioId: string;
-  teamName?: string;
-}
-
 export default function ChatInterface() {
-  const { currentChat, currentPortfolio, setCurrentChat, setCurrentPortfolio, refreshChatHistory } = useChat();
+  const { currentChat, setCurrentChat, refreshChatHistory } = useChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [pendingChat, setPendingChat] = useState<{portfolioType: string, message: string} | null>(null);
+  const [pendingChat, setPendingChat] = useState<{assistantId: string, assistantName: string, message: string} | null>(null);
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [messageRatings, setMessageRatings] = useState<Record<string, any>>({});
@@ -49,18 +40,17 @@ export default function ChatInterface() {
   const [responseStartTimes, setResponseStartTimes] = useState<Record<string, number>>({});
   const [feedbackModalOpen, setFeedbackModalOpen] = useState<string | null>(null);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [activeAssistant, setActiveAssistant] = useState<ActiveAssistant | null>(null);
+  const [activeAssistant, setActiveAssistant] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load active assistant from localStorage on mount
+  // LOAD ACTIVE ASSISTANT FROM LOCALSTORAGE
   useEffect(() => {
     const storedAssistant = localStorage.getItem('activeAssistant');
     if (storedAssistant) {
       try {
         const assistant = JSON.parse(storedAssistant);
         setActiveAssistant(assistant);
-        console.log('Team assistant loaded:', assistant);
       } catch (error) {
         console.error('Error parsing activeAssistant from localStorage:', error);
       }
@@ -407,34 +397,23 @@ export default function ChatInterface() {
     setInputMessage("");
 
     // IF NO CURRENT CHAT, CREATE ONE WITH THE MESSAGE
-    if (!currentChat && (currentPortfolio || activeAssistant)) {
+    if (!currentChat && currentPortfolio) {
       setIsCreatingNewChat(true); // PREVENT LOADING MESSAGES
       
       // START LOADING STATE IMMEDIATELY
       setIsLoading(true);
         
         try {
-          // Use team-based chat creation if activeAssistant exists, otherwise use old individual flow
-          const endpoint = activeAssistant ? '/api/chat/create-team' : '/api/chat/create';
-          const requestBody = activeAssistant ? {
-            teamId: activeAssistant.teamId,
-            accountId: activeAssistant.accountId,
-            portfolioId: activeAssistant.portfolioId,
-            assistantId: activeAssistant.assistantId,
-            title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
-            initialMessage: messageToSend
-          } : {
-            portfolioType: currentPortfolio,
-            title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
-            initialMessage: messageToSend
-          };
-
-          const response = await fetch(endpoint, {
+          const response = await fetch('/api/chat/create', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify({
+              portfolioType: currentPortfolio,
+              title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
+              initialMessage: messageToSend
+            }),
             signal: abortControllerRef.current.signal,
           });
 
@@ -465,13 +444,7 @@ export default function ChatInterface() {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(activeAssistant ? {
-              threadId: newChat.thread_id,
-              message: inputMessage,
-              assistantId: activeAssistant.assistantId,
-              teamId: activeAssistant.teamId,
-              streaming: true
-            } : {
+            body: JSON.stringify({
               threadId: newChat.thread_id,
               message: inputMessage,
               portfolioType: currentPortfolio,
@@ -592,7 +565,7 @@ export default function ChatInterface() {
     }
 
     // REGULAR MESSAGE SENDING
-    if (!currentChat || (!currentPortfolio && !activeAssistant)) return;
+    if (!currentChat || !currentPortfolio) return;
 
     // ADD TEMPORARY USER MESSAGE FOR EXISTING CHATS
     const tempUserMessage: Message = {
@@ -612,13 +585,7 @@ export default function ChatInterface() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(activeAssistant ? {
-          threadId: currentChat.thread_id,
-          message: inputMessage,
-          assistantId: activeAssistant.assistantId,
-          teamId: activeAssistant.teamId,
-          streaming: true
-        } : {
+        body: JSON.stringify({
           threadId: currentChat.thread_id,
           message: inputMessage,
           portfolioType: currentPortfolio,
@@ -770,8 +737,7 @@ export default function ChatInterface() {
     }
   };
 
-  // Show welcome screen only if no team assistant AND no individual portfolio
-  if (!activeAssistant && !currentPortfolio) {
+  if (!activeAssistant) {
     return (
       <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="text-center px-4 lg:px-8">
@@ -779,25 +745,14 @@ export default function ChatInterface() {
             WELCOME TO HHB RAG ASSISTANT
           </h2>
           <p className="text-slate-400 mb-6 text-sm lg:text-base">
-            SELECT A PORTFOLIO
+            Please select an account and portfolio from the launcher to start chatting.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            {Object.entries(PORTFOLIOS).map(([key, portfolio]) => (
-              <button
-                key={key}
-                onClick={() => setCurrentPortfolio(key as PortfolioType)}
-                className={`border rounded-lg p-3 lg:p-4 text-left transition-colors ${
-                  key === 'hip' ? 'bg-blue-700 border-blue-600 hover:bg-blue-600' :
-                  key === 'knee' ? 'bg-green-700 border-green-600 hover:bg-green-600' :
-                  key === 'ts_knee' ? 'bg-purple-700 border-purple-600 hover:bg-purple-600' :
-                  'bg-slate-700 border-slate-600 hover:bg-slate-600'
-                }`}
-              >
-                <h3 className="font-semibold text-white mb-2 text-sm lg:text-base">{portfolio.name}</h3>
-                <p className="text-xs lg:text-sm text-slate-200">{portfolio.description}</p>
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={() => window.location.href = '/launcher'}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+          >
+            Go to Launcher
+          </button>
         </div>
       </div>
     );
@@ -808,27 +763,15 @@ export default function ChatInterface() {
       {/* CHAT HEADER - FIXED */}
       <div className="bg-slate-800 border-b border-slate-700 p-3 lg:p-4 flex-shrink-0">
         <h2 className="text-base lg:text-lg font-semibold text-slate-100 truncate">
-          {currentChat ? currentChat.title : (
-            activeAssistant ? `NEW CHAT` :
-            currentPortfolio ? `NEW ${PORTFOLIOS[currentPortfolio].name}` : 'NEW CHAT'
-          )}
+          {currentChat ? currentChat.title : `NEW ${activeAssistant?.assistantName || 'CHAT'}`}
         </h2>
         <p className="text-xs lg:text-sm text-slate-400 truncate">
           {activeAssistant ? (
             <span className="font-medium text-blue-400">
               {activeAssistant.assistantName}
             </span>
-          ) : currentPortfolio ? (
-            <span className={`font-medium ${
-              currentPortfolio === 'hip' ? 'text-blue-400' :
-              currentPortfolio === 'knee' ? 'text-green-400' :
-              currentPortfolio === 'ts_knee' ? 'text-purple-400' :
-              'text-slate-400'
-            }`}>
-              {PORTFOLIOS[currentPortfolio].name}
-            </span>
           ) : (
-            'SELECT A PORTFOLIO'
+            'NO ASSISTANT SELECTED'
           )}
         </p>
       </div>
@@ -1031,14 +974,14 @@ export default function ChatInterface() {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={(activeAssistant || currentPortfolio) ? "TYPE YOUR MESSAGE HERE..." : "SELECT A PORTFOLIO TO START CHATTING"}
+            placeholder={currentPortfolio ? "TYPE YOUR MESSAGE HERE..." : "SELECT A PORTFOLIO TO START CHATTING"}
             className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 lg:px-4 lg:py-2 text-slate-100 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-slate-500 text-base"
             rows={1}
-            disabled={isLoading || isLoadingMessages || (!activeAssistant && !currentPortfolio)}
+            disabled={isLoading || isLoadingMessages || !currentPortfolio}
           />
           <button
             onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || isLoading || isLoadingMessages || (!activeAssistant && !currentPortfolio)}
+            disabled={!inputMessage.trim() || isLoading || isLoadingMessages || !currentPortfolio}
             className="bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-100 px-3 py-2 lg:px-4 lg:py-2 rounded-lg transition-colors text-base whitespace-nowrap"
           >
             SEND

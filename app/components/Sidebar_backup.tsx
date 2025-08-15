@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
-import { PORTFOLIOS, PortfolioType } from "../utils/portfolios";
 import NotesSection from "./NotesSection";
 
 interface SidebarProps {
@@ -14,8 +13,6 @@ interface SidebarProps {
 export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps) {
   const { user, signOut } = useAuth();
   const { 
-    currentPortfolio, 
-    setCurrentPortfolio, 
     chatHistory, 
     currentChat, 
     setCurrentChat, 
@@ -28,29 +25,29 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
   const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
   const [activeAssistant, setActiveAssistant] = useState<any>(null);
 
-  // Load active assistant from localStorage
+  // LOAD ACTIVE ASSISTANT FROM LOCALSTORAGE
   useEffect(() => {
     const storedAssistant = localStorage.getItem('activeAssistant');
     if (storedAssistant) {
       try {
         const assistant = JSON.parse(storedAssistant);
         setActiveAssistant(assistant);
-        
-        // Update the sidebar info elements
-        const nameEl = document.getElementById('sidebar-assistant-name');
-        const contextEl = document.getElementById('sidebar-assistant-context');
-        if (nameEl) nameEl.textContent = assistant.assistantName || 'Team Assistant';
-        if (contextEl) contextEl.textContent = assistant.teamName ? `Team: ${assistant.teamName}` : 'Team Mode';
+        // Update the sidebar display
+        const nameElement = document.getElementById('sidebar-assistant-name');
+        const contextElement = document.getElementById('sidebar-assistant-context');
+        if (nameElement) nameElement.textContent = assistant.assistantName || 'Unknown Assistant';
+        if (contextElement) contextElement.textContent = `Team: ${assistant.teamName || 'Unknown'}`;
       } catch (error) {
         console.error('Error parsing activeAssistant from localStorage:', error);
       }
+    } else {
+      // No assistant selected
+      const nameElement = document.getElementById('sidebar-assistant-name');
+      const contextElement = document.getElementById('sidebar-assistant-context');
+      if (nameElement) nameElement.textContent = 'No Assistant Selected';
+      if (contextElement) contextElement.textContent = 'Go to launcher to select';
     }
   }, []);
-
-  const handlePortfolioSelect = (portfolioType: PortfolioType) => {
-    setCurrentPortfolio(portfolioType);
-    setCurrentChat(null); // CLEAR CURRENT CHAT WHEN SELECTING NEW PORTFOLIO
-  };
 
   const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // PREVENT CHAT SELECTION WHEN CLICKING DELETE
@@ -157,7 +154,8 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                 </p>
               ) : (
                 <div className="flex-1 overflow-y-auto">
-                  {chatHistory.map((chat) => (
+                  {chatHistory
+                    .map((chat) => (
                     <div
                       key={chat.id}
                       className={`rounded-md text-sm group relative mb-2 p-2 ${
@@ -169,10 +167,6 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                       <button
                         onClick={() => {
                           setCurrentChat(chat);
-                          // Only set portfolio for individual chats
-                          if (chat.portfolio_type) {
-                            setCurrentPortfolio(chat.portfolio_type);
-                          }
                           // CLOSE MOBILE SIDEBAR WHEN SELECTING CHAT
                           setIsMobileOpen(false);
                         }}
@@ -189,7 +183,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                             {chat.portfolio_type === 'hip' ? 'HIP' :
                              chat.portfolio_type === 'knee' ? 'KNEE' :
                              chat.portfolio_type === 'ts_knee' ? 'TS KNEE' :
-                             chat.team_id ? 'TEAM' : 'UNKNOWN'}
+                             (chat.portfolio_type as string).toUpperCase()}
                           </span>
                         </div>
 

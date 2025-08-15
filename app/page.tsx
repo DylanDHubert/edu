@@ -16,6 +16,15 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
+    } else if (!loading && user) {
+      // Only redirect if they're specifically on the root page AND there's no active assistant
+      // Don't interfere with direct navigation to /admin or active chat sessions
+      if (window.location.pathname === "/") {
+        const activeAssistant = localStorage.getItem('activeAssistant');
+        if (!activeAssistant) {
+          router.push("/launcher");
+        }
+      }
     }
   }, [user, loading, router]);
 

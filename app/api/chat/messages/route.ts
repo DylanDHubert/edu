@@ -8,9 +8,9 @@ export async function POST(request: NextRequest) {
   try {
     const { threadId, portfolioType } = await request.json();
     
-    if (!threadId || !portfolioType) {
+    if (!threadId) {
       return NextResponse.json(
-        { error: 'THREAD ID AND PORTFOLIO TYPE ARE REQUIRED' },
+        { error: 'THREAD ID IS REQUIRED' },
         { status: 400 }
       );
     }

@@ -12,11 +12,11 @@ const client = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, message, portfolioType, streaming = false } = await request.json();
+    const { threadId, message, portfolioType, assistantId: teamAssistantId, teamId, streaming = false } = await request.json();
     
-    if (!threadId || !message || !portfolioType) {
+    if (!threadId || !message || (!portfolioType && !teamAssistantId)) {
       return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE, AND PORTFOLIO TYPE ARE REQUIRED' },
+        { error: 'THREAD ID, MESSAGE, AND EITHER PORTFOLIO TYPE OR ASSISTANT ID ARE REQUIRED' },
         { status: 400 }
       );
     }
@@ -48,11 +48,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GET ASSISTANT ID
-    const assistantId = await getAssistantId(portfolioType as PortfolioType);
+    // GET ASSISTANT ID - Use team assistant if provided, otherwise use individual portfolio assistant
+    const assistantId = teamAssistantId || await getAssistantId(portfolioType as PortfolioType);
     
-    // GET NOTES FOR THIS PORTFOLIO
-    const notes = await getNotesForPortfolio(portfolioType as PortfolioType, user.id);
+    // GET NOTES FOR THIS PORTFOLIO (keep simple for now - team notes to be implemented later)
+    const notes = portfolioType ? await getNotesForPortfolio(portfolioType as PortfolioType, user.id) : [];
     const notesContext = formatNotesForContext(notes);
     
     // ADD NOTES TO MESSAGE IF AVAILABLE (BUT KEEP ORIGINAL MESSAGE FOR THREAD)
