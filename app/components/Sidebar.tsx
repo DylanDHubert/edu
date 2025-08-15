@@ -86,7 +86,15 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
       `}>
         {/* HEADER */}
         <div className="p-4 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-slate-100 mb-2">HHB Stryker Assistant</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-bold text-slate-100">HHB Stryker Assistant</h1>
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="lg:hidden bg-slate-600 hover:bg-slate-700 text-white px-2 py-1 rounded text-sm"
+            >
+              ✕
+            </button>
+          </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-400">
               {user?.email?.toUpperCase()}

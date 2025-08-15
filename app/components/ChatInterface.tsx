@@ -33,12 +33,14 @@ interface ActiveAssistant {
   teamId: string;
   accountId: string;
   portfolioId: string;
+  accountName?: string;
+  portfolioName?: string;
   teamName?: string;
   teamLocation?: string;
   userRole?: string;
 }
 
-export default function ChatInterface() {
+export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => void }) {
   const { currentChat, currentPortfolio, setCurrentChat, setCurrentPortfolio, refreshChatHistory } = useChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -816,9 +818,11 @@ export default function ChatInterface() {
         teamName={activeAssistant?.teamName}
         teamLocation={activeAssistant?.teamLocation}
         userRole={activeAssistant?.userRole}
-        accountName={activeAssistant?.assistantName}
-        portfolioName={currentPortfolio ? PORTFOLIOS[currentPortfolio].name : undefined}
+        accountName={activeAssistant?.accountName}
+        portfolioName={activeAssistant?.portfolioName}
         showBackButton={false}
+        showMenuButton={true}
+        onMenuClick={onMenuClick}
       />
 
       {/* MESSAGES - SCROLLABLE */}

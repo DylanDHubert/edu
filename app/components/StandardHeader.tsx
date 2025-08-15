@@ -11,6 +11,9 @@ interface StandardHeaderProps {
   backUrl?: string;
   backText?: string;
   showBackButton?: boolean;
+  showMenuButton?: boolean;
+  onMenuClick?: () => void;
+  isChatPage?: boolean;
 }
 
 export default function StandardHeader({
@@ -21,7 +24,9 @@ export default function StandardHeader({
   portfolioName,
   backUrl,
   backText = "←",
-  showBackButton = true
+  showBackButton = true,
+  showMenuButton = false,
+  onMenuClick
 }: StandardHeaderProps) {
   const router = useRouter();
 
@@ -48,28 +53,46 @@ export default function StandardHeader({
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {teamName && (
             <div className="text-center pointer-events-auto">
-              <h1 className="text-xl font-bold text-slate-100">{teamName}</h1>
-              {teamLocation && userRole && (
-                <p className="text-slate-400 text-sm mt-1">
-                  {teamLocation} • {userRole === 'manager' ? 'Team Manager' : 'Team Member'}
-                </p>
-              )}
-              {accountName && portfolioName && (
-                <p className="text-slate-300 text-sm mt-1">
-                  {accountName} • {portfolioName}
-                </p>
+              {accountName && portfolioName ? (
+                // CHAT PAGE LAYOUT: 2 lines only
+                <>
+                  <h1 className="text-xl font-bold text-slate-100">
+                    {teamName} • {teamLocation}
+                  </h1>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {accountName} • {portfolioName}
+                  </p>
+                </>
+              ) : (
+                // REGULAR PAGE LAYOUT: 2 lines with role
+                <>
+                  <h1 className="text-xl font-bold text-slate-100">{teamName}</h1>
+                  {teamLocation && userRole && (
+                    <p className="text-slate-400 text-sm mt-1">
+                      {teamLocation} • {userRole === 'manager' ? 'Team Manager' : 'Team Member'}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
         </div>
 
-        {/* RIGHT: Back Button */}
+        {/* RIGHT: Back Button or Menu Button */}
         {showBackButton && (
           <button
             onClick={handleBack}
             className="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-md font-medium transition-colors text-sm relative z-10"
           >
             {backText}
+          </button>
+        )}
+        {showMenuButton && onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-md font-medium transition-colors text-sm relative z-10"
+          >
+            ☰
           </button>
         )}
       </div>

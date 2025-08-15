@@ -46,17 +46,9 @@ export default function HomePage() {
   return (
     <div className="flex h-screen bg-slate-900">
       <DynamicThemeColor />
-      {/* SIMPLE MOBILE MENU BUTTON - TOP RIGHT OF SCREEN */}
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-2 right-2 z-50 bg-slate-800 text-slate-100 p-1 pr-2 pl-2 rounded-md border border-slate-700"
-      >
-        ☰
-      </button>
-
       <Sidebar isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
       <div className="flex-1 flex flex-col lg:ml-0">
-        <ChatInterface />
+        <ChatInterface onMenuClick={() => setIsMobileOpen(!isMobileOpen)} />
       </div>
     </div>
   );

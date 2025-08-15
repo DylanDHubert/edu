@@ -175,6 +175,10 @@ function AccountPortfolioSelectContent() {
 
       const { assistantId, assistantName } = await response.json();
 
+      // Get account and portfolio names
+      const selectedAccountData = accounts.find(a => a.id === selectedAccount);
+      const selectedPortfolioData = selectedAccountData?.portfolios.find(p => p.id === selectedPortfolio);
+
       // Store assistant context and redirect to chat
       localStorage.setItem('activeAssistant', JSON.stringify({
         assistantId,
@@ -182,6 +186,8 @@ function AccountPortfolioSelectContent() {
         teamId,
         accountId: selectedAccount,
         portfolioId: selectedPortfolio,
+        accountName: selectedAccountData?.name,
+        portfolioName: selectedPortfolioData?.name,
         teamName: team?.name,
         teamLocation: team?.location,
         userRole: userRole
