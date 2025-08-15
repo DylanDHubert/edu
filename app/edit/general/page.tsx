@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
+import StandardHeader from "../../components/StandardHeader";
 
 interface Doctor {
   id: string;
@@ -24,6 +25,7 @@ function EditGeneralContent() {
   const [accessMisc, setAccessMisc] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -50,6 +52,8 @@ function EditGeneralContent() {
         setError('Manager access required');
         return;
       }
+      
+      setUserRole(membership.role);
 
       // Load team info
       const { data: teamData, error: teamError } = await supabase
@@ -223,30 +227,15 @@ function EditGeneralContent() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-100">Edit General Knowledge</h1>
-                <p className="text-slate-400 mt-1">
-                  Modify general team knowledge for <strong>{team.name}</strong>
-                </p>
-              </div>
-              <button
-                onClick={() => router.push(`/edit/accounts?teamId=${teamId}`)}
-                className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
-              >
-                ←
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StandardHeader
+        teamName={team.name}
+        teamLocation={team.location}
+        userRole={userRole}
+        backUrl={`/edit/accounts?teamId=${teamId}`}
+      />
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
           <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-md">
             <p className="text-red-400 text-sm">{error}</p>
