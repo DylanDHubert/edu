@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
+import { BrainCog } from "lucide-react";
 
 interface Portfolio {
   id: string;
@@ -218,7 +219,7 @@ function AccountPortfolioSelectContent() {
             onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
-            Back to Team Dashboard
+            ←
           </button>
         </div>
       </div>
@@ -237,7 +238,7 @@ function AccountPortfolioSelectContent() {
             onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
-            Back to Team Dashboard
+            ←
           </button>
         </div>
       </div>
@@ -254,14 +255,14 @@ function AccountPortfolioSelectContent() {
               <div>
                 <h1 className="text-3xl font-bold text-slate-100">Start AI Chat</h1>
                 <p className="text-slate-400 mt-1">
-                  Select account and portfolio for <strong>{team.name}</strong>
+                  <strong>{team.name}</strong>
                 </p>
               </div>
               <button
                 onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
                 className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
               >
-                ← Back to Dashboard
+                ←
               </button>
             </div>
           </div>
@@ -383,13 +384,16 @@ function AccountPortfolioSelectContent() {
           )}
 
           {/* Start Chat Button */}
-          <div className="flex justify-end">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
             <button
               onClick={handleStartChat}
               disabled={!selectedAccount || !selectedPortfolio || creatingAssistant}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white px-8 py-3 rounded-md font-medium transition-colors"
+              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
-              {creatingAssistant ? 'Creating Assistant...' : 'Start Chat'}
+              <BrainCog className="w-5 h-5 flex-shrink-0" />
+              <span className="flex-1 text-center">
+                {creatingAssistant ? 'Creating Assistant...' : 'Start Chat'}
+              </span>
             </button>
           </div>
         </div>

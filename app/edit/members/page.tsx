@@ -308,7 +308,7 @@ function EditMembersContent() {
             onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
-            Back to Team Dashboard
+            ←
           </button>
         </div>
       </div>
@@ -336,7 +336,7 @@ function EditMembersContent() {
                 onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
                 className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
               >
-                ← Back to Dashboard
+                ←
               </button>
             </div>
           </div>

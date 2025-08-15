@@ -191,7 +191,7 @@ function TeamDashboardContent() {
             onClick={() => router.push('/launcher')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
-            Back to Launcher
+            ←
           </button>
         </div>
       </div>
@@ -219,7 +219,7 @@ function TeamDashboardContent() {
                 onClick={() => router.push('/launcher')}
                 className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
               >
-                ← Back to Teams
+                ←
               </button>
             </div>
           </div>
