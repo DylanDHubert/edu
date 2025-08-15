@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../utils/supabase/client";
+import { MapPin } from "lucide-react";
 
 interface TeamMember {
   id: string;
@@ -196,18 +197,20 @@ export default function LauncherPage() {
                   {membership.teams.name}
                 </h3>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  membership.role === 'manager' 
+                  membership.is_original_manager 
+                    ? 'bg-purple-100 text-purple-800'
+                    : membership.role === 'manager' 
                     ? 'bg-blue-100 text-blue-800' 
                     : 'bg-green-100 text-green-800'
                 }`}>
-                  {membership.role}
-                  {membership.is_original_manager && ' (Owner)'}
+                  {membership.is_original_manager ? 'owner' : membership.role}
                 </span>
               </div>
 
               {membership.teams.location && (
-                <p className="text-slate-400 mb-2">
-                  📍 {membership.teams.location}
+                <p className="text-slate-400 mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  {membership.teams.location}
                 </p>
               )}
 

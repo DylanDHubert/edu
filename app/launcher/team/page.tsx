@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
-import { FolderOpen, Building2, BookOpen, Users } from "lucide-react";
+import { FolderOpen, Building2, BookOpen, Users, BrainCog } from "lucide-react";
 
 interface TeamStats {
   portfolios: number;
@@ -266,15 +266,14 @@ function TeamDashboardContent() {
                   <div className="text-slate-400 text-sm">Pending Invites</div>
                 </div>
               </div>
+              
+              {/* Team Description - Directly under stats */}
+              {team.description && (
+                <div className="mt-6">
+                  <p className="text-slate-300">{team.description}</p>
+                </div>
+              )}
             </div>
-
-            {/* Team Description */}
-            {team.description && (
-              <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-                <h2 className="text-xl font-semibold text-slate-100 mb-4">About</h2>
-                <p className="text-slate-300">{team.description}</p>
-              </div>
-            )}
           </div>
 
           {/* Actions Sidebar */}
@@ -285,9 +284,10 @@ function TeamDashboardContent() {
                 {/* Start Chat Button - Always visible */}
                 <button
                   onClick={handleStartChat}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
                 >
-                  Start Chat
+                  <BrainCog className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 text-center">Start Chat</span>
                 </button>
 
                 {/* Management Section - Only for managers */}
