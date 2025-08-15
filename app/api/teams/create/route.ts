@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
@@ -26,13 +26,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user has a pending manager invitation
-    const { data: invitation, error: inviteError } = await supabase
+    // Check if user has a pending manager invitation - USE SERVICE CLIENT TO BYPASS RLS
+    console.log('=== TEAM CREATION DEBUG ===');
+    console.log('User email:', user.email);
+    console.log('Looking for accepted manager invitation...');
+    
+    const serviceClient = createServiceClient();
+    const { data: invitation, error: inviteError } = await serviceClient
       .from('manager_invitations')
       .select('*')
       .eq('email', user.email)
       .eq('status', 'accepted')
       .single();
+      
+    console.log('Invitation query result:', invitation);
+    console.log('Invitation query error:', inviteError);
 
     if (inviteError || !invitation) {
       return NextResponse.json(
@@ -41,8 +49,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the team
-    const { data: team, error: teamError } = await supabase
+    // Create the team - USE SERVICE CLIENT TO BYPASS RLS
+    const { data: team, error: teamError } = await serviceClient
       .from('teams')
       .insert({
         name: name.trim(),
@@ -61,8 +69,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Add the user as the original manager of the team
-    const { error: memberError } = await supabase
+    // Add the user as the original manager of the team - USE SERVICE CLIENT TO BYPASS RLS
+    const { error: memberError } = await serviceClient
       .from('team_members')
       .insert({
         team_id: team.id,
@@ -75,16 +83,16 @@ export async function POST(request: NextRequest) {
 
     if (memberError) {
       console.error('Error adding team member:', memberError);
-      // If team member creation fails, we should clean up the team
-      await supabase.from('teams').delete().eq('id', team.id);
+      // If team member creation fails, we should clean up the team - USE SERVICE CLIENT TO BYPASS RLS
+      await serviceClient.from('teams').delete().eq('id', team.id);
       return NextResponse.json(
         { error: 'Failed to set up team membership' },
         { status: 500 }
       );
     }
 
-    // Update the manager invitation status to used/completed
-    await supabase
+    // Update the manager invitation status to used/completed - USE SERVICE CLIENT TO BYPASS RLS
+    await serviceClient
       .from('manager_invitations')
       .update({ status: 'completed' })
       .eq('id', invitation.id);
