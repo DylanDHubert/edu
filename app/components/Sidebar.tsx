@@ -85,49 +85,54 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* HEADER */}
-        <div className="p-4 border-b border-slate-700">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-bold text-slate-100">HHB Stryker Assistant</h1>
+        <div className="bg-slate-800 border-b border-slate-700 p-4">
+          <div className="flex items-center justify-between relative">
+            {/* LEFT: HHB Logo */}
+            <div className="flex items-center">
+              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-lg px-3 py-1 rounded-md mr-4 shadow-lg relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                <span className="relative z-10">HHB</span>
+              </div>
+            </div>
+
+            {/* CENTER: Team/Context Info */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center pointer-events-auto">
+                {activeAssistant?.accountName && activeAssistant?.portfolioName ? (
+                  // CHAT PAGE LAYOUT: 2 lines only
+                  <>
+                    <h1 className="text-xl font-bold text-slate-100">
+                      {activeAssistant.teamName} • {activeAssistant.teamLocation}
+                    </h1>
+                    <p className="text-slate-400 text-sm mt-1">
+                      {activeAssistant.accountName} • {activeAssistant.portfolioName}
+                    </p>
+                  </>
+                ) : (
+                  // REGULAR PAGE LAYOUT: 2 lines with role
+                  <>
+                    <h1 className="text-xl font-bold text-slate-100">{activeAssistant?.teamName || 'HHB Stryker Assistant'}</h1>
+                    {activeAssistant?.teamLocation && activeAssistant?.userRole && (
+                      <p className="text-slate-400 text-sm mt-1">
+                        {activeAssistant.teamLocation} • {activeAssistant.userRole === 'manager' ? 'Team Manager' : 'Team Member'}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT: Close Button */}
             <button
               onClick={() => setIsMobileOpen(false)}
-              className="lg:hidden bg-slate-600 hover:bg-slate-700 text-white px-2 py-1 rounded text-sm"
+              className="lg:hidden bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-md font-medium transition-colors text-sm relative z-10"
             >
               ✕
             </button>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-400">
-              {user?.email?.toUpperCase()}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              LOGOUT
-            </button>
-          </div>
         </div>
 
-        {/* ACTIVE ASSISTANT INFO */}
-        <div className="p-4 border-b border-slate-700">
-          <h2 className="text-sm font-semibold text-slate-300 mb-3">ACTIVE ASSISTANT</h2>
-          <div className="bg-slate-700 rounded-lg p-3">
-            <div className="text-sm text-slate-100 font-medium" id="sidebar-assistant-name">
-              Loading...
-            </div>
-            <div className="text-xs text-slate-400 mt-1" id="sidebar-assistant-context">
-              No assistant selected
-            </div>
-          </div>
-          <div className="mt-3">
-            <button
-              onClick={() => window.location.href = '/launcher'}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors"
-            >
-              Change Assistant
-            </button>
-          </div>
-        </div>
+
 
         {/* TABS */}
         <div className="flex border-b border-slate-700">
@@ -241,6 +246,19 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
               />
             </div>
           )}
+        </div>
+
+        {/* CHANGE ASSISTANT BUTTON */}
+        <div className="p-4 border-t border-slate-700">
+          <button
+            onClick={() => window.location.href = '/launcher'}
+            className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span className="flex-1 text-center">Change Assistant</span>
+          </button>
         </div>
 
         {/* FOOTER */}

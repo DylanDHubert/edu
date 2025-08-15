@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
+import StandardHeader from "../../components/StandardHeader";
 
 interface TeamMember {
   id: string;
@@ -321,30 +322,13 @@ function EditMembersContent() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-100">Manage Team Members</h1>
-                <p className="text-slate-400 mt-1">
-                  View and manage members for <strong>{team.name}</strong>
-                </p>
-              </div>
-              <button
-                onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
-                className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
-              >
-                ←
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StandardHeader
+        teamName="Manage Team Members"
+        backUrl={`/launcher/team?teamId=${teamId}`}
+      />
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
           <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-md">
             <p className="text-red-400 text-sm">{error}</p>
@@ -367,34 +351,34 @@ function EditMembersContent() {
             ) : (
               <div className="space-y-3">
                 {existingMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-4 bg-slate-700 rounded border border-slate-600">
+                  <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-700 rounded border border-slate-600 space-y-3 sm:space-y-0">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
                         <span className="text-slate-300 font-medium">
                           {(member.profiles?.full_name || member.profiles?.email || 'M').charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <div>
-                        <div className="text-slate-100 font-medium">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-slate-100 font-medium truncate">
                           {member.profiles?.full_name || member.profiles?.email || `Member ${member.user_id.slice(0, 8)}`}
                         </div>
-                        <div className="text-slate-400 text-sm">
+                        <div className="text-slate-400 text-sm truncate">
                           {member.profiles?.email || `ID: ${member.user_id.slice(0, 8)}...`}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 flex-shrink-0">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         member.role === 'manager' 
                           ? 'bg-purple-900/50 text-purple-300 border border-purple-700' 
                           : 'bg-blue-900/50 text-blue-300 border border-blue-700'
                       }`}>
-                        {member.role}
+                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
                       </span>
                       {member.user_id !== user.id && (
                         <button
                           onClick={() => removeMember(member.id, member.profiles?.email || `Member ${member.user_id.slice(0, 8)}`)}
-                          className="text-red-400 hover:text-red-300 text-sm"
+                          className="px-2 py-1 rounded text-xs font-medium bg-red-900/50 text-red-300 border border-red-700 hover:bg-red-800/50"
                         >
                           Remove
                         </button>
@@ -413,30 +397,30 @@ function EditMembersContent() {
               
               <div className="space-y-3">
                 {pendingInvites.map((invite) => (
-                  <div key={invite.id} className="flex items-center justify-between p-4 bg-slate-700 rounded border border-slate-600">
+                  <div key={invite.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-700 rounded border border-slate-600 space-y-3 sm:space-y-0">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-amber-900/50 rounded-full flex items-center justify-center">
-                        <span className="text-amber-300 font-medium">{invite.name.charAt(0)}</span>
+                      <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-slate-300 font-medium">{invite.name.charAt(0).toUpperCase()}</span>
                       </div>
-                      <div>
-                        <div className="text-slate-100 font-medium">{invite.name}</div>
-                        <div className="text-slate-400 text-sm">{invite.email}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-slate-100 font-medium truncate">{invite.name}</div>
+                        <div className="text-slate-400 text-sm truncate">{invite.email}</div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 flex-shrink-0">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         invite.role === 'manager' 
                           ? 'bg-purple-900/50 text-purple-300 border border-purple-700' 
                           : 'bg-blue-900/50 text-blue-300 border border-blue-700'
                       }`}>
-                        {invite.role}
+                        {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}
                       </span>
                       <span className="px-2 py-1 rounded text-xs font-medium bg-amber-900/50 text-amber-300 border border-amber-700">
                         Pending
                       </span>
                       <button
                         onClick={() => cancelInvite(invite.id, invite.email)}
-                        className="text-red-400 hover:text-red-300 text-sm"
+                        className="px-2 py-1 rounded text-xs font-medium bg-red-900/50 text-red-300 border border-red-700 hover:bg-red-800/50"
                       >
                         Cancel
                       </button>

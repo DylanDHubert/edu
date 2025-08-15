@@ -23,8 +23,8 @@ export default function DynamicThemeColor() {
     // Check for team mode first
     const activeAssistant = localStorage.getItem('activeAssistant');
     if (activeAssistant) {
-      // Team mode - use blue theme
-      color = '#1d4ed8'; // BLUE-700
+      // Team mode - use header background color for seamless look
+      color = '#1e293b'; // SLATE-800 (matches header background)
     } else if (currentPortfolio) {
       switch (currentPortfolio) {
         case 'hip':

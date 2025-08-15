@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../utils/supabase/client";
 import { MapPin } from "lucide-react";
+import StandardHeader from "../components/StandardHeader";
 
 interface TeamMember {
   id: string;
@@ -28,6 +29,15 @@ export default function LauncherPage() {
   const [error, setError] = useState<string | null>(null);
 
   const supabase = createClient();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -174,12 +184,13 @@ export default function LauncherPage() {
   // Show team selection if user is a member of multiple teams
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">Select Your Team</h1>
-          <p className="text-slate-400">Choose which team you'd like to work with today</p>
-        </div>
-
+      <StandardHeader
+        backText="LOGOUT"
+        showBackButton={true}
+        onBackClick={handleLogout}
+      />
+      
+      <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {teamMemberships.map((membership) => (
             <div
@@ -237,8 +248,8 @@ export default function LauncherPage() {
           ))}
         </div>
 
-        <div className="text-center mt-12">
-          <p className="text-slate-400 mb-4">
+        <div className="text-center mt-6">
+          <p className="text-slate-400">
             Need to join a different team?
           </p>
           <button
