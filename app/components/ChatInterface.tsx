@@ -470,6 +470,8 @@ export default function ChatInterface() {
               message: inputMessage,
               assistantId: activeAssistant.assistantId,
               teamId: activeAssistant.teamId,
+              accountId: activeAssistant.accountId,
+              portfolioId: activeAssistant.portfolioId,
               streaming: true
             } : {
               threadId: newChat.thread_id,
@@ -617,6 +619,8 @@ export default function ChatInterface() {
           message: inputMessage,
           assistantId: activeAssistant.assistantId,
           teamId: activeAssistant.teamId,
+          accountId: activeAssistant.accountId,
+          portfolioId: activeAssistant.portfolioId,
           streaming: true
         } : {
           threadId: currentChat.thread_id,

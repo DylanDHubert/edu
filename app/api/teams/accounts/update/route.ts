@@ -221,37 +221,54 @@ async function updateAccountKnowledge(supabase: any, teamId: string, accountData
     console.log(`Updating knowledge for account ${accountData.id}, portfolio ${portfolioId}`);
     console.log('Account data:', JSON.stringify(accountData, null, 2));
     
-    // Delete existing knowledge for this account+portfolio combination
-    await supabase
-      .from('team_knowledge')
-      .delete()
-      .eq('team_id', teamId)
-      .eq('account_id', accountData.id)
-      .eq('portfolio_id', portfolioId);
-
-    // Create inventory knowledge
+    // Handle inventory knowledge - UPDATE or INSERT each item
     if (accountData.inventory && accountData.inventory.length > 0) {
       for (const item of accountData.inventory) {
         if (item.name && item.name.trim()) {
-          await supabase
+          // Check if this inventory item already exists
+          const { data: existingItem, error: checkError } = await supabase
             .from('team_knowledge')
-            .insert({
-              team_id: teamId,
-              account_id: accountData.id,
-              portfolio_id: portfolioId,
-              category: 'inventory',
-              title: item.name.trim(),
-              content: `Quantity: ${item.quantity || 0}`,
-              metadata: {
-                name: item.name.trim(),
-                quantity: item.quantity || 0
-              }
-            });
+            .select('id')
+            .eq('team_id', teamId)
+            .eq('account_id', accountData.id)
+            .eq('portfolio_id', portfolioId)
+            .eq('category', 'inventory')
+            .eq('title', item.name.trim())
+            .single();
+
+          const knowledgeData = {
+            title: item.name.trim(),
+            content: `Quantity: ${item.quantity || 0}`,
+            metadata: {
+              name: item.name.trim(),
+              quantity: item.quantity || 0
+            },
+            updated_at: new Date().toISOString()
+          };
+
+          if (existingItem && !checkError) {
+            // UPDATE existing record
+            await supabase
+              .from('team_knowledge')
+              .update(knowledgeData)
+              .eq('id', existingItem.id);
+          } else {
+            // INSERT new record
+            await supabase
+              .from('team_knowledge')
+              .insert({
+                team_id: teamId,
+                account_id: accountData.id,
+                portfolio_id: portfolioId,
+                category: 'inventory',
+                ...knowledgeData
+              });
+          }
         }
       }
     }
 
-    // Create instruments knowledge
+    // Handle instruments knowledge - UPDATE or INSERT each item
     if (accountData.instruments && accountData.instruments.length > 0) {
       for (const instrument of accountData.instruments) {
         if (instrument.name && instrument.name.trim()) {
@@ -278,41 +295,135 @@ async function updateAccountKnowledge(supabase: any, teamId: string, accountData
             }
           }
 
-          await supabase
+          // Check if this instrument already exists
+          const { data: existingInstrument, error: checkError } = await supabase
             .from('team_knowledge')
-            .insert({
-              team_id: teamId,
-              account_id: accountData.id,
-              portfolio_id: portfolioId,
-              category: 'instruments',
-              title: instrument.name.trim(),
-              content: instrument.description?.trim() || '',
-              metadata: {
-                name: instrument.name.trim(),
-                description: instrument.description?.trim() || '',
-                image_url: imageUrl,
-                image_name: imageName
-              }
-            });
+            .select('id')
+            .eq('team_id', teamId)
+            .eq('account_id', accountData.id)
+            .eq('portfolio_id', portfolioId)
+            .eq('category', 'instruments')
+            .eq('title', instrument.name.trim())
+            .single();
+
+          const knowledgeData = {
+            title: instrument.name.trim(),
+            content: instrument.description?.trim() || '',
+            metadata: {
+              name: instrument.name.trim(),
+              description: instrument.description?.trim() || '',
+              image_url: imageUrl,
+              image_name: imageName
+            },
+            updated_at: new Date().toISOString()
+          };
+
+          if (existingInstrument && !checkError) {
+            // UPDATE existing record
+            await supabase
+              .from('team_knowledge')
+              .update(knowledgeData)
+              .eq('id', existingInstrument.id);
+          } else {
+            // INSERT new record
+            await supabase
+              .from('team_knowledge')
+              .insert({
+                team_id: teamId,
+                account_id: accountData.id,
+                portfolio_id: portfolioId,
+                category: 'instruments',
+                ...knowledgeData
+              });
+          }
         }
       }
     }
 
-    // Create technical knowledge
+    // Handle technical knowledge - UPDATE or INSERT
     if (accountData.technicalInfo && accountData.technicalInfo.trim()) {
-      await supabase
+      // Check if technical info already exists
+      const { data: existingTechnical, error: checkError } = await supabase
         .from('team_knowledge')
-        .insert({
-          team_id: teamId,
-          account_id: accountData.id,
-          portfolio_id: portfolioId,
-          category: 'technical',
-          title: 'Technical Information',
-          content: accountData.technicalInfo.trim(),
-          metadata: {
-            content: accountData.technicalInfo.trim()
-          }
-        });
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('account_id', accountData.id)
+        .eq('portfolio_id', portfolioId)
+        .eq('category', 'technical')
+        .eq('title', 'Technical Information')
+        .single();
+
+      const knowledgeData = {
+        title: 'Technical Information',
+        content: accountData.technicalInfo.trim(),
+        metadata: {
+          content: accountData.technicalInfo.trim()
+        },
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingTechnical && !checkError) {
+        // UPDATE existing record
+        await supabase
+          .from('team_knowledge')
+          .update(knowledgeData)
+          .eq('id', existingTechnical.id);
+      } else {
+        // INSERT new record
+        await supabase
+          .from('team_knowledge')
+          .insert({
+            team_id: teamId,
+            account_id: accountData.id,
+            portfolio_id: portfolioId,
+            category: 'technical',
+            ...knowledgeData
+          });
+      }
+    }
+
+    // Clean up any orphaned records for removed items
+    // Get all current knowledge items for this account+portfolio
+    const { data: allCurrentKnowledge } = await supabase
+      .from('team_knowledge')
+      .select('id, category, title')
+      .eq('team_id', teamId)
+      .eq('account_id', accountData.id)
+      .eq('portfolio_id', portfolioId);
+
+    if (allCurrentKnowledge) {
+      // Build list of titles that should exist
+      const shouldExist = new Set();
+      
+             // Add inventory items
+       if (accountData.inventory) {
+         accountData.inventory.forEach((item: any) => {
+           if (item.name?.trim()) shouldExist.add(`inventory:${item.name.trim()}`);
+         });
+       }
+       
+       // Add instruments
+       if (accountData.instruments) {
+         accountData.instruments.forEach((instrument: any) => {
+           if (instrument.name?.trim()) shouldExist.add(`instruments:${instrument.name.trim()}`);
+         });
+       }
+      
+      // Add technical info
+      if (accountData.technicalInfo?.trim()) {
+        shouldExist.add('technical:Technical Information');
+      }
+
+      // Delete any records that shouldn't exist anymore
+      for (const record of allCurrentKnowledge) {
+        const key = `${record.category}:${record.title}`;
+        if (!shouldExist.has(key)) {
+          await supabase
+            .from('team_knowledge')
+            .delete()
+            .eq('id', record.id);
+        }
+      }
     }
 
   } catch (error) {

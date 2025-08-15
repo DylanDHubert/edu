@@ -220,7 +220,17 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
           ) : (
             // NOTES TAB
             <div className="flex flex-col h-full">
-              <NotesSection onNoteSelect={() => setIsMobileOpen(false)} />
+              <NotesSection 
+                onNoteSelect={() => setIsMobileOpen(false)} 
+                teamContext={activeAssistant ? {
+                  teamId: activeAssistant.teamId,
+                  teamName: activeAssistant.teamName || 'Team',
+                  accountId: activeAssistant.accountId,
+                  accountName: activeAssistant.accountName || 'Account',
+                  portfolioId: activeAssistant.portfolioId,
+                  portfolioName: activeAssistant.portfolioName || 'Portfolio'
+                } : null}
+              />
             </div>
           )}
         </div>

@@ -77,6 +77,11 @@ export async function POST(request: NextRequest) {
             category: 'doctor_info',
             title: item.title?.trim() || 'Doctor Information',
             content: item.content?.trim() || '',
+            metadata: {
+              name: item.title?.trim() || 'Doctor Information',
+              specialty: '', // Onboarding doesn't capture specialty separately
+              notes: item.content?.trim() || ''
+            },
             created_by: user.id
           })
           .select()

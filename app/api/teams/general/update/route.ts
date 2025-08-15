@@ -44,59 +44,145 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Delete existing general knowledge for this team
-    await supabase
-      .from('team_knowledge')
-      .delete()
-      .eq('team_id', teamId)
-      .is('account_id', null)
-      .is('portfolio_id', null);
-
-    // Create doctor knowledge entries
+    // Handle doctor knowledge - UPDATE or INSERT each doctor
     if (generalKnowledge.doctors && generalKnowledge.doctors.length > 0) {
       for (const doctor of generalKnowledge.doctors) {
         if (doctor.name && doctor.name.trim()) {
-          const { error: doctorError } = await supabase
+          // Check if this doctor already exists
+          const { data: existingDoctor, error: checkError } = await supabase
             .from('team_knowledge')
-            .insert({
-              team_id: teamId,
-              account_id: null,
-              portfolio_id: null,
-              category: 'doctor_info',
-              title: doctor.name.trim(),
-              content: `${doctor.specialty?.trim() || ''} - ${doctor.notes?.trim() || ''}`,
-              metadata: {
-                name: doctor.name.trim(),
-                specialty: doctor.specialty?.trim() || '',
-                notes: doctor.notes?.trim() || ''
-              }
-            });
+            .select('id')
+            .eq('team_id', teamId)
+            .is('account_id', null)
+            .is('portfolio_id', null)
+            .eq('category', 'doctor_info')
+            .eq('title', doctor.name.trim())
+            .single();
 
-          if (doctorError) {
-            console.error('Error creating doctor knowledge:', doctorError);
+          const knowledgeData = {
+            title: doctor.name.trim(),
+            content: `${doctor.specialty?.trim() || ''} - ${doctor.notes?.trim() || ''}`,
+            metadata: {
+              name: doctor.name.trim(),
+              specialty: doctor.specialty?.trim() || '',
+              notes: doctor.notes?.trim() || ''
+            },
+            updated_at: new Date().toISOString()
+          };
+
+          if (existingDoctor && !checkError) {
+            // UPDATE existing record
+            const { error: doctorError } = await supabase
+              .from('team_knowledge')
+              .update(knowledgeData)
+              .eq('id', existingDoctor.id);
+
+            if (doctorError) {
+              console.error('Error updating doctor knowledge:', doctorError);
+            }
+          } else {
+            // INSERT new record
+            const { error: doctorError } = await supabase
+              .from('team_knowledge')
+              .insert({
+                team_id: teamId,
+                account_id: null,
+                portfolio_id: null,
+                category: 'doctor_info',
+                ...knowledgeData
+              });
+
+            if (doctorError) {
+              console.error('Error creating doctor knowledge:', doctorError);
+            }
           }
         }
       }
     }
 
-    // Create access & misc knowledge entry
+    // Handle access & misc knowledge - UPDATE or INSERT
     if (generalKnowledge.accessMisc && generalKnowledge.accessMisc.trim()) {
-      const { error: accessError } = await supabase
+      // Check if access misc already exists
+      const { data: existingAccess, error: checkError } = await supabase
         .from('team_knowledge')
-        .insert({
-          team_id: teamId,
-          account_id: null,
-          portfolio_id: null,
-          category: 'access_misc',
-          title: 'Access & Miscellaneous',
-          content: generalKnowledge.accessMisc.trim(),
-          metadata: {
-            content: generalKnowledge.accessMisc.trim()
-          }
-        });
+        .select('id')
+        .eq('team_id', teamId)
+        .is('account_id', null)
+        .is('portfolio_id', null)
+        .eq('category', 'access_misc')
+        .eq('title', 'Access & Miscellaneous')
+        .single();
 
-      if (accessError) {
-        console.error('Error creating access knowledge:', accessError);
+      const knowledgeData = {
+        title: 'Access & Miscellaneous',
+        content: generalKnowledge.accessMisc.trim(),
+        metadata: {
+          content: generalKnowledge.accessMisc.trim()
+        },
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingAccess && !checkError) {
+        // UPDATE existing record
+        const { error: accessError } = await supabase
+          .from('team_knowledge')
+          .update(knowledgeData)
+          .eq('id', existingAccess.id);
+
+        if (accessError) {
+          console.error('Error updating access knowledge:', accessError);
+        }
+      } else {
+        // INSERT new record
+        const { error: accessError } = await supabase
+          .from('team_knowledge')
+          .insert({
+            team_id: teamId,
+            account_id: null,
+            portfolio_id: null,
+            category: 'access_misc',
+            ...knowledgeData
+          });
+
+        if (accessError) {
+          console.error('Error creating access knowledge:', accessError);
+        }
+      }
+    }
+
+    // Clean up any orphaned general knowledge records for removed items
+    const { data: allCurrentKnowledge } = await supabase
+      .from('team_knowledge')
+      .select('id, category, title')
+      .eq('team_id', teamId)
+      .is('account_id', null)
+      .is('portfolio_id', null);
+
+    if (allCurrentKnowledge) {
+      // Build list of titles that should exist
+      const shouldExist = new Set();
+      
+      // Add doctors
+      if (generalKnowledge.doctors) {
+        generalKnowledge.doctors.forEach((doctor: any) => {
+          if (doctor.name?.trim()) shouldExist.add(`doctor_info:${doctor.name.trim()}`);
+        });
+      }
+      
+      // Add access misc
+      if (generalKnowledge.accessMisc?.trim()) {
+        shouldExist.add('access_misc:Access & Miscellaneous');
+      }
+
+      // Delete any records that shouldn't exist anymore
+      for (const record of allCurrentKnowledge) {
+        const key = `${record.category}:${record.title}`;
+        if (!shouldExist.has(key)) {
+          await supabase
+            .from('team_knowledge')
+            .delete()
+            .eq('id', record.id);
+        }
       }
     }
 

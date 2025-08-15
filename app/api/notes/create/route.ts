@@ -10,6 +10,12 @@ export async function POST(request: NextRequest) {
     const content = formData.get('content') as string;
     const is_shared = formData.get('is_shared') === 'true';
     const tags = formData.get('tags') ? JSON.parse(formData.get('tags') as string) : null;
+    
+    // NEW: Team context auto-population
+    const team_id = formData.get('team_id') as string | null;
+    const account_id = formData.get('account_id') as string | null;
+    const portfolio_id = formData.get('portfolio_id') as string | null;
+    
     // HANDLE MULTIPLE IMAGES
     const imageFiles: File[] = [];
     const imageDescriptions: string[] = [];
@@ -48,20 +54,33 @@ export async function POST(request: NextRequest) {
       imageDescriptions.push(imageDescription);
     }
     
-    if (!portfolio_type || !title || !content) {
+    if (!title || !content) {
       return NextResponse.json(
-        { error: 'PORTFOLIO TYPE, TITLE, AND CONTENT ARE REQUIRED' },
+        { error: 'TITLE AND CONTENT ARE REQUIRED' },
         { status: 400 }
       );
     }
 
-    // VALIDATE PORTFOLIO TYPE
-    const validPortfolioTypes = ['general', 'hip', 'knee', 'ts_knee'];
-    if (!validPortfolioTypes.includes(portfolio_type)) {
+    // VALIDATE TEAM CONTEXT OR PORTFOLIO TYPE
+    const hasTeamContext = team_id && account_id && portfolio_id;
+    const hasPortfolioType = portfolio_type;
+    
+    if (!hasTeamContext && !hasPortfolioType) {
       return NextResponse.json(
-        { error: 'INVALID PORTFOLIO TYPE' },
+        { error: 'EITHER TEAM CONTEXT (team_id, account_id, portfolio_id) OR PORTFOLIO TYPE IS REQUIRED' },
         { status: 400 }
       );
+    }
+
+    // VALIDATE PORTFOLIO TYPE IF PROVIDED (for backward compatibility)
+    if (portfolio_type) {
+      const validPortfolioTypes = ['general', 'hip', 'knee', 'ts_knee'];
+      if (!validPortfolioTypes.includes(portfolio_type)) {
+        return NextResponse.json(
+          { error: 'INVALID PORTFOLIO TYPE' },
+          { status: 400 }
+        );
+      }
     }
 
     // VALIDATE TAGS IF PROVIDED
@@ -163,16 +182,44 @@ export async function POST(request: NextRequest) {
     }
 
     // CREATE NOTE
+    const noteData: any = {
+      user_id: user.id,
+      title: title.trim(),
+      content: content.trim(),
+      images: images.length > 0 ? images : null,
+      is_shared: is_shared || false
+    };
+
+    // Add team context if provided (new system)
+    if (hasTeamContext) {
+      // Get the portfolio name from the portfolio_id and use it directly as portfolio_type
+      const { data: portfolioData, error: portfolioError } = await supabase
+        .from('team_portfolios')
+        .select('name')
+        .eq('id', portfolio_id)
+        .single();
+
+      if (portfolioError || !portfolioData) {
+        return NextResponse.json(
+          { error: 'Invalid portfolio ID' },
+          { status: 400 }
+        );
+      }
+
+      noteData.team_id = team_id;
+      noteData.account_id = account_id;
+      noteData.portfolio_id = portfolio_id;
+      noteData.portfolio_type = portfolioData.name; // Use portfolio name directly
+    }
+
+    // Add portfolio_type if provided (legacy system)
+    if (portfolio_type) {
+      noteData.portfolio_type = portfolio_type;
+    }
+
     const { data, error } = await supabase
       .from('notes')
-      .insert({
-        user_id: user.id,
-        portfolio_type,
-        title: title.trim(),
-        content: content.trim(),
-        images: images.length > 0 ? images : null,
-        is_shared: is_shared || false
-      })
+      .insert(noteData)
       .select()
       .single();
 
