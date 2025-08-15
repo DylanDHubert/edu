@@ -5,6 +5,8 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import ImageUpload from "../../components/ImageUpload";
+import StandardHeader from "../../components/StandardHeader";
+import { Save } from "lucide-react";
 
 interface Inventory {
   id: string;
@@ -43,6 +45,7 @@ function EditAccountsContent() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -69,6 +72,8 @@ function EditAccountsContent() {
         setError('Manager access required');
         return;
       }
+      
+      setUserRole(membership.role);
 
       // Load team info
       const { data: teamData, error: teamError } = await supabase
@@ -500,37 +505,24 @@ function EditAccountsContent() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-100">Edit Accounts</h1>
-                <p className="text-slate-400 mt-1">
-                  Modify accounts and knowledge for <strong>{team.name}</strong>
-                </p>
-              </div>
-              <button
-                onClick={() => router.push(`/edit/portfolios?teamId=${teamId}`)}
-                className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
-              >
-                ←
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StandardHeader
+        teamName={team.name}
+        teamLocation={team.location}
+        userRole={userRole}
+        showBackButton={true}
+        onBackClick={handleSubmit}
+        backText={isSubmitting ? 'SAVING...' : 'SAVE'}
+      />
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
           <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-md">
             <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
 
-        <div className="space-y-8">
+        <div className="space-y-6">
           {accounts.map((account, accountIndex) => (
             <div key={accountIndex} className="bg-slate-800 rounded-lg border border-slate-700 p-6">
               <div className="flex justify-between items-start mb-6">
@@ -738,9 +730,10 @@ function EditAccountsContent() {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-8 py-3 rounded-md font-medium transition-colors"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
-              {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
+              <Save className="w-5 h-5 flex-shrink-0" />
+              <span className="flex-1 text-center">{isSubmitting ? 'Saving Changes...' : 'Save Changes'}</span>
             </button>
           </div>
         </div>

@@ -89,6 +89,8 @@ export default function StandardHeader({
             className={`px-3 py-2 rounded-md font-medium transition-colors text-sm relative z-10 ${
               backText === 'LOGOUT' 
                 ? 'bg-red-600 hover:bg-red-700 text-white' 
+                : backText === 'SAVE' || backText === 'SAVING...'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                 : 'bg-slate-600 hover:bg-slate-700 text-white'
             }`}
           >

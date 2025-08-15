@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
+import { Save } from "lucide-react";
 
 interface Doctor {
   id: string;
@@ -231,7 +232,9 @@ function EditGeneralContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
-        backUrl={`/edit/accounts?teamId=${teamId}`}
+        showBackButton={true}
+        onBackClick={handleSubmit}
+        backText={isSubmitting ? 'SAVING...' : 'SAVE'}
       />
 
       {/* Main Content */}
@@ -242,7 +245,7 @@ function EditGeneralContent() {
           </div>
         )}
 
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* Doctor Information */}
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
             <div className="flex justify-between items-center mb-6">
@@ -339,11 +342,13 @@ function EditGeneralContent() {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-8 py-3 rounded-md font-medium transition-colors"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
-              {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
+              <Save className="w-5 h-5 flex-shrink-0" />
+              <span className="flex-1 text-center">{isSubmitting ? 'Saving Changes...' : 'Save Changes'}</span>
             </button>
           </div>
+
         </div>
       </div>
     </div>
