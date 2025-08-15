@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { BrainCog } from "lucide-react";
+import StandardHeader from "../../components/StandardHeader";
 
 interface Portfolio {
   id: string;
@@ -181,7 +182,9 @@ function AccountPortfolioSelectContent() {
         teamId,
         accountId: selectedAccount,
         portfolioId: selectedPortfolio,
-        teamName: team?.name
+        teamName: team?.name,
+        teamLocation: team?.location,
+        userRole: userRole
       }));
 
       // Redirect to the main chat interface
@@ -247,30 +250,15 @@ function AccountPortfolioSelectContent() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-100">Start AI Chat</h1>
-                <p className="text-slate-400 mt-1">
-                  <strong>{team.name}</strong>
-                </p>
-              </div>
-              <button
-                onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
-                className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
-              >
-                ←
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StandardHeader
+        teamName={team.name}
+        teamLocation={team.location}
+        userRole={userRole}
+        backUrl={`/launcher/team?teamId=${teamId}`}
+      />
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-8">
           
           {/* Account Selection */}

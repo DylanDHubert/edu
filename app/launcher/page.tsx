@@ -90,17 +90,12 @@ export default function LauncherPage() {
     // Check if team setup is complete before routing
     const isSetupComplete = await checkTeamSetupCompletion(membership.team_id);
     
-    if (membership.role === 'manager') {
-      if (isSetupComplete) {
-        // Team is fully set up, go to team dashboard
-        router.push(`/launcher/team?teamId=${membership.team_id}`);
-      } else {
-        // Team setup is incomplete, continue setup
-        router.push(`/setup/portfolios?teamId=${membership.team_id}`);
-      }
+    if (membership.role === 'manager' && !isSetupComplete) {
+      // Only managers with incomplete setup go to setup flow
+      router.push(`/setup/portfolios?teamId=${membership.team_id}`);
     } else {
-      // Members go to team selection for chat
-      router.push(`/launcher/select?teamId=${membership.team_id}`);
+      // Everyone else (managers with complete setup and all members) go to team dashboard
+      router.push(`/launcher/team?teamId=${membership.team_id}`);
     }
   };
 

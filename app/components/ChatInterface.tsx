@@ -5,6 +5,7 @@ import { useChat } from "../contexts/ChatContext";
 import { PORTFOLIOS, PortfolioType } from "../utils/portfolios";
 import ReactMarkdown from 'react-markdown';
 import FeedbackModal from './FeedbackModal';
+import StandardHeader from './StandardHeader';
 
 interface Message {
   id: string;
@@ -33,6 +34,8 @@ interface ActiveAssistant {
   accountId: string;
   portfolioId: string;
   teamName?: string;
+  teamLocation?: string;
+  userRole?: string;
 }
 
 export default function ChatInterface() {
@@ -809,33 +812,14 @@ export default function ChatInterface() {
 
   return (
     <div className="flex-1 flex flex-col bg-slate-900 h-screen">
-      {/* CHAT HEADER - FIXED */}
-      <div className="bg-slate-800 border-b border-slate-700 p-3 lg:p-4 flex-shrink-0">
-        <h2 className="text-base lg:text-lg font-semibold text-slate-100 truncate">
-          {currentChat ? currentChat.title : (
-            activeAssistant ? `NEW CHAT` :
-            currentPortfolio ? `NEW ${PORTFOLIOS[currentPortfolio].name}` : 'NEW CHAT'
-          )}
-        </h2>
-        <p className="text-xs lg:text-sm text-slate-400 truncate">
-          {activeAssistant ? (
-            <span className="font-medium text-blue-400">
-              {activeAssistant.assistantName}
-            </span>
-          ) : currentPortfolio ? (
-            <span className={`font-medium ${
-              currentPortfolio === 'hip' ? 'text-blue-400' :
-              currentPortfolio === 'knee' ? 'text-green-400' :
-              currentPortfolio === 'ts_knee' ? 'text-purple-400' :
-              'text-slate-400'
-            }`}>
-              {PORTFOLIOS[currentPortfolio].name}
-            </span>
-          ) : (
-            'SELECT A PORTFOLIO'
-          )}
-        </p>
-      </div>
+      <StandardHeader
+        teamName={activeAssistant?.teamName}
+        teamLocation={activeAssistant?.teamLocation}
+        userRole={activeAssistant?.userRole}
+        accountName={activeAssistant?.assistantName}
+        portfolioName={currentPortfolio ? PORTFOLIOS[currentPortfolio].name : undefined}
+        showBackButton={false}
+      />
 
       {/* MESSAGES - SCROLLABLE */}
       <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3 lg:space-y-4 min-h-0">
