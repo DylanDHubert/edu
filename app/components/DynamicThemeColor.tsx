@@ -17,10 +17,15 @@ export default function DynamicThemeColor() {
       document.head.appendChild(themeColorMeta);
     }
 
-    // SET COLOR BASED ON PORTFOLIO
+    // SET COLOR BASED ON PORTFOLIO OR TEAM MODE
     let color = '#1e293b'; // DEFAULT SLATE-800 (MATCHES SIDEBAR)
     
-    if (currentPortfolio) {
+    // Check for team mode first
+    const activeAssistant = localStorage.getItem('activeAssistant');
+    if (activeAssistant) {
+      // Team mode - use header background color for seamless look
+      color = '#1e293b'; // SLATE-800 (matches header background)
+    } else if (currentPortfolio) {
       switch (currentPortfolio) {
         case 'hip':
           color = '#1d4ed8'; // BLUE-700

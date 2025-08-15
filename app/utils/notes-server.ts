@@ -46,13 +46,74 @@ export async function getNotesForPortfolio(portfolioType: PortfolioType, userId:
   }
 }
 
+export async function getNotesForTeamContext(teamId: string, accountId: string, portfolioId: string, userId: string) {
+  const cookieStore = cookies();
+  const supabase = await createClient(cookieStore);
+
+  try {
+    console.log('🔍 QUERYING NOTES WITH:', { teamId, accountId, portfolioId, userId });
+    
+    // GET NOTES FOR EXACT TEAM CONTEXT
+    const { data: notes, error } = await supabase
+      .from('notes')
+      .select(`
+        *,
+        team:teams(name),
+        account:team_accounts(name),
+        portfolio:team_portfolios(name)
+      `)
+      .eq('team_id', teamId)
+      .eq('account_id', accountId)
+      .eq('portfolio_id', portfolioId)
+      .or(`user_id.eq.${userId},is_shared.eq.true`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ ERROR LOADING TEAM CONTEXT NOTES:', error);
+      return [];
+    }
+
+    console.log('✅ RAW NOTES FROM DB:', notes?.length || 0, 'notes found');
+    if (notes && notes.length > 0) {
+      notes.forEach((note, index) => {
+        console.log(`📝 NOTE ${index + 1}:`, {
+          id: note.id,
+          title: note.title,
+          content: note.content?.substring(0, 50) + '...',
+          user_id: note.user_id,
+          is_shared: note.is_shared,
+          team_id: note.team_id,
+          account_id: note.account_id,
+          portfolio_id: note.portfolio_id
+        });
+      });
+    }
+
+    return notes || [];
+  } catch (error) {
+    console.error('❌ ERROR GETTING NOTES FOR TEAM CONTEXT:', error);
+    return [];
+  }
+}
+
 export function formatNotesForContext(notes: any[]): string {
   if (!notes || notes.length === 0) {
     return '';
   }
 
   const notesText = notes.map((note, index) => {
-    const portfolioLabel = note.portfolio_type === 'general' ? 'GENERAL' : note.portfolio_type.toUpperCase();
+    // Determine context label
+    let contextLabel = '';
+    if (note.team && note.account && note.portfolio) {
+      // Team-based note
+      contextLabel = `${note.team.name} → ${note.account.name} → ${note.portfolio.name}`;
+    } else if (note.portfolio_type) {
+      // Legacy individual note
+      contextLabel = note.portfolio_type === 'general' ? 'GENERAL' : note.portfolio_type.toUpperCase();
+    } else {
+      contextLabel = 'UNKNOWN';
+    }
+    
     const sharedLabel = note.is_shared ? ' (SHARED)' : '';
     
     // HANDLE MULTIPLE IMAGES
@@ -83,7 +144,7 @@ export function formatNotesForContext(notes: any[]): string {
       imageInfo = ` [IMAGE URL: ${proxyUrl}${description}]`;
     }
     
-    return `NOTE ${index + 1} - ${portfolioLabel}${sharedLabel}:
+    return `NOTE ${index + 1} - ${contextLabel}${sharedLabel}:
 TITLE: ${note.title}
 CONTENT: ${note.content}${imageInfo}
 ---`;

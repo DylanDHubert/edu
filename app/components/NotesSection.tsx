@@ -6,25 +6,30 @@ import { useChat } from "../contexts/ChatContext";
 import { useAuth } from "../contexts/AuthContext";
 import { PortfolioType } from "../utils/portfolios";
 import NoteModal from "./NoteModal";
-import NotesFilter, { NotesFilter as NotesFilterType } from "./NotesFilter";
+
 import { getTagColor, getTagDisplayName } from "../utils/notes";
 
 interface NotesSectionProps {
   onNoteSelect?: () => void;
+  // Team context for note creation
+  teamContext?: {
+    teamId: string;
+    teamName: string;
+    accountId: string;
+    accountName: string;
+    portfolioId: string;
+    portfolioName: string;
+  } | null;
 }
 
-export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
+export default function NotesSection({ onNoteSelect, teamContext }: NotesSectionProps) {
   const { notes, loading, deleteNote, getNotesForPortfolio } = useNotes();
   const { currentPortfolio } = useChat();
   const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<any>(null);
-  const [showAllNotes, setShowAllNotes] = useState(false);
-  const [filters, setFilters] = useState<NotesFilterType>({
-    portfolio: currentPortfolio,
-    account: [],
-    team: []
-  });
+
+
 
   const handleEditNote = (note: any) => {
     // CHECK IF USER OWNS THE NOTE OR IF IT'S NOT SHARED
@@ -57,47 +62,8 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
     setIsModalOpen(true);
   };
 
-  // UPDATE FILTERS WHEN PORTFOLIO CHANGES
-  useEffect(() => {
-    setFilters(prev => ({
-      ...prev,
-      portfolio: currentPortfolio
-    }));
-  }, [currentPortfolio]);
-
-  // APPLY FILTERS TO NOTES
-  const applyFilters = (notes: any[]) => {
-    return notes.filter(note => {
-      // PORTFOLIO FILTER
-      if (filters.portfolio && note.portfolio_type !== 'general' && note.portfolio_type !== filters.portfolio) {
-        return false;
-      }
-
-      // TAG FILTERS
-      if (filters.account.length > 0) {
-        if (!note.tags?.account || !filters.account.includes(note.tags.account)) {
-          return false;
-        }
-      }
-
-      if (filters.team.length > 0) {
-        if (!note.tags?.team || !filters.team.includes(note.tags.team)) {
-          return false;
-        }
-      }
-
-
-
-      return true;
-    });
-  };
-
-  // GET RELEVANT NOTES BASED ON CURRENT PORTFOLIO OR SHOW ALL
-  const relevantNotes = showAllNotes 
-    ? applyFilters(notes)
-    : currentPortfolio 
-      ? applyFilters(getNotesForPortfolio(currentPortfolio))
-      : [];
+  // GET ALL NOTES
+  const relevantNotes = notes;
 
   const getPortfolioDisplayName = (portfolioType: string) => {
     switch (portfolioType) {
@@ -126,12 +92,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
 
   return (
     <>
-      {/* FILTER SECTION */}
-      <NotesFilter
-        currentPortfolio={currentPortfolio}
-        filters={filters}
-        onFiltersChange={setFilters}
-      />
+
 
       <div className="p-4 border-b border-slate-700 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
@@ -144,29 +105,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
           </button>
         </div>
 
-        {/* TOGGLE FOR SHOWING ALL NOTES VS CURRENT PORTFOLIO */}
-        <div className="flex items-center space-x-2 mb-3">
-          <button
-            onClick={() => setShowAllNotes(false)}
-            className={`text-xs px-2 py-1 rounded transition-colors ${
-              !showAllNotes 
-                ? 'bg-slate-600 text-slate-100' 
-                : 'text-slate-400 hover:text-slate-300'
-            }`}
-          >
-            CURRENT
-          </button>
-          <button
-            onClick={() => setShowAllNotes(true)}
-            className={`text-xs px-2 py-1 rounded transition-colors ${
-              showAllNotes 
-                ? 'bg-slate-600 text-slate-100' 
-                : 'text-slate-400 hover:text-slate-300'
-            }`}
-          >
-            ALL NOTES
-          </button>
-        </div>
+
 
         {loading ? (
           <div className="text-xs text-slate-400 text-center py-4">
@@ -174,7 +113,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
           </div>
         ) : relevantNotes.length === 0 ? (
           <div className="text-xs text-slate-400 text-center py-4">
-            {showAllNotes ? 'NO NOTES YET' : 'NO NOTES FOR CURRENT PORTFOLIO'}
+            NO NOTES YET
           </div>
         ) : (
           <div className="space-y-2 flex-1 overflow-y-auto scrollbar-hide">
@@ -241,7 +180,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
                               e.currentTarget.style.display = 'none';
                             }}
                           />
-                          {index === 3 && note.images.length > 4 && (
+                          {index === 3 && note.images && note.images.length > 4 && (
                             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-md">
                               <span className="text-xs text-white">+{note.images.length - 4}</span>
                             </div>
@@ -300,6 +239,7 @@ export default function NotesSection({ onNoteSelect }: NotesSectionProps) {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         editingNote={editingNote}
+        teamContext={teamContext}
       />
     </>
   );

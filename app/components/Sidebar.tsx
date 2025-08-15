@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
 import { PORTFOLIOS, PortfolioType } from "../utils/portfolios";
@@ -26,6 +26,26 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 
   // MOBILE STATE MANAGEMENT
   const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
+  const [activeAssistant, setActiveAssistant] = useState<any>(null);
+
+  // Load active assistant from localStorage
+  useEffect(() => {
+    const storedAssistant = localStorage.getItem('activeAssistant');
+    if (storedAssistant) {
+      try {
+        const assistant = JSON.parse(storedAssistant);
+        setActiveAssistant(assistant);
+        
+        // Update the sidebar info elements
+        const nameEl = document.getElementById('sidebar-assistant-name');
+        const contextEl = document.getElementById('sidebar-assistant-context');
+        if (nameEl) nameEl.textContent = assistant.assistantName || 'Team Assistant';
+        if (contextEl) contextEl.textContent = assistant.teamName ? `Team: ${assistant.teamName}` : 'Team Mode';
+      } catch (error) {
+        console.error('Error parsing activeAssistant from localStorage:', error);
+      }
+    }
+  }, []);
 
   const handlePortfolioSelect = (portfolioType: PortfolioType) => {
     setCurrentPortfolio(portfolioType);
@@ -65,60 +85,54 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* HEADER */}
-        <div className="p-4 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-slate-100 mb-2">HHB Stryker Assistant</h1>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-400">
-              {user?.email?.toUpperCase()}
-            </span>
+        <div className="bg-slate-800 border-b border-slate-700 p-4">
+          <div className="flex items-center justify-between relative">
+            {/* LEFT: HHB Logo */}
+            <div className="flex items-center">
+              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-lg px-3 py-1 rounded-md mr-4 shadow-lg relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                <span className="relative z-10">HHB</span>
+              </div>
+            </div>
+
+            {/* CENTER: Team/Context Info */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center pointer-events-auto">
+                {activeAssistant?.accountName && activeAssistant?.portfolioName ? (
+                  // CHAT PAGE LAYOUT: 2 lines only
+                  <>
+                    <h1 className="text-xl font-bold text-slate-100">
+                      {activeAssistant.teamName} • {activeAssistant.teamLocation}
+                    </h1>
+                    <p className="text-slate-400 text-sm mt-1">
+                      {activeAssistant.accountName} • {activeAssistant.portfolioName}
+                    </p>
+                  </>
+                ) : (
+                  // REGULAR PAGE LAYOUT: 2 lines with role
+                  <>
+                    <h1 className="text-xl font-bold text-slate-100">{activeAssistant?.teamName || 'HHB Stryker Assistant'}</h1>
+                    {activeAssistant?.teamLocation && activeAssistant?.userRole && (
+                      <p className="text-slate-400 text-sm mt-1">
+                        {activeAssistant.teamLocation} • {activeAssistant.userRole === 'manager' ? 'Team Manager' : 'Team Member'}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT: Close Button */}
             <button
-              onClick={handleLogout}
-              className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+              onClick={() => setIsMobileOpen(false)}
+              className="lg:hidden bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-md font-medium transition-colors text-sm relative z-10"
             >
-              LOGOUT
+              ✕
             </button>
           </div>
         </div>
 
-        {/* PORTFOLIO SELECTION */}
-        <div className="p-4 border-b border-slate-700">
-          <h2 className="text-sm font-semibold text-slate-300 mb-3">SELECT PORTFOLIO</h2>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => handlePortfolioSelect('hip')}
-              disabled={loading}
-              className={`flex-1 p-2 rounded-md text-sm transition-colors ${
-                currentPortfolio === 'hip'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              HIP
-            </button>
-            <button
-              onClick={() => handlePortfolioSelect('knee')}
-              disabled={loading}
-              className={`flex-1 p-2 rounded-md text-sm transition-colors ${
-                currentPortfolio === 'knee'
-                  ? 'bg-green-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              KNEE
-            </button>
-            <button
-              onClick={() => handlePortfolioSelect('ts_knee')}
-              disabled={loading}
-              className={`flex-1 p-2 rounded-md text-sm transition-colors ${
-                currentPortfolio === 'ts_knee'
-                  ? 'bg-purple-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              TS KNEE
-            </button>
-          </div>
-        </div>
+
 
         {/* TABS */}
         <div className="flex border-b border-slate-700">
@@ -156,9 +170,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                 </p>
               ) : (
                 <div className="flex-1 overflow-y-auto">
-                  {chatHistory
-                    .filter(chat => !currentPortfolio || chat.portfolio_type === currentPortfolio)
-                    .map((chat) => (
+                  {chatHistory.map((chat) => (
                     <div
                       key={chat.id}
                       className={`rounded-md text-sm group relative mb-2 p-2 ${
@@ -170,7 +182,10 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                       <button
                         onClick={() => {
                           setCurrentChat(chat);
-                          setCurrentPortfolio(chat.portfolio_type);
+                          // Only set portfolio for individual chats
+                          if (chat.portfolio_type) {
+                            setCurrentPortfolio(chat.portfolio_type);
+                          }
                           // CLOSE MOBILE SIDEBAR WHEN SELECTING CHAT
                           setIsMobileOpen(false);
                         }}
@@ -187,7 +202,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                             {chat.portfolio_type === 'hip' ? 'HIP' :
                              chat.portfolio_type === 'knee' ? 'KNEE' :
                              chat.portfolio_type === 'ts_knee' ? 'TS KNEE' :
-                             (chat.portfolio_type as string).toUpperCase()}
+                             chat.team_id ? 'TEAM' : 'UNKNOWN'}
                           </span>
                         </div>
 
@@ -218,9 +233,32 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
           ) : (
             // NOTES TAB
             <div className="flex flex-col h-full">
-              <NotesSection onNoteSelect={() => setIsMobileOpen(false)} />
+              <NotesSection 
+                onNoteSelect={() => setIsMobileOpen(false)} 
+                teamContext={activeAssistant ? {
+                  teamId: activeAssistant.teamId,
+                  teamName: activeAssistant.teamName || 'Team',
+                  accountId: activeAssistant.accountId,
+                  accountName: activeAssistant.accountName || 'Account',
+                  portfolioId: activeAssistant.portfolioId,
+                  portfolioName: activeAssistant.portfolioName || 'Portfolio'
+                } : null}
+              />
             </div>
           )}
+        </div>
+
+        {/* CHANGE ASSISTANT BUTTON */}
+        <div className="p-4 border-t border-slate-700">
+          <button
+            onClick={() => window.location.href = '/launcher'}
+            className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span className="flex-1 text-center">Change Assistant</span>
+          </button>
         </div>
 
         {/* FOOTER */}

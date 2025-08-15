@@ -7,7 +7,11 @@ import { PortfolioType, PORTFOLIOS } from "../utils/portfolios";
 
 interface ChatHistory {
   id: string;
-  portfolio_type: PortfolioType;
+  portfolio_type?: PortfolioType;  // Optional for individual chats
+  team_id?: string;                // Optional for team chats
+  account_id?: string;             // Optional for team chats
+  portfolio_id?: string;           // Optional for team chats
+  assistant_id?: string;           // Optional for team chats
   thread_id: string;
   title: string;
   created_at: string;
@@ -34,14 +38,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [currentChat, setCurrentChat] = useState<ChatHistory | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeAssistant, setActiveAssistant] = useState<any>(null);
   const supabase = createClient();
 
-  // LOAD CHAT HISTORY WHEN USER CHANGES
+  // Load active assistant from localStorage on mount
+  useEffect(() => {
+    const storedAssistant = localStorage.getItem('activeAssistant');
+    if (storedAssistant) {
+      try {
+        const assistant = JSON.parse(storedAssistant);
+        setActiveAssistant(assistant);
+      } catch (error) {
+        console.error('Error parsing activeAssistant from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // LOAD CHAT HISTORY WHEN USER OR ACTIVE ASSISTANT CHANGES
   useEffect(() => {
     if (user) {
       refreshChatHistory();
     }
-  }, [user]);
+  }, [user, activeAssistant]);
 
   const refreshChatHistory = async () => {
     if (!user) return;
@@ -58,7 +76,65 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setChatHistory(data || []);
+      let filteredData = data || [];
+      
+      // IMPROVED FILTERING LOGIC FOR TEAM VS INDIVIDUAL CHATS
+      if (activeAssistant) {
+        // TEAM-BASED CHAT FILTERING
+        // Show chats that match the current team/account/portfolio configuration
+        filteredData = filteredData.filter(chat => {
+          // MUST HAVE TEAM ID MATCH
+          if (chat.team_id !== activeAssistant.teamId) {
+            return false;
+          }
+          
+          // MUST HAVE ACCOUNT ID MATCH
+          if (chat.account_id !== activeAssistant.accountId) {
+            return false;
+          }
+          
+          // MUST HAVE PORTFOLIO ID MATCH
+          if (chat.portfolio_id !== activeAssistant.portfolioId) {
+            return false;
+          }
+          
+          // ALL THREE MATCH - THIS IS A VALID TEAM CHAT
+          return true;
+        });
+        
+        console.log('FILTERED TEAM CHATS:', {
+          totalChats: data?.length || 0,
+          filteredChats: filteredData.length,
+          activeAssistant: {
+            teamId: activeAssistant.teamId,
+            accountId: activeAssistant.accountId,
+            portfolioId: activeAssistant.portfolioId
+          }
+        });
+      } else {
+        // INDIVIDUAL CHAT FILTERING (LEGACY)
+        // Show only individual portfolio chats (no team_id, account_id, portfolio_id)
+        filteredData = filteredData.filter(chat => {
+          // MUST HAVE PORTFOLIO_TYPE (individual chat)
+          if (!chat.portfolio_type) {
+            return false;
+          }
+          
+          // MUST NOT HAVE TEAM-BASED FIELDS (to avoid showing team chats)
+          if (chat.team_id || chat.account_id || chat.portfolio_id) {
+            return false;
+          }
+          
+          return true;
+        });
+        
+        console.log('FILTERED INDIVIDUAL CHATS:', {
+          totalChats: data?.length || 0,
+          filteredChats: filteredData.length
+        });
+      }
+
+      setChatHistory(filteredData);
     } catch (error) {
       console.error('ERROR LOADING CHAT HISTORY:', error);
     }

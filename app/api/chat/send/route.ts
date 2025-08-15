@@ -3,7 +3,7 @@ import { createClient } from '../../../utils/supabase/server';
 import { sendMessage, sendMessageStreaming, getAssistantId } from '../../../utils/openai';
 import { PortfolioType } from '../../../utils/openai';
 import { cookies } from 'next/headers';
-import { getNotesForPortfolio, formatNotesForContext } from '../../../utils/notes-server';
+import { getNotesForPortfolio, getNotesForTeamContext, formatNotesForContext } from '../../../utils/notes-server';
 import OpenAI from 'openai';
 
 const client = new OpenAI({
@@ -12,11 +12,20 @@ const client = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, message, portfolioType, streaming = false } = await request.json();
+    const { 
+      threadId, 
+      message, 
+      portfolioType, 
+      assistantId: teamAssistantId, 
+      teamId, 
+      accountId, 
+      portfolioId, 
+      streaming = false 
+    } = await request.json();
     
-    if (!threadId || !message || !portfolioType) {
+    if (!threadId || !message || (!portfolioType && !teamAssistantId)) {
       return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE, AND PORTFOLIO TYPE ARE REQUIRED' },
+        { error: 'THREAD ID, MESSAGE, AND EITHER PORTFOLIO TYPE OR ASSISTANT ID ARE REQUIRED' },
         { status: 400 }
       );
     }
@@ -48,15 +57,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GET ASSISTANT ID
-    const assistantId = await getAssistantId(portfolioType as PortfolioType);
+    // GET ASSISTANT ID - Use team assistant if provided, otherwise use individual portfolio assistant
+    const assistantId = teamAssistantId || await getAssistantId(portfolioType as PortfolioType);
     
-    // GET NOTES FOR THIS PORTFOLIO
-    const notes = await getNotesForPortfolio(portfolioType as PortfolioType, user.id);
+    // GET NOTES BASED ON CONTEXT TYPE
+    let notes = [];
+    if (teamId && accountId && portfolioId) {
+      // Team-based chat: get notes for specific team context
+      console.log('🗒️ FETCHING TEAM NOTES:', { teamId, accountId, portfolioId, userId: user.id });
+      notes = await getNotesForTeamContext(teamId, accountId, portfolioId, user.id);
+      console.log('🗒️ TEAM NOTES FOUND:', notes.length, 'notes');
+    } else if (portfolioType) {
+      // Individual portfolio chat: use legacy notes system
+      console.log('🗒️ FETCHING INDIVIDUAL NOTES:', { portfolioType, userId: user.id });
+      notes = await getNotesForPortfolio(portfolioType as PortfolioType, user.id);
+      console.log('🗒️ INDIVIDUAL NOTES FOUND:', notes.length, 'notes');
+    }
+    
     const notesContext = formatNotesForContext(notes);
+    console.log('🗒️ FORMATTED NOTES CONTEXT LENGTH:', notesContext.length, 'characters');
+    if (notesContext) {
+      console.log('🗒️ NOTES CONTEXT PREVIEW:', notesContext.substring(0, 200) + '...');
+    }
     
     // ADD NOTES TO MESSAGE IF AVAILABLE (BUT KEEP ORIGINAL MESSAGE FOR THREAD)
     const messageWithNotes = notesContext ? `${notesContext}USER MESSAGE: ${message}` : message;
+    console.log('🗒️ FINAL MESSAGE WITH NOTES LENGTH:', messageWithNotes.length, 'characters');
     
     // IF STREAMING IS REQUESTED, RETURN STREAMING RESPONSE
     if (streaming) {

@@ -8,6 +8,15 @@ import { NoteTags, getTagColor, getTagDisplayName } from "../utils/notes";
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // Team context (auto-populated when available)
+  teamContext?: {
+    teamId: string;
+    teamName: string;
+    accountId: string;
+    accountName: string;
+    portfolioId: string;
+    portfolioName: string;
+  } | null;
   editingNote?: {
     id: string;
     portfolio_type: PortfolioType | 'general';
@@ -18,10 +27,14 @@ interface NoteModalProps {
     image_description?: string | null; // BACKWARD COMPATIBILITY
     is_shared: boolean;
     tags?: NoteTags;
+    // Team context for existing notes
+    team_id?: string;
+    account_id?: string;
+    portfolio_id?: string;
   } | null;
 }
 
-export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalProps) {
+export default function NoteModal({ isOpen, onClose, teamContext, editingNote }: NoteModalProps) {
   const { createNote, updateNote, getUniqueTags } = useNotes();
   const [portfolioType, setPortfolioType] = useState<PortfolioType | 'general'>('general');
   const [title, setTitle] = useState('');
@@ -36,6 +49,10 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
   const [existingImages, setExistingImages] = useState<Array<{url: string, description: string}>>([]);
   const [removeAllImages, setRemoveAllImages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // DETERMINE IF THIS IS A TEAM-BASED NOTE
+  const isTeamNote = teamContext !== null;
+  const isEditingTeamNote = editingNote && editingNote.team_id && editingNote.account_id && editingNote.portfolio_id;
 
   // RESET FORM WHEN MODAL OPENS/CLOSES OR EDITING NOTE CHANGES
   useEffect(() => {
@@ -199,11 +216,21 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
     try {
       // CREATE FORMDATA FOR IMAGE UPLOAD
       const formData = new FormData();
-      formData.append('portfolio_type', portfolioType);
+      
+      // Add team context if available (new system)
+      if (isTeamNote && teamContext) {
+        formData.append('team_id', teamContext.teamId);
+        formData.append('account_id', teamContext.accountId);
+        formData.append('portfolio_id', teamContext.portfolioId);
+      } else {
+        // Legacy system - use portfolio_type
+        formData.append('portfolio_type', portfolioType);
+        formData.append('tags', JSON.stringify(tags));
+      }
+      
       formData.append('title', title.trim());
       formData.append('content', content.trim());
       formData.append('is_shared', isShared.toString());
-      formData.append('tags', JSON.stringify(tags));
       
       // ADD SELECTED IMAGES
       selectedImages.forEach((img, index) => {
@@ -254,23 +281,39 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* PORTFOLIO SELECTION */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              PORTFOLIO
-            </label>
-            <select
-              value={portfolioType}
-              onChange={(e) => setPortfolioType(e.target.value as PortfolioType | 'general')}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
-              disabled={isSubmitting}
-            >
-              <option value="general">GENERAL (ALL PORTFOLIOS)</option>
-              <option value="hip">HIP PORTFOLIO</option>
-              <option value="knee">KNEE PORTFOLIO</option>
-              <option value="ts_knee">TS KNEE PORTFOLIO</option>
-            </select>
-          </div>
+          {/* TEAM CONTEXT DISPLAY OR PORTFOLIO SELECTION */}
+          {isTeamNote && teamContext ? (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                NOTE CONTEXT
+              </label>
+              <div className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100">
+                <div className="text-sm">
+                  <span className="text-slate-400">Adding to:</span>
+                  <div className="font-medium mt-1">
+                    {teamContext.teamName} → {teamContext.accountName} → {teamContext.portfolioName}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                PORTFOLIO
+              </label>
+              <select
+                value={portfolioType}
+                onChange={(e) => setPortfolioType(e.target.value as PortfolioType | 'general')}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                disabled={isSubmitting}
+              >
+                <option value="general">GENERAL (ALL PORTFOLIOS)</option>
+                <option value="hip">HIP PORTFOLIO</option>
+                <option value="knee">KNEE PORTFOLIO</option>
+                <option value="ts_knee">TS KNEE PORTFOLIO</option>
+              </select>
+            </div>
+          )}
 
           {/* TITLE */}
           <div>
@@ -404,7 +447,8 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
             </div>
           </div>
 
-          {/* TAGS */}
+          {/* TAGS - Only show for legacy individual notes */}
+          {!isTeamNote && (
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               TAGS (OPTIONAL)
@@ -471,6 +515,7 @@ export default function NoteModal({ isOpen, onClose, editingNote }: NoteModalPro
               </div>
             )}
           </div>
+          )}
 
           {/* SHARED TOGGLE */}
           <div className="flex items-center space-x-3">

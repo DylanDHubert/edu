@@ -14,22 +14,50 @@ export async function middleware(request: NextRequest) {
   // GET THE PATHNAME OF THE REQUEST
   const { pathname } = request.nextUrl;
 
-  // DEFINE PROTECTED ROUTES
-  const protectedRoutes = ["/", "/dashboard"];
+  // DEFINE ROUTES
+  const protectedRoutes = ["/launcher", "/dashboard", "/setup"];  // Added setup routes
   const authRoutes = ["/login", "/signup"];
+  const publicRoutes = ["/", "/debug", "/invite"];  // Added invite routes as public
 
   // CHECK IF USER IS AUTHENTICATED
   const isAuthenticated = !!user;
 
   // REDIRECT LOGIC
   if (isAuthenticated) {
-    // IF USER IS LOGGED IN AND TRYING TO ACCESS AUTH ROUTES, REDIRECT TO HOME
+    // IF USER IS LOGGED IN AND TRYING TO ACCESS AUTH ROUTES, REDIRECT TO LAUNCHER
     if (authRoutes.includes(pathname)) {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL("/launcher", request.url));
+    }
+    
+    // CHECK ADMIN ROUTES - Let admin components handle verification
+    if (pathname.startsWith("/admin")) {
+      return response;
+    }
+    
+    // ALLOW ACCESS TO PUBLIC ROUTES
+    if (publicRoutes.includes(pathname)) {
+      return response;
     }
   } else {
-    // IF USER IS NOT LOGGED IN AND TRYING TO ACCESS PROTECTED ROUTES, REDIRECT TO LOGIN
-    if (protectedRoutes.includes(pathname)) {
+    // IF USER IS NOT LOGGED IN
+    
+    // ALLOW ACCESS TO AUTH ROUTES
+    if (authRoutes.includes(pathname)) {
+      return response;
+    }
+    
+    // ALLOW ACCESS TO PUBLIC ROUTES  
+    if (publicRoutes.includes(pathname)) {
+      return response;
+    }
+    
+    // REDIRECT TO LOGIN FOR PROTECTED ROUTES
+    if (protectedRoutes.some(route => pathname.startsWith(route))) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    
+    // REDIRECT TO LOGIN FOR ADMIN ROUTES
+    if (pathname.startsWith("/admin")) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
