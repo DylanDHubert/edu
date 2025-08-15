@@ -47,6 +47,7 @@ function EditMembersContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -73,6 +74,8 @@ function EditMembersContent() {
         setError('Manager access required');
         return;
       }
+      
+      setUserRole(membership.role);
 
       // Load team info
       const { data: teamData, error: teamError } = await supabase
@@ -95,7 +98,7 @@ function EditMembersContent() {
         console.log('Members data from API:', membersData);
         
         // Transform data to match expected format
-        const membersWithProfiles = (membersData || []).map(member => ({
+        const membersWithProfiles = (membersData || []).map((member: any) => ({
           ...member,
           profiles: {
             email: member.email,
@@ -323,7 +326,9 @@ function EditMembersContent() {
   return (
     <div className="min-h-screen bg-slate-900">
       <StandardHeader
-        teamName="Manage Team Members"
+        teamName={team.name}
+        teamLocation={team.location}
+        userRole={userRole}
         backUrl={`/launcher/team?teamId=${teamId}`}
       />
 
@@ -438,18 +443,6 @@ function EditMembersContent() {
             <div className="space-y-4">
               {newInvites.map((invite, index) => (
                 <div key={index} className="p-4 bg-slate-700 rounded border border-slate-600">
-                  <div className="flex justify-between items-start mb-4">
-                    <h4 className="text-slate-200 font-medium">New Invitation {index + 1}</h4>
-                    {newInvites.length > 1 && (
-                      <button
-                        onClick={() => removeNewInvite(index)}
-                        className="text-red-400 hover:text-red-300 text-sm"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -481,34 +474,50 @@ function EditMembersContent() {
                       <label className="block text-sm font-medium text-slate-300 mb-2">
                         Role <span className="text-red-400">*</span>
                       </label>
-                      <select
-                        value={invite.role}
-                        onChange={(e) => updateNewInvite(index, 'role', e.target.value as 'manager' | 'member')}
-                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="member">Team Member</option>
-                        <option value="manager">Manager</option>
-                      </select>
+                      <div className="flex gap-2">
+                        <select
+                          value={invite.role}
+                          onChange={(e) => updateNewInvite(index, 'role', e.target.value as 'manager' | 'member')}
+                          className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="member">Team Member</option>
+                          <option value="manager">Manager</option>
+                        </select>
+                        {newInvites.length > 1 && (
+                          <button
+                            onClick={() => removeNewInvite(index)}
+                            className="px-3 py-2 rounded text-xs font-medium bg-red-900/50 text-red-300 border border-red-700 hover:bg-red-800/50"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-6 flex justify-between">
+            <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4">
               <button
                 onClick={addNewInvite}
-                className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-md font-medium transition-colors"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
               >
-                + Add Another Invitation
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span className="flex-1 text-center">Add Another Invitation</span>
               </button>
 
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-6 py-2 rounded-md font-medium transition-colors"
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
               >
-                {isSubmitting ? 'Sending Invitations...' : 'Send Invitations'}
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                <span className="flex-1 text-center">{isSubmitting ? 'Sending Invitations...' : 'Send Invitations'}</span>
               </button>
             </div>
           </div>
