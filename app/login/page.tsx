@@ -1,17 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { createClient } from "../utils/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+  
+  // GET INVITATION CONTEXT FROM URL PARAMETERS
+  const invitationToken = searchParams.get('token');
+  const invitationType = searchParams.get('type'); // 'manager' or 'member'
+  const prefillEmail = searchParams.get('email');
+  
+  // SET EMAIL IF PROVIDED IN URL
+  useEffect(() => {
+    if (prefillEmail) {
+      setEmail(prefillEmail);
+    }
+  }, [prefillEmail]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +40,23 @@ export default function LoginPage() {
       if (error) {
         setError(error.message);
       } else {
-        router.push("/");
+        // CHECK IF WE HAVE INVITATION CONTEXT TO RETURN TO
+        console.log('=== LOGIN SUCCESS DEBUG ===');
+        console.log('Invitation token:', invitationToken);
+        console.log('Invitation type:', invitationType);
+        
+        if (invitationToken && invitationType) {
+          // REDIRECT BACK TO INVITATION PAGE WITH TOKEN
+          const invitationPath = invitationType === 'manager' 
+            ? `/invite/manager?token=${invitationToken}`
+            : `/invite/member?token=${invitationToken}`;
+          console.log('Redirecting to invitation path:', invitationPath);
+          router.push(invitationPath);
+        } else {
+          // NORMAL FLOW - GO TO LAUNCHER
+          console.log('No invitation context, redirecting to launcher');
+          router.push("/");
+        }
         router.refresh();
       }
     } catch (error) {
@@ -43,6 +72,14 @@ export default function LoginPage() {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-slate-100 mb-2">HHB RAG</h1>
           <p className="text-slate-400">SIGN IN TO YOUR ACCOUNT</p>
+          {invitationToken && invitationType && (
+            <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded-md">
+              <p className="text-blue-300 text-sm">
+                {invitationType === 'manager' ? 'Team Manager Invitation' : 'Team Member Invitation'}
+              </p>
+              <p className="text-blue-200 text-xs mt-1">You'll be redirected back to complete your invitation</p>
+            </div>
+          )}
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
@@ -101,7 +138,13 @@ export default function LoginPage() {
           <div className="text-center">
             <p className="text-slate-400">
               DON'T HAVE AN ACCOUNT?{" "}
-              <Link href="/signup" className="text-slate-300 hover:text-slate-100 underline">
+              <Link 
+                href={invitationToken && invitationType 
+                  ? `/signup?email=${encodeURIComponent(email)}&token=${invitationToken}&type=${invitationType}`
+                  : "/signup"
+                } 
+                className="text-slate-300 hover:text-slate-100 underline"
+              >
                 SIGN UP
               </Link>
             </p>
@@ -109,5 +152,20 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-slate-100 mb-4">HHB RAG</h1>
+          <p className="text-slate-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
   );
 } 

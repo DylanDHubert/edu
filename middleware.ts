@@ -24,9 +24,25 @@ export async function middleware(request: NextRequest) {
 
   // REDIRECT LOGIC
   if (isAuthenticated) {
-    // IF USER IS LOGGED IN AND TRYING TO ACCESS AUTH ROUTES, REDIRECT TO LAUNCHER
+    // IF USER IS LOGGED IN AND TRYING TO ACCESS AUTH ROUTES, CHECK FOR INVITATION CONTEXT
     if (authRoutes.includes(pathname)) {
-      return NextResponse.redirect(new URL("/launcher", request.url));
+      // ALLOW ACCESS TO AUTH ROUTES IF THEY HAVE INVITATION PARAMETERS
+      const url = new URL(request.url);
+      const hasInvitationContext = url.searchParams.has('token') && url.searchParams.has('type');
+      
+      console.log('=== MIDDLEWARE DEBUG ===');
+      console.log('Pathname:', pathname);
+      console.log('Has invitation context:', hasInvitationContext);
+      console.log('Token:', url.searchParams.get('token'));
+      console.log('Type:', url.searchParams.get('type'));
+      
+      if (hasInvitationContext) {
+        console.log('Allowing access to auth route with invitation context');
+        return response; // ALLOW ACCESS TO AUTH ROUTES WITH INVITATION CONTEXT
+      } else {
+        console.log('Redirecting authenticated user to launcher');
+        return NextResponse.redirect(new URL("/launcher", request.url));
+      }
     }
     
     // CHECK ADMIN ROUTES - Let admin components handle verification

@@ -320,6 +320,25 @@ function TeamMemberInviteContent() {
               >
                 {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
               </button>
+              
+              {/* ALTERNATIVE: DIRECT LINKS TO LOGIN/SIGNUP WITH INVITATION CONTEXT */}
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <p className="text-slate-400 text-sm mb-2">Or use direct links:</p>
+                <div className="flex space-x-4 justify-center">
+                  <button
+                    onClick={() => router.push(`/signup?email=${encodeURIComponent(invitation.email)}&token=${token}&type=member`)}
+                    className="text-blue-400 hover:text-blue-300 text-sm underline"
+                  >
+                    Sign Up
+                  </button>
+                  <button
+                    onClick={() => router.push(`/login?email=${encodeURIComponent(invitation.email)}&token=${token}&type=member`)}
+                    className="text-blue-400 hover:text-blue-300 text-sm underline"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
