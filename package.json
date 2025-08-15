@@ -19,6 +19,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
+    "resend": "^6.0.1",
     "supabase": "^2.33.9"
   },
   "devDependencies": {

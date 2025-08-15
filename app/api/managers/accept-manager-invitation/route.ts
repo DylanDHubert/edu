@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../utils/supabase/server';
+import { createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
@@ -25,8 +26,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the manager invitation
-    const { data: invitation, error: inviteError } = await supabase
+    // Find the manager invitation using service role client to bypass RLS
+    const serviceClient = createServiceClient();
+    const { data: invitation, error: inviteError } = await serviceClient
       .from('manager_invitations')
       .select('*')
       .eq('invitation_token', token)
@@ -59,8 +61,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update invitation status to accepted
-    const { error: updateError } = await supabase
+    // Update invitation status to accepted using service role client
+    const { error: updateError } = await serviceClient
       .from('manager_invitations')
       .update({
         status: 'accepted',

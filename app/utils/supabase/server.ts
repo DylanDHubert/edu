@@ -1,9 +1,11 @@
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const createClient = async (cookieStore: ReturnType<typeof cookies>) => {
   return createServerClient(
@@ -28,4 +30,13 @@ export const createClient = async (cookieStore: ReturnType<typeof cookies>) => {
       },
     },
   );
+};
+
+// Service role client that bypasses RLS
+export const createServiceClient = () => {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase service role key');
+  }
+  
+  return createSupabaseClient(supabaseUrl, supabaseServiceKey);
 };

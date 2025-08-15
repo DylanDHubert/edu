@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { sendManagerInvitationEmail } from '../../../../utils/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
 
     // Generate invitation token
     const invitationToken = generateInvitationToken();
+    
+    console.log('=== MANAGER INVITATION CREATION DEBUG ===');
+    console.log('Creating invitation for:', managerEmail);
+    console.log('Token generated:', invitationToken);
+    console.log('Token length:', invitationToken.length);
 
     // Create manager invitation record
     const { data: invitation, error: invitationError } = await supabase
@@ -76,6 +82,9 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
+      
+    console.log('Invitation creation result:', invitation);
+    console.log('Invitation creation error:', invitationError);
 
     if (invitationError) {
       console.error('Error creating invitation:', invitationError);
@@ -120,59 +129,4 @@ function generateInvitationToken(): string {
     .join('');
 }
 
-// Helper function to send invitation email
-async function sendManagerInvitationEmail({
-  managerEmail,
-  managerName,
-  invitationToken,
-  invitedBy
-}: {
-  managerEmail: string;
-  managerName: string;
-  invitationToken: string;
-  invitedBy: string;
-}) {
-  // For now, we'll just log the invitation details
-  // In a real implementation, you'd integrate with an email service like SendGrid, Resend, etc.
-  
-  const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/manager?token=${invitationToken}`;
-  
-  console.log('=== MANAGER INVITATION EMAIL ===');
-  console.log(`To: ${managerEmail}`);
-  console.log(`Subject: You've been invited to become a Team Manager - HHB RAG Assistant`);
-  console.log(`
-Dear ${managerName},
-
-You have been invited by ${invitedBy} to become a Team Manager on the HHB RAG Assistant platform.
-
-As a Team Manager, you will be able to:
-- Create and manage your own team
-- Set up custom portfolios and upload documents
-- Create accounts and manage team knowledge
-- Invite and manage team members
-- Configure AI assistants for your team
-
-To accept this invitation and create your team, please click the link below:
-${inviteLink}
-
-This invitation link is unique to you and will expire in 7 days.
-
-If you don't have an account yet, you'll be able to sign up using this email address.
-
-Best regards,
-The HHB Team
-  `);
-  console.log('=== END EMAIL ===');
-
-  // TODO: Replace with actual email sending logic
-  // Example with Resend:
-  /*
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({
-    from: 'noreply@hhb.com',
-    to: managerEmail,
-    subject: `You've been invited to become a Team Manager - HHB RAG Assistant`,
-    html: emailTemplate
-  });
-  */
-} 
+ 

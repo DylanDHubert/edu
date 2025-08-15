@@ -97,61 +97,11 @@ export default function LauncherPage() {
       isOriginalManager: membership.is_original_manager
     }));
 
-    // Check if team setup is complete before routing
-    const isSetupComplete = await checkTeamSetupCompletion(membership.team_id);
-    
-    if (membership.role === 'manager' && !isSetupComplete) {
-      // Only managers with incomplete setup go to setup flow
-      router.push(`/setup/portfolios?teamId=${membership.team_id}`);
-    } else {
-      // Everyone else (managers with complete setup and all members) go to team dashboard
-      router.push(`/launcher/team?teamId=${membership.team_id}`);
-    }
+    // Always go to team dashboard - all setup can be done from there
+    router.push(`/launcher/team?teamId=${membership.team_id}`);
   };
 
-  const checkTeamSetupCompletion = async (teamId: string): Promise<boolean> => {
-    try {
-      // Check if team has portfolios
-      const { data: portfolios, error: portfolioError } = await supabase
-        .from('team_portfolios')
-        .select('id')
-        .eq('team_id', teamId)
-        .limit(1);
 
-      if (portfolioError || !portfolios || portfolios.length === 0) {
-        return false;
-      }
-
-      // Check if team has accounts
-      const { data: accounts, error: accountError } = await supabase
-        .from('team_accounts')
-        .select('id')
-        .eq('team_id', teamId)
-        .limit(1);
-
-      if (accountError || !accounts || accounts.length === 0) {
-        return false;
-      }
-
-      // Check if team has general knowledge
-      const { data: generalKnowledge, error: generalError } = await supabase
-        .from('team_knowledge')
-        .select('id')
-        .eq('team_id', teamId)
-        .is('account_id', null)
-        .is('portfolio_id', null)
-        .limit(1);
-
-      if (generalError || !generalKnowledge || generalKnowledge.length === 0) {
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error checking setup completion:', error);
-      return false;
-    }
-  };
 
   if (authLoading || loading) {
     return (

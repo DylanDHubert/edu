@@ -249,9 +249,9 @@ function ManagerInviteContent() {
           <ul className="text-left text-green-300 space-y-2">
             <li>• Accept your manager invitation</li>
             <li>• Create and name your team</li>
-            <li>• Set up portfolios and upload team documents</li>
-            <li>• Create accounts and add team knowledge</li>
-            <li>• Invite your team members</li>
+            <li>• You'll be taken to your team dashboard</li>
+            <li>• From there you can manage portfolios, accounts, and members</li>
+            <li>• Upload documents and create team knowledge</li>
             <li>• Start using the AI assistant with your team</li>
           </ul>
         </div>

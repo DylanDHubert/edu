@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { sendTeamMemberInvitationEmail } from '../../../../utils/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -171,71 +172,4 @@ function generateInvitationToken(): string {
     .join('');
 }
 
-// Helper function to send team member invitation email
-async function sendTeamMemberInvitationEmail({
-  memberEmail,
-  memberName,
-  memberRole,
-  teamName,
-  invitationToken,
-  invitedBy
-}: {
-  memberEmail: string;
-  memberName: string;
-  memberRole: string;
-  teamName: string;
-  invitationToken: string;
-  invitedBy: string;
-}) {
-  // For now, we'll just log the invitation details
-  // In a real implementation, you'd integrate with an email service like SendGrid, Resend, etc.
-
-  const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/member?token=${invitationToken}`;
-
-  console.log('=== TEAM MEMBER INVITATION EMAIL ===');
-  console.log(`To: ${memberEmail}`);
-  console.log(`Subject: You've been invited to join ${teamName} - HHB RAG Assistant`);
-  console.log(`
-Dear ${memberName},
-
-You have been invited by ${invitedBy} to join the team "${teamName}" on the HHB RAG Assistant platform.
-
-Your Role: ${memberRole === 'manager' ? 'Team Manager' : 'Team Member'}
-
-${memberRole === 'manager' ? `
-As a Team Manager, you will be able to:
-- Edit team knowledge and settings
-- Upload and manage documents
-- Invite and manage team members
-- Access to all team functionality
-` : `
-As a Team Member, you will be able to:
-- View team knowledge and documents
-- Use AI assistant for searches
-- Create and share personal notes
-- Read-only access to team settings
-`}
-
-To accept this invitation and join the team, please click the link below:
-${inviteLink}
-
-This invitation link is unique to you and will expire in 7 days.
-
-If you don't have an account yet, you'll be able to sign up using this email address.
-
-Best regards,
-The HHB Team
-  `);
-  console.log('=== END EMAIL ===');
-
-  // TODO: Replace with actual email sending logic
-  /*
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({
-    from: 'noreply@hhb.com',
-    to: memberEmail,
-    subject: `You've been invited to join ${teamName} - HHB RAG Assistant`,
-    html: emailTemplate
-  });
-  */
-} 
+ 

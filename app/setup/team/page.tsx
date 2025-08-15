@@ -69,8 +69,8 @@ export default function TeamSetupPage() {
 
       const { team } = await response.json();
       
-      // Redirect to portfolio setup
-      router.push(`/setup/portfolios?teamId=${team.id}`);
+      // Redirect directly to team dashboard
+      router.push(`/launcher/team?teamId=${team.id}`);
 
     } catch (error) {
       console.error('Error creating team:', error);
@@ -102,7 +102,7 @@ export default function TeamSetupPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <h1 className="text-3xl font-bold text-slate-100">Create Your Team</h1>
-            <p className="text-slate-400 mt-1">Set up your team to get started with the HHB RAG Assistant</p>
+            <p className="text-slate-400 mt-1">Create your team to get started with the HHB RAG Assistant</p>
           </div>
         </div>
       </div>
@@ -113,7 +113,7 @@ export default function TeamSetupPage() {
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-100 mb-2">Team Information</h2>
             <p className="text-slate-400 text-sm">
-              Provide basic information about your team. You'll be able to add portfolios, documents, and team knowledge in the next steps.
+              Provide basic information about your team. You'll be able to manage portfolios, accounts, and team members from your dashboard.
             </p>
           </div>
 
@@ -176,13 +176,12 @@ export default function TeamSetupPage() {
 
             {/* Info Box */}
             <div className="bg-blue-900/30 border border-blue-700 rounded-md p-4">
-              <h3 className="text-sm font-medium text-blue-400 mb-2">Next Steps:</h3>
+              <h3 className="text-sm font-medium text-blue-400 mb-2">What's Next:</h3>
               <ul className="text-blue-300 text-sm space-y-1">
-                <li>• Create custom portfolios (Hip, Knee Revision, etc.)</li>
-                <li>• Upload PDFs for each portfolio</li>
-                <li>• Define accounts and team knowledge</li>
-                <li>• Invite team members</li>
-                <li>• Start using your AI assistant</li>
+                <li>• You'll be taken to your team dashboard</li>
+                <li>• From there you can manage portfolios, accounts, and members</li>
+                <li>• Upload documents and create team knowledge</li>
+                <li>• Invite team members and start using your AI assistant</li>
               </ul>
             </div>
 
@@ -193,7 +192,7 @@ export default function TeamSetupPage() {
                 disabled={isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-8 py-3 rounded-md font-medium transition-colors"
               >
-                {isSubmitting ? 'Creating Team...' : 'Create Team & Continue'}
+                {isSubmitting ? 'Creating Team...' : 'Create Team'}
               </button>
             </div>
           </form>
