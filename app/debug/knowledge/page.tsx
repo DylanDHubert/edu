@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 
-export default function DebugKnowledgePage() {
+function DebugKnowledgeContent() {
   const { user, loading } = useAuth();
   const searchParams = useSearchParams();
   const teamId = searchParams.get('teamId');
@@ -112,5 +112,13 @@ export default function DebugKnowledgePage() {
         Refresh Data
       </button>
     </div>
+  );
+}
+
+export default function DebugKnowledgePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DebugKnowledgeContent />
+    </Suspense>
   );
 } 

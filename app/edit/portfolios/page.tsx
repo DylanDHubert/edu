@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -13,7 +13,7 @@ interface Portfolio {
   existingDocuments?: Array<{ id: string; filename: string; original_name: string }>;
 }
 
-export default function EditPortfoliosPage() {
+function EditPortfoliosContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -95,7 +95,7 @@ export default function EditPortfoliosPage() {
 
       // Add empty portfolio if none exist
       if (transformedPortfolios.length === 0) {
-        transformedPortfolios.push({ name: '', description: '', files: [], existingDocuments: [] });
+        transformedPortfolios.push({ id: undefined, name: '', description: '', files: [], existingDocuments: [] });
       }
 
       setPortfolios(transformedPortfolios);
@@ -107,7 +107,7 @@ export default function EditPortfoliosPage() {
   };
 
   const addPortfolio = () => {
-    setPortfolios([...portfolios, { name: '', description: '', files: [], existingDocuments: [] }]);
+    setPortfolios([...portfolios, { id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
   };
 
   const removePortfolio = async (index: number) => {
@@ -140,7 +140,7 @@ export default function EditPortfoliosPage() {
 
     // Remove from state
     const newPortfolios = portfolios.filter((_, i) => i !== index);
-    setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ name: '', description: '', files: [], existingDocuments: [] }]);
+    setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
   };
 
   const updatePortfolio = (index: number, field: keyof Portfolio, value: any) => {
@@ -490,5 +490,13 @@ export default function EditPortfoliosPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EditPortfoliosPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EditPortfoliosContent />
+    </Suspense>
   );
 } 

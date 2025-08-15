@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -31,7 +31,7 @@ interface Account {
   technicalInfo: string;
 }
 
-export default function EditAccountsPage() {
+function EditAccountsContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -156,6 +156,7 @@ export default function EditAccountsPage() {
       // Add empty account if none exist
       if (transformedAccounts.length === 0) {
         transformedAccounts.push({
+          id: undefined,
           name: '',
           description: '',
           assignedPortfolios: [],
@@ -175,6 +176,7 @@ export default function EditAccountsPage() {
 
   const addAccount = () => {
     setAccounts([...accounts, {
+      id: undefined,
       name: '',
       description: '',
       assignedPortfolios: [],
@@ -214,6 +216,7 @@ export default function EditAccountsPage() {
     // Remove from state
     const newAccounts = accounts.filter((_, i) => i !== index);
     setAccounts(newAccounts.length > 0 ? newAccounts : [{
+      id: undefined,
       name: '',
       description: '',
       assignedPortfolios: [],
@@ -743,5 +746,13 @@ export default function EditAccountsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EditAccountsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EditAccountsContent />
+    </Suspense>
   );
 } 

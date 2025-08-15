@@ -66,11 +66,8 @@ export default function LauncherPage() {
 
       setTeamMemberships(memberships as TeamMember[]);
 
-      // If user is a member of only one team, auto-select it
-      if (memberships.length === 1) {
-        const membership = memberships[0] as TeamMember;
-        handleTeamSelect(membership);
-      }
+      // REMOVED AUTO-SELECTION - USER MUST MANUALLY SELECT TEAM
+      // This prevents the redirect loop and gives user control
 
     } catch (error) {
       console.error('Error loading user teams:', error);
@@ -102,7 +99,7 @@ export default function LauncherPage() {
       }
     } else {
       // Members go to team selection for chat
-      router.push('/launcher/select');
+      router.push(`/launcher/select?teamId=${membership.team_id}`);
     }
   };
 

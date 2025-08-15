@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -16,7 +16,7 @@ interface ManagerInvitation {
   expires_at: string;
 }
 
-export default function ManagerInvitePage() {
+function ManagerInviteContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,28 +43,16 @@ export default function ManagerInvitePage() {
 
   const loadInvitationData = async () => {
     try {
-      // Load invitation by token (this bypasses RLS since we're using the service role key or a public query)
-      const { data: invitationData, error: invitationError } = await supabase
-        .from('manager_invitations')
-        .select('*')
-        .eq('invitation_token', token)
-        .eq('status', 'pending')
-        .single();
-
-      if (invitationError || !invitationData) {
-        console.error('Error loading invitation:', invitationError);
-        setError('Invitation not found or has expired');
+      // Validate invitation via server-side API to bypass RLS
+      const response = await fetch(`/api/invitations/validate-manager?token=${token}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || 'Invitation not found or has expired');
         return;
       }
 
-      // Check if invitation has expired
-      const now = new Date();
-      const expiresAt = new Date(invitationData.expires_at);
-      if (now > expiresAt) {
-        setError('This invitation has expired');
-        return;
-      }
-
+      const { invitation: invitationData } = await response.json();
       setInvitation(invitationData);
 
       // If user is logged in and email matches, we can proceed directly
@@ -100,13 +88,13 @@ export default function ManagerInvitePage() {
     setAccepting(true);
     try {
       // Accept invitation via API
-      const response = await fetch('/api/managers/accept-invitation', {
+      const response = await fetch('/api/managers/accept-manager-invitation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          invitationToken: token
+          token: token
         }),
       });
 
@@ -277,5 +265,13 @@ export default function ManagerInvitePage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ManagerInvitePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ManagerInviteContent />
+    </Suspense>
   );
 } 

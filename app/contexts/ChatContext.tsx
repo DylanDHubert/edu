@@ -78,16 +78,60 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       let filteredData = data || [];
       
-      // If we have an active team assistant, only show chats for that team
+      // IMPROVED FILTERING LOGIC FOR TEAM VS INDIVIDUAL CHATS
       if (activeAssistant) {
-        filteredData = filteredData.filter(chat => 
-          chat.team_id === activeAssistant.teamId &&
-          chat.account_id === activeAssistant.accountId &&
-          chat.portfolio_id === activeAssistant.portfolioId
-        );
+        // TEAM-BASED CHAT FILTERING
+        // Show chats that match the current team/account/portfolio configuration
+        filteredData = filteredData.filter(chat => {
+          // MUST HAVE TEAM ID MATCH
+          if (chat.team_id !== activeAssistant.teamId) {
+            return false;
+          }
+          
+          // MUST HAVE ACCOUNT ID MATCH
+          if (chat.account_id !== activeAssistant.accountId) {
+            return false;
+          }
+          
+          // MUST HAVE PORTFOLIO ID MATCH
+          if (chat.portfolio_id !== activeAssistant.portfolioId) {
+            return false;
+          }
+          
+          // ALL THREE MATCH - THIS IS A VALID TEAM CHAT
+          return true;
+        });
+        
+        console.log('FILTERED TEAM CHATS:', {
+          totalChats: data?.length || 0,
+          filteredChats: filteredData.length,
+          activeAssistant: {
+            teamId: activeAssistant.teamId,
+            accountId: activeAssistant.accountId,
+            portfolioId: activeAssistant.portfolioId
+          }
+        });
       } else {
-        // If no team assistant, only show individual chats (those with portfolio_type)
-        filteredData = filteredData.filter(chat => chat.portfolio_type);
+        // INDIVIDUAL CHAT FILTERING (LEGACY)
+        // Show only individual portfolio chats (no team_id, account_id, portfolio_id)
+        filteredData = filteredData.filter(chat => {
+          // MUST HAVE PORTFOLIO_TYPE (individual chat)
+          if (!chat.portfolio_type) {
+            return false;
+          }
+          
+          // MUST NOT HAVE TEAM-BASED FIELDS (to avoid showing team chats)
+          if (chat.team_id || chat.account_id || chat.portfolio_id) {
+            return false;
+          }
+          
+          return true;
+        });
+        
+        console.log('FILTERED INDIVIDUAL CHATS:', {
+          totalChats: data?.length || 0,
+          filteredChats: filteredData.length
+        });
       }
 
       setChatHistory(filteredData);

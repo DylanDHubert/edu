@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -13,7 +13,7 @@ interface Portfolio {
   uploadedFiles?: { name: string; size: number }[];
 }
 
-export default function PortfoliosSetupPage() {
+function PortfoliosSetupContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -364,5 +364,13 @@ export default function PortfoliosSetupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PortfoliosSetupPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PortfoliosSetupContent />
+    </Suspense>
   );
 } 

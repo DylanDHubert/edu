@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -24,7 +24,7 @@ interface TeamData {
   location: string;
 }
 
-export default function AccountPortfolioSelectPage() {
+function AccountPortfolioSelectContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -395,5 +395,13 @@ export default function AccountPortfolioSelectPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AccountPortfolioSelectPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AccountPortfolioSelectContent />
+    </Suspense>
   );
 } 

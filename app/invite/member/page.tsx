@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { useAuth } from "../../contexts/AuthContext";
@@ -17,7 +17,7 @@ interface InvitationData {
   inviter_name: string;
 }
 
-export default function TeamMemberInvitePage() {
+function TeamMemberInviteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, loading: userLoading } = useAuth();
@@ -61,41 +61,23 @@ export default function TeamMemberInvitePage() {
       setLoading(true);
       setError(null);
 
-      // Validate invitation token
-      const { data: inviteData, error: inviteError } = await supabase
-        .from('team_member_invitations')
-        .select(`
-          *,
-          teams:team_id (
-            name
-          )
-        `)
-        .eq('invitation_token', token)
-        .eq('status', 'pending')
-        .single();
-
-      if (inviteError || !inviteData) {
-        setError("Invalid or expired invitation link");
-        setLoading(false);
-        return;
-      }
-
-      // Check if invitation has expired
-      const expiresAt = new Date(inviteData.expires_at);
-      const now = new Date();
+      // Validate invitation via server-side API to bypass RLS
+      const response = await fetch(`/api/invitations/validate-member?token=${token}`);
       
-      if (now > expiresAt) {
-        setError("This invitation has expired");
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || "Invalid or expired invitation link");
         setLoading(false);
         return;
       }
+
+      const { invitation: inviteData } = await response.json();
 
       // Get inviter name (simplified - just using "Team Manager" for now)
       const inviterName = "Team Manager";
 
       setInvitation({
         ...inviteData,
-        team_name: inviteData.teams?.name || 'Unknown Team',
         inviter_name: inviterName
       });
 
@@ -199,7 +181,7 @@ export default function TeamMemberInvitePage() {
     setAccepting(true);
     try {
       // Call API to accept invitation
-      const response = await fetch('/api/managers/accept-invitation', {
+      const response = await fetch('/api/teams/accept-member-invitation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -403,5 +385,13 @@ export default function TeamMemberInvitePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TeamMemberInvitePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TeamMemberInviteContent />
+    </Suspense>
   );
 } 

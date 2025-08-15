@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -22,7 +22,7 @@ interface TeamData {
   created_at: string;
 }
 
-export default function TeamDashboardPage() {
+function TeamDashboardContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -313,5 +313,13 @@ export default function TeamDashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TeamDashboardPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TeamDashboardContent />
+    </Suspense>
   );
 } 

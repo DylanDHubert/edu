@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -26,7 +26,7 @@ interface Account {
   };
 }
 
-export default function AccountsSetupPage() {
+function AccountsSetupContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -160,13 +160,13 @@ export default function AccountsSetupPage() {
       newKnowledge[portfolioId] = { inventory: [], instruments: [], technical: [] };
     }
 
-    const newItem = type === 'inventory' 
-      ? { item: '', quantity: 0, notes: '' }
-      : type === 'instruments'
-      ? { name: '', description: '', imageFile: undefined, imageUrl: '', imageName: '' }
-      : { title: '', content: '' };
-
-    newKnowledge[portfolioId][type].push(newItem);
+    if (type === 'inventory') {
+      newKnowledge[portfolioId][type].push({ item: '', quantity: 0, notes: '' });
+    } else if (type === 'instruments') {
+      newKnowledge[portfolioId][type].push({ name: '', description: '', imageFile: undefined, imageUrl: '', imageName: '' });
+    } else {
+      newKnowledge[portfolioId][type].push({ title: '', content: '' });
+    }
     updateAccount(accountIndex, 'knowledge', newKnowledge);
   };
 
@@ -183,7 +183,7 @@ export default function AccountsSetupPage() {
   const removeKnowledgeItem = (accountIndex: number, portfolioId: string, type: 'inventory' | 'instruments' | 'technical', itemIndex: number) => {
     const account = accounts[accountIndex];
     const newKnowledge = { ...account.knowledge };
-    newKnowledge[portfolioId][type] = newKnowledge[portfolioId][type].filter((_, i) => i !== itemIndex);
+    (newKnowledge[portfolioId][type] as any[]) = newKnowledge[portfolioId][type].filter((_, i) => i !== itemIndex);
     updateAccount(accountIndex, 'knowledge', newKnowledge);
   };
 
@@ -686,5 +686,13 @@ export default function AccountsSetupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AccountsSetupPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AccountsSetupContent />
+    </Suspense>
   );
 } 
