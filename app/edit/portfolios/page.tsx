@@ -281,8 +281,8 @@ function EditPortfoliosContent() {
         }
       }
 
-      // Redirect to accounts editing
-      router.push(`/edit/accounts?teamId=${teamId}`);
+      // Redirect back to team dashboard
+      router.push(`/launcher/team?teamId=${teamId}`);
 
     } catch (error) {
       console.error('Error updating portfolios:', error);
@@ -484,7 +484,7 @@ function EditPortfoliosContent() {
               disabled={isSubmitting}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-8 py-3 rounded-md font-medium transition-colors"
             >
-              {isSubmitting ? 'Saving Changes...' : 'Save Changes & Continue'}
+              {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
             </button>
           </div>
         </div>

@@ -352,7 +352,7 @@ function EditGeneralContent() {
               disabled={isSubmitting}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-8 py-3 rounded-md font-medium transition-colors"
             >
-              {isSubmitting ? 'Saving Changes...' : 'Save Changes & Finish'}
+              {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
             </button>
           </div>
         </div>

@@ -86,31 +86,28 @@ function EditMembersContent() {
       }
       setTeam(teamData);
 
-      // Load existing team members - simplified approach
-      const { data: membersData, error: membersError } = await supabase
-        .from('team_members')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('status', 'active')
-        .order('created_at');
-
-      // Don't fail if we can't load members, just set empty array
-      if (membersError) {
-        console.warn('Could not load team members:', membersError);
-        setExistingMembers([]);
-      } else {
-        // Transform data to include placeholder profiles
-        const membersWithPlaceholderProfiles = (membersData || []).map(member => ({
+      // Load existing team members with real user data via API
+      const membersResponse = await fetch(`/api/teams/members/list?teamId=${teamId}`);
+      
+      if (membersResponse.ok) {
+        const { members: membersData } = await membersResponse.json();
+        console.log('Members data from API:', membersData);
+        
+        // Transform data to match expected format
+        const membersWithProfiles = (membersData || []).map(member => ({
           ...member,
           profiles: {
-            email: `user-${member.user_id.slice(0, 8)}@unknown.com`, // Placeholder
-            full_name: 'Team Member'
+            email: member.email,
+            full_name: member.full_name
           }
         }));
-        setExistingMembers(membersWithPlaceholderProfiles);
+        setExistingMembers(membersWithProfiles);
+      } else {
+        console.warn('Could not load team members from API');
+        setExistingMembers([]);
       }
 
-      // Load pending invitations
+      // Load pending invitations (exclude accepted, declined, and expired)
       const { data: invitesData, error: invitesError } = await supabase
         .from('team_member_invitations')
         .select('*')
@@ -374,18 +371,15 @@ function EditMembersContent() {
                     <div className="flex items-center space-x-4">
                       <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center">
                         <span className="text-slate-300 font-medium">
-                          {member.profiles?.full_name?.charAt(0) || member.profiles?.email?.charAt(0) || '?'}
+                          {(member.profiles?.full_name || member.profiles?.email || 'M').charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
                         <div className="text-slate-100 font-medium">
-                          {member.profiles?.email?.includes('@unknown.com') ? 'Team Member' : 
-                           (member.profiles?.full_name || member.profiles?.email || 'Unknown User')}
+                          {member.profiles?.full_name || member.profiles?.email || `Member ${member.user_id.slice(0, 8)}`}
                         </div>
                         <div className="text-slate-400 text-sm">
-                          {member.profiles?.email?.includes('@unknown.com') ? 
-                           `Member ID: ${member.user_id.slice(0, 8)}...` : 
-                           member.profiles?.email}
+                          {member.profiles?.email || `ID: ${member.user_id.slice(0, 8)}...`}
                         </div>
                       </div>
                     </div>
@@ -399,7 +393,7 @@ function EditMembersContent() {
                       </span>
                       {member.user_id !== user.id && (
                         <button
-                          onClick={() => removeMember(member.id, member.profiles?.email || 'unknown@email.com')}
+                          onClick={() => removeMember(member.id, member.profiles?.email || `Member ${member.user_id.slice(0, 8)}`)}
                           className="text-red-400 hover:text-red-300 text-sm"
                         >
                           Remove

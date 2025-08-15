@@ -149,12 +149,22 @@ function TeamDashboardContent() {
     router.push(`/launcher/select?teamId=${teamId}`);
   };
 
-  const handleManageTeam = () => {
-    // Go to team editing page - starts with portfolios
+  const handleEditTeamDetails = () => {
+    // Go to general team info editing page
+    router.push(`/edit/general?teamId=${teamId}`);
+  };
+
+  const handleManagePortfolios = () => {
+    // Go to portfolio management page
     router.push(`/edit/portfolios?teamId=${teamId}`);
   };
 
-  const handleInviteMembers = () => {
+  const handleManageAccounts = () => {
+    // Go to account management page
+    router.push(`/edit/accounts?teamId=${teamId}`);
+  };
+
+  const handleManageMembers = () => {
     // Go to member management page
     router.push(`/edit/members?teamId=${teamId}`);
   };
@@ -270,30 +280,37 @@ function TeamDashboardContent() {
           <div className="space-y-6">
             {/* Primary Actions */}
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <h3 className="text-lg font-semibold text-slate-100 mb-4">Quick Actions</h3>
+              <h3 className="text-lg font-semibold text-slate-100 mb-4">Manage</h3>
               
               <div className="space-y-3">
-                <button
-                  onClick={handleStartChat}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
-                >
-                  Start Chat
-                </button>
-                
                 {userRole === 'manager' && (
                   <>
                     <button
-                      onClick={handleInviteMembers}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
+                      onClick={handleManagePortfolios}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
                     >
-                      Invite Members
+                      Portfolios
                     </button>
                     
                     <button
-                      onClick={handleManageTeam}
+                      onClick={handleManageAccounts}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
+                    >
+                      Accounts
+                    </button>
+                    
+                    <button
+                      onClick={handleEditTeamDetails}
                       className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
                     >
-                      Edit Team Information
+                      General Knowledge
+                    </button>
+                    
+                    <button
+                      onClick={handleManageMembers}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
+                    >
+                      Members
                     </button>
                   </>
                 )}
@@ -302,12 +319,15 @@ function TeamDashboardContent() {
 
 
 
-            {/* Recent Activity (Future Enhancement) */}
+            {/* Start Chat */}
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <h3 className="text-lg font-semibold text-slate-100 mb-4">Recent Activity</h3>
-              <p className="text-slate-400 text-sm">
-                Activity tracking coming soon...
-              </p>
+              <h3 className="text-lg font-semibold text-slate-100 mb-4">Start Working</h3>
+              <button
+                onClick={handleStartChat}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
+              >
+                Start Chat
+              </button>
             </div>
           </div>
         </div>

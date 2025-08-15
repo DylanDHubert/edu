@@ -20,8 +20,17 @@ CREATE POLICY "Team managers can manage member invitations" ON team_member_invit
 CREATE POLICY "Allow access by invitation token" ON team_member_invitations
     FOR SELECT USING (
         -- ALLOW ACCESS TO PENDING INVITATIONS ONLY
-        -- THIS IS MORE SECURE THAN ALLOWING ALL ACCESS
         status = 'pending'
+    );
+
+-- ADD POLICY TO ALLOW UPDATES FOR INVITATION ACCEPTANCE
+CREATE POLICY "Allow invitation status updates" ON team_member_invitations
+    FOR UPDATE USING (
+        -- ALLOW UPDATES TO PENDING INVITATIONS (for acceptance)
+        status = 'pending'
+    ) WITH CHECK (
+        -- ALLOW CHANGING STATUS TO 'accepted' OR 'declined'
+        status IN ('accepted', 'declined')
     );
 
 -- ALTERNATIVE: MORE RESTRICTIVE TOKEN-BASED POLICY
