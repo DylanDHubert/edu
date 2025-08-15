@@ -15,9 +15,29 @@ function LoginPageContent() {
   const supabase = createClient();
   
   // GET INVITATION CONTEXT FROM URL PARAMETERS
-  const invitationToken = searchParams.get('token');
-  const invitationType = searchParams.get('type'); // 'manager' or 'member'
-  const prefillEmail = searchParams.get('email');
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
+  const [invitationType, setInvitationType] = useState<string | null>(null);
+  const [prefillEmail, setPrefillEmail] = useState<string | null>(null);
+  
+  // PARSE URL PARAMETERS ON CLIENT SIDE
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const type = urlParams.get('type');
+      const email = urlParams.get('email');
+      
+      console.log('=== LOGIN PAGE DEBUG ===');
+      console.log('URL search:', window.location.search);
+      console.log('Token from URL:', token);
+      console.log('Type from URL:', type);
+      console.log('Email from URL:', email);
+      
+      setInvitationToken(token);
+      setInvitationType(type);
+      setPrefillEmail(email);
+    }
+  }, []);
   
   // SET EMAIL IF PROVIDED IN URL
   useEffect(() => {
