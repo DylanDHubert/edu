@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
+import { FolderOpen, Building2, BookOpen, Users } from "lucide-react";
 
 interface TeamStats {
   portfolios: number;
@@ -278,56 +279,64 @@ function TeamDashboardContent() {
 
           {/* Actions Sidebar */}
           <div className="space-y-6">
-            {/* Primary Actions */}
+            {/* Actions Sidebar */}
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <h3 className="text-lg font-semibold text-slate-100 mb-4">Manage</h3>
-              
-              <div className="space-y-3">
+              <div className="space-y-6">
+                {/* Start Chat Button - Always visible */}
+                <button
+                  onClick={handleStartChat}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
+                >
+                  Start Chat
+                </button>
+
+                {/* Management Section - Only for managers */}
                 {userRole === 'manager' && (
-                  <>
-                    <button
-                      onClick={handleManagePortfolios}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
-                    >
-                      Portfolios
-                    </button>
-                    
-                    <button
-                      onClick={handleManageAccounts}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
-                    >
-                      Accounts
-                    </button>
-                    
-                    <button
-                      onClick={handleEditTeamDetails}
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
-                    >
-                      General Knowledge
-                    </button>
-                    
-                    <button
-                      onClick={handleManageMembers}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
-                    >
-                      Members
-                    </button>
-                  </>
+                  <div className="space-y-6">
+                    {/* Knowledge Management */}
+                    <div>
+                      <h4 className="text-md font-medium text-slate-200 mb-3">Manage Knowledge</h4>
+                      <div className="space-y-3">
+                        <button
+                          onClick={handleManagePortfolios}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                        >
+                          <FolderOpen className="w-5 h-5 flex-shrink-0" />
+                          <span className="flex-1 text-center">Portfolios</span>
+                        </button>
+                        
+                        <button
+                          onClick={handleManageAccounts}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                        >
+                          <Building2 className="w-5 h-5 flex-shrink-0" />
+                          <span className="flex-1 text-center">Accounts</span>
+                        </button>
+                        
+                        <button
+                          onClick={handleEditTeamDetails}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                        >
+                          <BookOpen className="w-5 h-5 flex-shrink-0" />
+                          <span className="flex-1 text-center">General Knowledge</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Team Management */}
+                    <div>
+                      <h4 className="text-md font-medium text-slate-200 mb-3">Manage Team</h4>
+                      <button
+                        onClick={handleManageMembers}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                      >
+                        <Users className="w-5 h-5 flex-shrink-0" />
+                        <span className="flex-1 text-center">Members</span>
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-
-
-
-            {/* Start Chat */}
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <h3 className="text-lg font-semibold text-slate-100 mb-4">Start Working</h3>
-              <button
-                onClick={handleStartChat}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-md font-medium transition-colors"
-              >
-                Start Chat
-              </button>
             </div>
           </div>
         </div>
