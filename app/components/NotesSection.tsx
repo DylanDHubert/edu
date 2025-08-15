@@ -180,7 +180,7 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
                               e.currentTarget.style.display = 'none';
                             }}
                           />
-                          {index === 3 && note.images.length > 4 && (
+                          {index === 3 && note.images && note.images.length > 4 && (
                             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-md">
                               <span className="text-xs text-white">+{note.images.length - 4}</span>
                             </div>
