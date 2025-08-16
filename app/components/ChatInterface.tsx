@@ -213,7 +213,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           threadId: currentChat.thread_id,
           messageId,
           rating,
-          portfolioType: currentPortfolio,
+          teamId: activeAssistant?.teamId,
+          accountId: activeAssistant?.accountId,
+          portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
           citations: citations,
           feedbackText: messageRatings[messageId]?.feedbackText || null
@@ -226,7 +228,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           ...prev,
           [messageId]: {
             rating: rating,
-            portfolioType: currentPortfolio,
+            teamId: activeAssistant?.teamId,
+            accountId: activeAssistant?.accountId,
+            portfolioId: activeAssistant?.portfolioId,
             responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
             citations: citations,
             feedbackText: messageRatings[messageId]?.feedbackText || null
@@ -274,7 +278,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           threadId: currentChat.thread_id,
           messageId,
           rating: messageRatings[messageId]?.rating || null,
-          portfolioType: currentPortfolio,
+          teamId: activeAssistant?.teamId,
+          accountId: activeAssistant?.accountId,
+          portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
           citations: citations,
           feedbackText: feedbackText

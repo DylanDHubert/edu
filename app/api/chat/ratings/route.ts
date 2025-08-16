@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // GET RATINGS FOR THIS THREAD
     const { data: ratings, error: ratingsError } = await supabase
       .from('message_ratings')
-      .select('message_id, rating, portfolio_type, response_time_ms, citations, feedback_text')
+      .select('message_id, rating, team_id, account_id, portfolio_id, response_time_ms, citations, feedback_text')
       .eq('thread_id', threadId)
       .eq('user_id', user.id);
 
@@ -59,7 +59,9 @@ export async function POST(request: NextRequest) {
     const ratingsMap = (ratings || []).reduce((acc, rating) => {
       acc[rating.message_id] = {
         rating: rating.rating,
-        portfolioType: rating.portfolio_type,
+        teamId: rating.team_id,
+        accountId: rating.account_id,
+        portfolioId: rating.portfolio_id,
         responseTimeMs: rating.response_time_ms,
         citations: rating.citations || [],
         feedbackText: rating.feedback_text || null

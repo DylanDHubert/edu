@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../../utils/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -58,23 +59,74 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform the data to include user information
-    // For now, we'll show a more readable format of the user ID
-    const membersWithUserData = (members || []).map(member => {
-      const shortId = member.user_id.slice(0, 8);
-      return {
-        id: member.id,
-        team_id: member.team_id,
-        user_id: member.user_id,
-        role: member.role,
-        status: member.status,
-        is_original_manager: member.is_original_manager,
-        created_at: member.created_at,
-        updated_at: member.updated_at,
-        email: `${shortId}@team-member.com`,
-        full_name: `Team Member (${shortId})`
-      };
-    });
+    // Create service client with admin privileges for user lookups
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Fetch real user data for each team member
+    const membersWithUserData = await Promise.all((members || []).map(async (member) => {
+      try {
+        // Get user data from Supabase auth using admin client
+        const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(member.user_id);
+        
+        if (userError || !userData.user) {
+          console.warn(`Could not fetch user data for user_id: ${member.user_id}`, userError);
+          // Fallback to UUID fragment if user lookup fails
+          const shortId = member.user_id.slice(0, 8);
+          return {
+            id: member.id,
+            team_id: member.team_id,
+            user_id: member.user_id,
+            role: member.role,
+            status: member.status,
+            is_original_manager: member.is_original_manager,
+            created_at: member.created_at,
+            updated_at: member.updated_at,
+            email: `${shortId}@unknown.com`,
+            full_name: `Unknown User (${shortId})`
+          };
+        }
+
+        // Extract real user information
+        const realUser = userData.user;
+        const email = realUser.email || '';
+        const fullName = realUser.user_metadata?.full_name || 
+                        realUser.user_metadata?.name || 
+                        realUser.email || 
+                        'Unknown User';
+
+        return {
+          id: member.id,
+          team_id: member.team_id,
+          user_id: member.user_id,
+          role: member.role,
+          status: member.status,
+          is_original_manager: member.is_original_manager,
+          created_at: member.created_at,
+          updated_at: member.updated_at,
+          email: email,
+          full_name: fullName
+        };
+      } catch (error) {
+        console.error(`Error fetching user data for ${member.user_id}:`, error);
+        // Fallback to UUID fragment if there's an exception
+        const shortId = member.user_id.slice(0, 8);
+        return {
+          id: member.id,
+          team_id: member.team_id,
+          user_id: member.user_id,
+          role: member.role,
+          status: member.status,
+          is_original_manager: member.is_original_manager,
+          created_at: member.created_at,
+          updated_at: member.updated_at,
+          email: `${shortId}@unknown.com`,
+          full_name: `Unknown User (${shortId})`
+        };
+      }
+    }));
 
     return NextResponse.json({
       success: true,

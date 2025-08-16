@@ -24,7 +24,7 @@ interface ChatContextType {
   chatHistory: ChatHistory[];
   currentChat: ChatHistory | null;
   setCurrentChat: (chat: ChatHistory | null) => void;
-  createNewChat: (portfolioType: PortfolioType) => Promise<void>;
+  createNewChat: (portfolioType?: PortfolioType) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   refreshChatHistory: () => Promise<void>;
   loading: boolean;
@@ -140,31 +140,61 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createNewChat = async (portfolioType: PortfolioType) => {
+  const createNewChat = async (portfolioType?: PortfolioType) => {
     if (!user) return;
 
     setLoading(true);
     try {
-      // CREATE NEW THREAD (THIS WILL BE HANDLED BY API ROUTE)
-      const response = await fetch('/api/chat/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          portfolioType,
-          title: `NEW ${PORTFOLIOS[portfolioType].name} CHAT`
-        }),
-      });
+      // DETERMINE IF WE'RE IN TEAM MODE OR INDIVIDUAL MODE
+      if (activeAssistant && activeAssistant.teamId && activeAssistant.accountId && activeAssistant.portfolioId) {
+        // TEAM-BASED CHAT CREATION
+        const response = await fetch('/api/chat/create-team', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            teamId: activeAssistant.teamId,
+            accountId: activeAssistant.accountId,
+            portfolioId: activeAssistant.portfolioId,
+            assistantId: activeAssistant.assistantId,
+            title: `NEW ${activeAssistant.portfolioName} CHAT`
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('FAILED TO CREATE NEW CHAT');
+        if (!response.ok) {
+          throw new Error('FAILED TO CREATE NEW TEAM CHAT');
+        }
+
+        const newChat = await response.json();
+        setChatHistory(prev => [newChat, ...prev]);
+        setCurrentChat(newChat);
+      } else {
+        // INDIVIDUAL PORTFOLIO CHAT CREATION (LEGACY)
+        if (!portfolioType) {
+          throw new Error('PORTFOLIO TYPE REQUIRED FOR INDIVIDUAL CHATS');
+        }
+
+        const response = await fetch('/api/chat/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            portfolioType,
+            title: `NEW ${PORTFOLIOS[portfolioType].name} CHAT`
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('FAILED TO CREATE NEW CHAT');
+        }
+
+        const newChat = await response.json();
+        setChatHistory(prev => [newChat, ...prev]);
+        setCurrentChat(newChat);
+        setCurrentPortfolio(portfolioType);
       }
-
-      const newChat = await response.json();
-      setChatHistory(prev => [newChat, ...prev]);
-      setCurrentChat(newChat);
-      setCurrentPortfolio(portfolioType);
     } catch (error) {
       console.error('ERROR CREATING NEW CHAT:', error);
     } finally {

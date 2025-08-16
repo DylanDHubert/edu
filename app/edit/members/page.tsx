@@ -16,6 +16,7 @@ interface TeamMember {
     email: string;
     full_name?: string;
   };
+  is_original_manager?: boolean;
 }
 
 interface PendingInvite {
@@ -149,12 +150,33 @@ function EditMembersContent() {
   };
 
   const removeMember = async (memberId: string, memberEmail: string) => {
-    const displayName = memberEmail.includes('@unknown.com') ? 'this team member' : memberEmail;
-    if (!confirm(`Are you sure you want to remove ${displayName} from the team?`)) {
-      return;
-    }
-
     try {
+      // First, check if the member being removed is the original manager
+      const { data: memberToRemove, error: fetchError } = await supabase
+        .from('team_members')
+        .select('is_original_manager, role')
+        .eq('id', memberId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching member data:', fetchError);
+        setError('Failed to fetch member information');
+        return;
+      }
+
+      // Prevent removal of original manager
+      if (memberToRemove.is_original_manager) {
+        setError('Cannot remove the original team manager. They are the team owner and cannot be removed.');
+        return;
+      }
+
+      const displayName = memberEmail.includes('@unknown.com') ? 'this team member' : memberEmail;
+      const roleText = memberToRemove.role === 'manager' ? 'manager' : 'member';
+      
+      if (!confirm(`Are you sure you want to remove ${displayName} (${roleText}) from the team? This action cannot be undone.`)) {
+        return;
+      }
+
       const { error } = await supabase
         .from('team_members')
         .update({ status: 'removed' })
@@ -374,13 +396,18 @@ function EditMembersContent() {
                     </div>
                     <div className="flex items-center space-x-3 flex-shrink-0">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        member.role === 'manager' 
+                        member.is_original_manager
+                          ? 'bg-amber-900/50 text-amber-300 border border-amber-700'
+                          : member.role === 'manager' 
                           ? 'bg-purple-900/50 text-purple-300 border border-purple-700' 
                           : 'bg-blue-900/50 text-blue-300 border border-blue-700'
                       }`}>
-                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                        {member.is_original_manager 
+                          ? 'Owner' 
+                          : member.role.charAt(0).toUpperCase() + member.role.slice(1)
+                        }
                       </span>
-                      {member.user_id !== user.id && (
+                      {member.user_id !== user.id && !member.is_original_manager && (
                         <button
                           onClick={() => removeMember(member.id, member.profiles?.email || `Member ${member.user_id.slice(0, 8)}`)}
                           className="px-2 py-1 rounded text-xs font-medium bg-red-900/50 text-red-300 border border-red-700 hover:bg-red-800/50"

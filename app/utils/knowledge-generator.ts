@@ -55,11 +55,11 @@ export function createAccountPortfolioKnowledgeText(params: AccountPortfolioKnow
         }
         // Include image reference if available (use stored path or uploaded file reference)
         if (item.imageUrl && item.imageUrl.trim() && !item.imageUrl.startsWith('blob:')) {
-          // If imageUrl already starts with /api/images/, use it as-is, otherwise add the prefix
-          const imageUrl = item.imageUrl.startsWith('/api/images/') 
-            ? item.imageUrl 
-            : `/api/images/${item.imageUrl.replace('team-images/', '')}`;
-          text += `\n  [IMAGE: ${item.name} - ${imageUrl}]`;
+          // Extract filename from URL (same logic as notes formatter)
+          const urlParts = item.imageUrl.split('/');
+          const filename = urlParts[urlParts.length - 1];
+          const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+          text += `\n  [IMAGE: ${item.name} - ${proxyUrl}]`;
         }
         text += "\n";
       }

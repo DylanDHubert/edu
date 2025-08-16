@@ -4,11 +4,11 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, messageId, rating, portfolioType, responseTimeMs, citations, feedbackText } = await request.json();
+    const { threadId, messageId, rating, teamId, accountId, portfolioId, responseTimeMs, citations, feedbackText } = await request.json();
     
-    if (!threadId || !messageId || !portfolioType) {
+    if (!threadId || !messageId || !teamId || !accountId || !portfolioId) {
       return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE ID, AND PORTFOLIO TYPE ARE REQUIRED' },
+        { error: 'THREAD ID, MESSAGE ID, TEAM ID, ACCOUNT ID, AND PORTFOLIO ID ARE REQUIRED' },
         { status: 400 }
       );
     }
@@ -17,14 +17,6 @@ export async function POST(request: NextRequest) {
     if (rating !== undefined && rating !== null && rating !== 1 && rating !== -1) {
       return NextResponse.json(
         { error: 'RATING MUST BE 1 (THUMBS UP) OR -1 (THUMBS DOWN)' },
-        { status: 400 }
-      );
-    }
-
-    // VALIDATE PORTFOLIO TYPE
-    if (!['hip', 'knee', 'ts_knee'].includes(portfolioType)) {
-      return NextResponse.json(
-        { error: 'INVALID PORTFOLIO TYPE' },
         { status: 400 }
       );
     }
@@ -56,12 +48,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // VERIFY USER HAS ACCESS TO THIS TEAM
+    const { data: teamMember, error: teamMemberError } = await supabase
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .single();
+
+    if (teamMemberError || !teamMember) {
+      return NextResponse.json(
+        { error: 'ACCESS DENIED TO THIS TEAM' },
+        { status: 403 }
+      );
+    }
+
     // UPSERT RATING (INSERT OR UPDATE IF EXISTS)
     const upsertData: any = {
       user_id: user.id,
       thread_id: threadId,
       message_id: messageId,
-      portfolio_type: portfolioType,
+      team_id: teamId,
+      account_id: accountId,
+      portfolio_id: portfolioId,
       response_time_ms: responseTimeMs || null,
       citations: citations || [],
       feedback_text: feedbackText || null
