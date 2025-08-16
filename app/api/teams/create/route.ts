@@ -26,25 +26,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user has a pending manager invitation - USE SERVICE CLIENT TO BYPASS RLS
+    // Check if user has manager privileges - USE SERVICE CLIENT TO BYPASS RLS
     console.log('=== TEAM CREATION DEBUG ===');
     console.log('User email:', user.email);
-    console.log('Looking for accepted manager invitation...');
+    console.log('Checking for manager privileges...');
     
     const serviceClient = createServiceClient();
     const { data: invitation, error: inviteError } = await serviceClient
       .from('manager_invitations')
       .select('*')
       .eq('email', user.email)
-      .eq('status', 'accepted')
+      .eq('status', 'completed')
       .single();
       
-    console.log('Invitation query result:', invitation);
-    console.log('Invitation query error:', inviteError);
+    console.log('Manager privileges check result:', invitation);
+    console.log('Manager privileges check error:', inviteError);
 
     if (inviteError || !invitation) {
       return NextResponse.json(
-        { error: 'No valid manager invitation found' },
+        { error: 'Manager privileges required to create teams' },
         { status: 403 }
       );
     }
@@ -91,11 +91,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update the manager invitation status to used/completed - USE SERVICE CLIENT TO BYPASS RLS
-    await serviceClient
-      .from('manager_invitations')
-      .update({ status: 'completed' })
-      .eq('id', invitation.id);
+    // Note: Manager invitation status is already 'completed', no need to update
 
     return NextResponse.json({
       success: true,

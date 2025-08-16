@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
+import StandardHeader from "../../components/StandardHeader";
 
 export default function TeamSetupPage() {
   const { user, loading } = useAuth();
@@ -69,8 +70,8 @@ export default function TeamSetupPage() {
 
       const { team } = await response.json();
       
-      // Redirect directly to team dashboard
-      router.push(`/launcher/team?teamId=${team.id}`);
+      // Redirect back to launcher to show all teams
+      router.push('/launcher');
 
     } catch (error) {
       console.error('Error creating team:', error);
@@ -97,23 +98,24 @@ export default function TeamSetupPage() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <h1 className="text-3xl font-bold text-slate-100">Create Your Team</h1>
-            <p className="text-slate-400 mt-1">Create your team to get started with the HHB RAG Assistant</p>
-          </div>
-        </div>
-      </div>
+      <StandardHeader
+        backText="←"
+        showBackButton={true}
+        onBackClick={() => router.push('/launcher')}
+      />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-slate-100 mb-2">Create Your Team</h1>
+          <p className="text-slate-400">Create your team to get started with the HHB RAG Assistant</p>
+        </div>
+        
         <div className="bg-slate-800 rounded-lg border border-slate-700 p-8">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-100 mb-2">Team Information</h2>
             <p className="text-slate-400 text-sm">
-              Provide basic information about your team. You'll be able to manage portfolios, accounts, and team members from your dashboard.
+              Provide basic information about your team. You'll be able to manage portfolios, accounts, and team members from your team dashboard.
             </p>
           </div>
 
@@ -178,7 +180,7 @@ export default function TeamSetupPage() {
             <div className="bg-blue-900/30 border border-blue-700 rounded-md p-4">
               <h3 className="text-sm font-medium text-blue-400 mb-2">What's Next:</h3>
               <ul className="text-blue-300 text-sm space-y-1">
-                <li>• You'll be taken to your team dashboard</li>
+                <li>• You'll be taken back to the team selection page</li>
                 <li>• From there you can manage portfolios, accounts, and members</li>
                 <li>• Upload documents and create team knowledge</li>
                 <li>• Invite team members and start using your AI assistant</li>
@@ -186,11 +188,11 @@ export default function TeamSetupPage() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-center sm:justify-end">
+            <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-6 py-3 rounded-md font-medium transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
               >
                 <svg 
                   className="w-5 h-5 flex-shrink-0" 
@@ -205,7 +207,7 @@ export default function TeamSetupPage() {
                     d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
                   />
                 </svg>
-                <span>
+                <span className="flex-1 text-center">
                   {isSubmitting ? 'Creating Team...' : 'Create Team'}
                 </span>
               </button>

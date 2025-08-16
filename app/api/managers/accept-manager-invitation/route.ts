@@ -61,11 +61,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update invitation status to accepted using service role client
+    // Update invitation status to completed using service role client
     const { error: updateError } = await serviceClient
       .from('manager_invitations')
       .update({
-        status: 'accepted',
+        status: 'completed',
         accepted_at: new Date().toISOString()
       })
       .eq('id', invitation.id);

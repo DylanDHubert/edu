@@ -103,8 +103,8 @@ function ManagerInviteContent() {
         throw new Error(errorData.error || 'Failed to accept invitation');
       }
 
-      // Redirect to team creation
-      router.push('/setup/team');
+      // Redirect to launcher (select teams page)
+      router.push('/launcher');
       
     } catch (error) {
       console.error('Error accepting invitation:', error);
@@ -244,24 +244,24 @@ function ManagerInviteContent() {
           </div>
         </div>
 
-        <div className="bg-green-900/30 border border-green-700 rounded-md p-6 mb-8">
-          <h3 className="text-lg font-medium text-green-400 mb-3">Next Steps:</h3>
-          <ul className="text-left text-green-300 space-y-2">
-            <li>• Accept your manager invitation</li>
-            <li>• Create and name your team</li>
-            <li>• You'll be taken to your team dashboard</li>
-            <li>• From there you can manage portfolios, accounts, and members</li>
-            <li>• Upload documents and create team knowledge</li>
-            <li>• Start using the AI assistant with your team</li>
-          </ul>
-        </div>
+                  <div className="bg-green-900/30 border border-green-700 rounded-md p-6 mb-8">
+            <h3 className="text-lg font-medium text-green-400 mb-3">Next Steps:</h3>
+            <ul className="text-left text-green-300 space-y-2">
+              <li>• Accept your manager invitation</li>
+              <li>• You'll be taken to the team selection page</li>
+              <li>• Create as many teams as you need</li>
+              <li>• Manage portfolios, accounts, and members for each team</li>
+              <li>• Upload documents and create team knowledge</li>
+              <li>• Start using the AI assistant with your teams</li>
+            </ul>
+          </div>
 
         <button
           onClick={handleAcceptInvitation}
           disabled={accepting}
           className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-8 py-3 rounded-md font-medium transition-colors"
         >
-          {accepting ? 'Accepting...' : 'Accept Invitation & Create Team'}
+          {accepting ? 'Accepting...' : 'Accept Invitation'}
         </button>
       </div>
     </div>

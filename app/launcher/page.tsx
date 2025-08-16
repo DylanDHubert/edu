@@ -21,12 +21,17 @@ interface TeamMember {
   };
 }
 
+interface ManagerPrivileges {
+  hasManagerPrivileges: boolean;
+}
+
 export default function LauncherPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [teamMemberships, setTeamMemberships] = useState<TeamMember[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [managerPrivileges, setManagerPrivileges] = useState<ManagerPrivileges>({ hasManagerPrivileges: false });
 
   const supabase = createClient();
 
@@ -42,10 +47,29 @@ export default function LauncherPage() {
   useEffect(() => {
     if (!authLoading && user) {
       loadUserTeams();
+      checkManagerPrivileges();
     } else if (!authLoading && !user) {
       router.push('/login');
     }
   }, [authLoading, user, router]);
+
+  const checkManagerPrivileges = async () => {
+    try {
+      const { data: invitation, error } = await supabase
+        .from('manager_invitations')
+        .select('id')
+        .eq('email', user?.email)
+        .eq('status', 'completed')
+        .single();
+
+      setManagerPrivileges({
+        hasManagerPrivileges: !error && !!invitation
+      });
+    } catch (error) {
+      console.error('Error checking manager privileges:', error);
+      setManagerPrivileges({ hasManagerPrivileges: false });
+    }
+  };
 
   const loadUserTeams = async () => {
     try {
@@ -71,8 +95,19 @@ export default function LauncherPage() {
       }
 
       if (!memberships || memberships.length === 0) {
-        setError('You are not a member of any teams yet. Please contact your administrator.');
-        return;
+        // Check if user has manager privileges - if so, they can create teams
+        const { data: invitation } = await supabase
+          .from('manager_invitations')
+          .select('id')
+          .eq('email', user?.email)
+          .eq('status', 'completed')
+          .single();
+
+        if (!invitation) {
+          setError('You are not a member of any teams yet. Please contact your administrator.');
+          return;
+        }
+        // If they have manager privileges, continue with empty teams list
       }
 
       setTeamMemberships(memberships as TeamMember[]);
@@ -131,7 +166,7 @@ export default function LauncherPage() {
     );
   }
 
-  // Show team selection if user is a member of multiple teams
+  // Show team selection or create team option
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <StandardHeader
@@ -141,8 +176,9 @@ export default function LauncherPage() {
       />
       
       <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {teamMemberships.map((membership) => (
+        {teamMemberships.length > 0 ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {teamMemberships.map((membership) => (
             <div
               key={membership.id}
               className="bg-slate-800 rounded-lg border border-slate-700 p-6 hover:border-blue-500 transition-colors cursor-pointer"
@@ -196,18 +232,76 @@ export default function LauncherPage() {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-slate-100 mb-4">No Teams Yet</h2>
+            <p className="text-slate-400 mb-6">
+              {managerPrivileges.hasManagerPrivileges 
+                ? "You have manager privileges. Create your first team to get started!"
+                : "You don't have any teams yet. Please contact your administrator."
+              }
+            </p>
+            {managerPrivileges.hasManagerPrivileges && (
+              <button
+                onClick={() => router.push('/setup/team')}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+              >
+                <svg 
+                  className="w-5 h-5 flex-shrink-0" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
+                  />
+                </svg>
+                <span className="flex-1 text-center">Create Your First Team</span>
+              </button>
+            )}
+          </div>
+        )}
 
-        <div className="text-center mt-6">
-          <p className="text-slate-400">
-            Need to join a different team?
-          </p>
-          <button
-            onClick={() => router.push('/support')}
-            className="text-blue-400 hover:text-blue-300 font-medium"
-          >
-            Contact Support
-          </button>
+        <div className="text-center mt-6 space-y-4">
+          {managerPrivileges.hasManagerPrivileges && (
+            <div className="mb-4">
+              <button
+                onClick={() => router.push('/setup/team')}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+              >
+                <svg 
+                  className="w-5 h-5 flex-shrink-0" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
+                  />
+                </svg>
+                <span className="flex-1 text-center">Create New Team</span>
+              </button>
+            </div>
+          )}
+          
+          <div>
+            <p className="text-slate-400">
+              Need to join a different team?
+            </p>
+            <button
+              onClick={() => router.push('/support')}
+              className="text-blue-400 hover:text-blue-300 font-medium"
+            >
+              Contact Support
+            </button>
+          </div>
         </div>
       </div>
     </div>
