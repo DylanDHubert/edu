@@ -28,7 +28,11 @@ interface NotesContextType {
   updateNote: (formData: FormData) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   refreshNotes: () => Promise<void>;
-  getNotesForPortfolio: (portfolioType: string) => Note[];
+  getNotesForPortfolio: (portfolioType: string, teamContext?: {
+    teamId: string;
+    accountId: string;
+    portfolioId: string;
+  }) => Note[];
   getUniqueTags: () => { [key: string]: string[] };
 }
 
@@ -46,6 +50,45 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       refreshNotes();
     }
   }, [user]);
+
+  // SET UP REAL-TIME SUBSCRIPTION FOR NOTES
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('notes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // REFRESH NOTES WHEN ANY CHANGE OCCURS
+          refreshNotes();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+          filter: 'is_shared=eq.true'
+        },
+        () => {
+          // REFRESH NOTES WHEN SHARED NOTES CHANGE
+          refreshNotes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase]);
 
   const refreshNotes = async () => {
     if (!user) return;
@@ -179,8 +222,27 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getNotesForPortfolio = (portfolioType: string): Note[] => {
+  const getNotesForPortfolio = (portfolioType: string, teamContext?: {
+    teamId: string;
+    accountId: string;
+    portfolioId: string;
+  }): Note[] => {
     return notes.filter(note => {
+      // FILTER BY TEAM CONTEXT IF PROVIDED
+      if (teamContext && note.tags) {
+        // CHECK IF NOTE HAS TEAM TAG THAT MATCHES CURRENT TEAM
+        const noteTeamId = note.tags.team;
+        if (noteTeamId && noteTeamId !== teamContext.teamId) {
+          return false;
+        }
+        
+        // CHECK IF NOTE HAS ACCOUNT TAG THAT MATCHES CURRENT ACCOUNT
+        const noteAccountId = note.tags.account;
+        if (noteAccountId && noteAccountId !== teamContext.accountId) {
+          return false;
+        }
+      }
+      
       // INCLUDE GENERAL NOTES FOR ALL PORTFOLIOS
       if (note.portfolio_type === 'general') return true;
       // INCLUDE PORTFOLIO-SPECIFIC NOTES

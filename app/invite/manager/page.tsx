@@ -103,8 +103,8 @@ function ManagerInviteContent() {
         throw new Error(errorData.error || 'Failed to accept invitation');
       }
 
-      // Redirect to launcher (select teams page)
-      router.push('/launcher');
+              // Redirect to home (teams page)
+        router.push('/');
       
     } catch (error) {
       console.error('Error accepting invitation:', error);
@@ -183,7 +183,7 @@ function ManagerInviteContent() {
               Hello {invitation.name}!
             </h2>
             <p className="text-slate-300 mb-4">
-              You've been invited to become a Team Manager on the HHB RAG Assistant platform.
+              You've been invited to become a Team Manager on the HHB Assistant platform.
             </p>
             <div className="text-left bg-slate-700 rounded-md p-4">
               <div className="text-sm text-slate-400">Invited Email:</div>

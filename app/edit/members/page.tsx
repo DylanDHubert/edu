@@ -54,7 +54,7 @@ function EditMembersContent() {
     if (!loading && !user) {
       router.push("/login");
     } else if (!teamId) {
-      router.push("/launcher");
+              router.push("/");
     } else if (user && teamId) {
       loadExistingData();
     }

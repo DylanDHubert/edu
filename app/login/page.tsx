@@ -73,9 +73,9 @@ function LoginPageContent() {
           console.log('Redirecting to invitation path:', invitationPath);
           router.push(invitationPath);
         } else {
-          // NORMAL FLOW - GO TO LAUNCHER
-          console.log('No invitation context, redirecting to launcher');
-          router.push("/");
+          // NORMAL FLOW - GO TO CHAT
+          console.log('No invitation context, redirecting to chat');
+          router.push("/chat");
         }
         router.refresh();
       }
@@ -90,7 +90,7 @@ function LoginPageContent() {
     <div className="min-h-screen flex items-center justify-center bg-slate-900">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-2">HHB RAG</h1>
+          <h1 className="text-4xl font-bold text-slate-100 mb-2">HHB</h1>
           <p className="text-slate-400">SIGN IN TO YOUR ACCOUNT</p>
           {invitationToken && invitationType && (
             <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded-md">
@@ -180,7 +180,7 @@ export default function LoginPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">HHB RAG</h1>
+          <h1 className="text-4xl font-bold text-slate-100 mb-4">HHB</h1>
           <p className="text-slate-400">Loading...</p>
         </div>
       </div>

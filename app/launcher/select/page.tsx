@@ -48,7 +48,7 @@ function AccountPortfolioSelectContent() {
     } else if (!authLoading && !user) {
       router.push('/login');
     } else if (!authLoading && !teamId) {
-      router.push('/launcher');
+              router.push('/');
     }
   }, [authLoading, user, teamId, router]);
 
@@ -194,7 +194,7 @@ function AccountPortfolioSelectContent() {
       }));
 
       // Redirect to the main chat interface
-      router.push('/');
+      router.push('/chat');
 
     } catch (error) {
       console.error('Error creating assistant:', error);

@@ -56,6 +56,32 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, activeAssistant]);
 
+  // SET UP REAL-TIME SUBSCRIPTION FOR CHAT HISTORY
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('chat-history-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_history',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // REFRESH CHAT HISTORY WHEN ANY CHANGE OCCURS
+          refreshChatHistory();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase]);
+
   const refreshChatHistory = async () => {
     if (!user) return;
 
@@ -124,7 +150,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     try {
       // TEAM-BASED CHAT CREATION ONLY
       if (!activeAssistant || !activeAssistant.teamId || !activeAssistant.accountId || !activeAssistant.portfolioId) {
-        throw new Error('NO ACTIVE TEAM ASSISTANT - PLEASE SELECT FROM LAUNCHER');
+        throw new Error('NO ACTIVE TEAM ASSISTANT - PLEASE SELECT FROM HOME PAGE');
       }
 
       const response = await fetch('/api/chat/create-team', {

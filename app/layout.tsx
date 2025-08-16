@@ -26,12 +26,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "HHB RAG",
+    title: "HHB",
   },
   other: {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",
-    "apple-mobile-web-app-title": "HHB RAG",
+    "apple-mobile-web-app-title": "HHB",
     "mobile-web-app-capable": "yes",
     "theme-color": "#0f172a",
   },

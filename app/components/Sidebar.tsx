@@ -229,7 +229,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
         {/* CHANGE ASSISTANT BUTTON */}
         <div className="p-4 border-t border-slate-700">
           <button
-            onClick={() => window.location.href = '/launcher'}
+                            onClick={() => window.location.href = '/'}
             className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
           >
             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

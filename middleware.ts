@@ -15,9 +15,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // DEFINE ROUTES
-  const protectedRoutes = ["/launcher", "/dashboard", "/setup"];  // Added setup routes
+  const protectedRoutes = ["/dashboard", "/setup", "/chat"];  // Removed launcher, added chat
   const authRoutes = ["/login", "/signup"];
-  const publicRoutes = ["/", "/debug", "/invite"];  // Added invite routes as public
+  const publicRoutes = ["/", "/debug", "/invite", "/no-access"];  // Home page is now public for both logged in and out users
 
   // CHECK IF USER IS AUTHENTICATED
   const isAuthenticated = !!user;
@@ -40,8 +40,8 @@ export async function middleware(request: NextRequest) {
         console.log('Allowing access to auth route with invitation context');
         return response; // ALLOW ACCESS TO AUTH ROUTES WITH INVITATION CONTEXT
       } else {
-        console.log('Redirecting authenticated user to launcher');
-        return NextResponse.redirect(new URL("/launcher", request.url));
+        console.log('Redirecting authenticated user to home');
+        return NextResponse.redirect(new URL("/", request.url));
       }
     }
     

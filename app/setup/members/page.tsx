@@ -149,8 +149,8 @@ function TeamMembersSetupContent() {
   };
 
   const handleFinishSetup = () => {
-    // Redirect to the main launcher
-    router.push(`/launcher?teamId=${teamId}`);
+          // Redirect to the team dashboard
+      router.push(`/launcher/team?teamId=${teamId}`);
   };
 
   if (loading) {

@@ -197,7 +197,7 @@ function TeamMemberInviteContent() {
       }
 
       // Success! Redirect to team dashboard or main app
-      router.push('/launcher');
+              router.push('/');
       
     } catch (error) {
       console.error('Error accepting invitation:', error);

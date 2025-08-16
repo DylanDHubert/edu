@@ -775,16 +775,16 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="text-center px-4 lg:px-8">
           <h2 className="text-xl lg:text-2xl font-bold text-slate-100 mb-4">
-            WELCOME TO HHB RAG ASSISTANT
+            WELCOME TO HHB ASSISTANT
           </h2>
           <p className="text-slate-400 mb-6 text-sm lg:text-base">
-            PLEASE SELECT A TEAM FROM THE LAUNCHER
+                          PLEASE SELECT A TEAM FROM THE HOME PAGE
           </p>
           <button
-            onClick={() => window.location.href = '/launcher'}
+                          onClick={() => window.location.href = '/'}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
-            GO TO LAUNCHER
+                          GO TO HOME
           </button>
         </div>
       </div>

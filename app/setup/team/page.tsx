@@ -70,8 +70,8 @@ export default function TeamSetupPage() {
 
       const { team } = await response.json();
       
-      // Redirect back to launcher to show all teams
-      router.push('/launcher');
+      // Redirect back to home to show all teams
+      router.push('/');
 
     } catch (error) {
       console.error('Error creating team:', error);
@@ -101,14 +101,14 @@ export default function TeamSetupPage() {
       <StandardHeader
         backText="←"
         showBackButton={true}
-        onBackClick={() => router.push('/launcher')}
+        onBackClick={() => router.push('/')}
       />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-slate-100 mb-2">Create Your Team</h1>
-          <p className="text-slate-400">Create your team to get started with the HHB RAG Assistant</p>
+          <p className="text-slate-400">Create your team to get started with the HHB Assistant</p>
         </div>
         
         <div className="bg-slate-800 rounded-lg border border-slate-700 p-8">

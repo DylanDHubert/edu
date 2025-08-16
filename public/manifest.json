@@ -1,6 +1,6 @@
 {
   "name": "HHB Stryker Assistant",
-  "short_name": "HHB RAG",
+  "short_name": "HHB",
   "description": "AI-powered RAG application with Supabase authentication",
   "start_url": "/",
   "display": "standalone",

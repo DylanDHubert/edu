@@ -26,15 +26,15 @@ export async function sendManagerInvitationEmail({
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Team Manager Invitation - HHB RAG Assistant</title>
+      <title>Team Manager Invitation - HHB Assistant</title>
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
-        <h2 style="color: #2c3e50; margin-bottom: 20px;">You've been invited to become a Team Manager - HHB RAG Assistant</h2>
+        <h2 style="color: #2c3e50; margin-bottom: 20px;">You've been invited to become a Team Manager - HHB Assistant</h2>
         
         <p>Dear ${managerName},</p>
         
-        <p>You have been invited by <strong>${invitedBy}</strong> to become a Team Manager on the HHB RAG Assistant platform.</p>
+        <p>You have been invited by <strong>${invitedBy}</strong> to become a Team Manager on the HHB Assistant platform.</p>
         
         <h3 style="color: #2c3e50; margin-top: 25px;">As a Team Manager, you will be able to:</h3>
         <ul style="margin-bottom: 25px;">
@@ -66,7 +66,7 @@ export async function sendManagerInvitationEmail({
     const result = await resend.emails.send({
       from: 'noreply@hhb.solutions',
       to: managerEmail,
-      subject: 'You\'ve been invited to become a Team Manager - HHB RAG Assistant',
+      subject: 'You\'ve been invited to become a Team Manager - HHB Assistant',
       html: htmlContent,
       headers: {
         'X-Priority': '1',
@@ -126,15 +126,15 @@ export async function sendTeamMemberInvitationEmail({
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Team Invitation - HHB RAG Assistant</title>
+      <title>Team Invitation - HHB Assistant</title>
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
-        <h2 style="color: #2c3e50; margin-bottom: 20px;">You've been invited to join ${teamName} - HHB RAG Assistant</h2>
+        <h2 style="color: #2c3e50; margin-bottom: 20px;">You've been invited to join ${teamName} - HHB Assistant</h2>
         
         <p>Dear ${memberName},</p>
         
-        <p>You have been invited by <strong>${invitedBy}</strong> to join the team <strong>"${teamName}"</strong> on the HHB RAG Assistant platform.</p>
+        <p>You have been invited by <strong>${invitedBy}</strong> to join the team <strong>"${teamName}"</strong> on the HHB Assistant platform.</p>
         
         <p><strong>Your Role:</strong> ${memberRole === 'manager' ? 'Team Manager' : 'Team Member'}</p>
         
@@ -161,7 +161,7 @@ export async function sendTeamMemberInvitationEmail({
     const result = await resend.emails.send({
       from: 'noreply@hhb.solutions',
       to: memberEmail,
-      subject: `You've been invited to join ${teamName} - HHB RAG Assistant`,
+      subject: `You've been invited to join ${teamName} - HHB Assistant`,
       html: htmlContent,
       headers: {
         'X-Priority': '1',

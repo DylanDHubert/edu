@@ -43,7 +43,7 @@ function TeamDashboardContent() {
     } else if (!authLoading && !user) {
       router.push('/login');
     } else if (!authLoading && !teamId) {
-      router.push('/launcher');
+      router.push('/');
     }
   }, [authLoading, user, teamId, router]);
 
@@ -189,7 +189,7 @@ function TeamDashboardContent() {
           <h1 className="text-4xl font-bold text-red-400 mb-4">Error</h1>
           <p className="text-slate-400 mb-6">{error}</p>
           <button
-            onClick={() => router.push('/launcher')}
+            onClick={() => router.push('/')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
             ←
@@ -209,7 +209,7 @@ function TeamDashboardContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
-        backUrl="/launcher"
+        backUrl="/"
       />
 
       {/* Main Content */}

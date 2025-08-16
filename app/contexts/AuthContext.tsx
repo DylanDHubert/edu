@@ -35,6 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // LISTEN FOR AUTH CHANGES
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // CLEAR LOCALSTORAGE WHEN USER CHANGES OR SIGNS OUT
+        if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+          localStorage.removeItem('activeAssistant');
+          localStorage.removeItem('selectedTeam');
+        }
         setUser(session?.user ?? null);
         setLoading(false);
       }
@@ -45,6 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // CLEAR LOCALSTORAGE DATA ON SIGNOUT
+      localStorage.removeItem('activeAssistant');
+      localStorage.removeItem('selectedTeam');
       await supabase.auth.signOut();
     } catch (error) {
       console.error("ERROR SIGNING OUT:", error);

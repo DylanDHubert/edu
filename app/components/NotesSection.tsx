@@ -62,8 +62,14 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
     setIsModalOpen(true);
   };
 
-  // GET ALL NOTES
-  const relevantNotes = notes;
+  // GET NOTES FOR CURRENT TEAM CONTEXT
+  const relevantNotes = teamContext 
+    ? getNotesForPortfolio(teamContext.portfolioName.toLowerCase(), {
+        teamId: teamContext.teamId,
+        accountId: teamContext.accountId,
+        portfolioId: teamContext.portfolioId
+      })
+    : notes;
 
   const getPortfolioDisplayName = (portfolioType: string) => {
     switch (portfolioType) {
