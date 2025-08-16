@@ -3,13 +3,13 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { createClient } from "../utils/supabase/client";
-import { PortfolioType } from "../utils/portfolios";
+
 import { NoteTag, NoteTags, tagsArrayToObject, tagsObjectToArray } from "../utils/notes";
 
 interface Note {
   id: string;
   user_id: string;
-  portfolio_type: PortfolioType | 'general';
+  portfolio_type: string;
   title: string;
   content: string;
   image_url?: string | null;
@@ -28,7 +28,7 @@ interface NotesContextType {
   updateNote: (formData: FormData) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   refreshNotes: () => Promise<void>;
-  getNotesForPortfolio: (portfolioType: PortfolioType | 'general') => Note[];
+  getNotesForPortfolio: (portfolioType: string) => Note[];
   getUniqueTags: () => { [key: string]: string[] };
 }
 
@@ -179,7 +179,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getNotesForPortfolio = (portfolioType: PortfolioType | 'general'): Note[] => {
+  const getNotesForPortfolio = (portfolioType: string): Note[] => {
     return notes.filter(note => {
       // INCLUDE GENERAL NOTES FOR ALL PORTFOLIOS
       if (note.portfolio_type === 'general') return true;

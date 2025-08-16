@@ -208,13 +208,13 @@ function ManagerInviteContent() {
 
           <div className="flex space-x-4 justify-center">
             <button
-              onClick={() => router.push(`/signup?email=${encodeURIComponent(invitation.email)}&token=${invitation.invitation_token}&type=manager`)}
+              onClick={() => router.push(`/signup?email=${encodeURIComponent(invitation.email)}&token=${token}&type=manager`)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md font-medium transition-colors"
             >
               Sign Up
             </button>
             <button
-              onClick={() => router.push(`/login?email=${encodeURIComponent(invitation.email)}&token=${invitation.invitation_token}&type=manager`)}
+              onClick={() => router.push(`/login?email=${encodeURIComponent(invitation.email)}&token=${token}&type=manager`)}
               className="bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-md font-medium transition-colors"
             >
               Log In

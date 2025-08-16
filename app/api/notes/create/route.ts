@@ -5,13 +5,12 @@ import { cookies } from 'next/headers';
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const portfolio_type = formData.get('portfolio_type') as string;
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
     const is_shared = formData.get('is_shared') === 'true';
     const tags = formData.get('tags') ? JSON.parse(formData.get('tags') as string) : null;
     
-    // NEW: Team context auto-population
+    // Team context
     const team_id = formData.get('team_id') as string | null;
     const account_id = formData.get('account_id') as string | null;
     const portfolio_id = formData.get('portfolio_id') as string | null;
@@ -44,58 +43,6 @@ export async function POST(request: NextRequest) {
         imageDescriptions.push(entry.description);
       }
     });
-    
-    // BACKWARD COMPATIBILITY: HANDLE SINGLE IMAGE
-    const imageFile = formData.get('image') as File | null;
-    const imageDescription = formData.get('image_description') as string | null;
-    
-    if (imageFile && imageDescription) {
-      imageFiles.push(imageFile);
-      imageDescriptions.push(imageDescription);
-    }
-    
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: 'TITLE AND CONTENT ARE REQUIRED' },
-        { status: 400 }
-      );
-    }
-
-    // VALIDATE TEAM CONTEXT OR PORTFOLIO TYPE
-    const hasTeamContext = team_id && account_id && portfolio_id;
-    const hasPortfolioType = portfolio_type;
-    
-    if (!hasTeamContext && !hasPortfolioType) {
-      return NextResponse.json(
-        { error: 'EITHER TEAM CONTEXT (team_id, account_id, portfolio_id) OR PORTFOLIO TYPE IS REQUIRED' },
-        { status: 400 }
-      );
-    }
-
-    // VALIDATE PORTFOLIO TYPE IF PROVIDED (for backward compatibility)
-    if (portfolio_type) {
-      const validPortfolioTypes = ['general', 'hip', 'knee', 'ts_knee'];
-      if (!validPortfolioTypes.includes(portfolio_type)) {
-        return NextResponse.json(
-          { error: 'INVALID PORTFOLIO TYPE' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // VALIDATE TAGS IF PROVIDED
-    if (tags) {
-      const validTagNames = ['account', 'team'];
-      const providedTagNames = Object.keys(tags);
-      const invalidTags = providedTagNames.filter(name => !validTagNames.includes(name));
-      
-      if (invalidTags.length > 0) {
-        return NextResponse.json(
-          { error: `INVALID TAG NAMES: ${invalidTags.join(', ')}` },
-          { status: 400 }
-        );
-      }
-    }
 
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
@@ -109,53 +56,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // VALIDATE IMAGE DESCRIPTIONS IF IMAGES ARE PROVIDED
-    if (imageFiles.length > 0) {
-      if (imageFiles.length !== imageDescriptions.length) {
-        return NextResponse.json(
-          { error: 'EACH IMAGE MUST HAVE A DESCRIPTION' },
-          { status: 400 }
-        );
-      }
-      
-      for (let i = 0; i < imageDescriptions.length; i++) {
-        if (!imageDescriptions[i] || imageDescriptions[i].trim() === '') {
-          return NextResponse.json(
-            { error: 'ALL IMAGES MUST HAVE DESCRIPTIONS' },
-            { status: 400 }
-          );
-        }
-      }
+    // VALIDATE REQUIRED FIELDS
+    if (!title || !content) {
+      return NextResponse.json(
+        { error: 'TITLE AND CONTENT ARE REQUIRED' },
+        { status: 400 }
+      );
     }
 
-    // UPLOAD IMAGES TO SUPABASE STORAGE IF PROVIDED
+    // VALIDATE TEAM CONTEXT
+    const hasTeamContext = team_id && account_id && portfolio_id;
+    if (!hasTeamContext) {
+      return NextResponse.json(
+        { error: 'TEAM CONTEXT IS REQUIRED' },
+        { status: 400 }
+      );
+    }
+
+    // VERIFY USER IS A MEMBER OF THIS TEAM
+    const { data: teamMember, error: memberError } = await supabase
+      .from('team_members')
+      .select('role')
+      .eq('team_id', team_id)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .single();
+
+    if (memberError || !teamMember) {
+      return NextResponse.json(
+        { error: 'ACCESS DENIED TO THIS TEAM' },
+        { status: 403 }
+      );
+    }
+
+    // UPLOAD IMAGES
     const images: Array<{url: string, description: string}> = [];
     
     for (let i = 0; i < imageFiles.length; i++) {
       const imageFile = imageFiles[i];
       const imageDescription = imageDescriptions[i];
       
-      // VALIDATE FILE TYPE
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(imageFile.type)) {
+      if (!imageDescription.trim()) {
         return NextResponse.json(
-          { error: 'INVALID FILE TYPE. ONLY JPEG, PNG, GIF, AND WEBP ARE ALLOWED' },
+          { error: 'ALL IMAGES MUST HAVE DESCRIPTIONS' },
           { status: 400 }
         );
       }
 
-      // VALIDATE FILE SIZE (5MB MAX)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (imageFile.size > maxSize) {
-        return NextResponse.json(
-          { error: 'FILE TOO LARGE. MAXIMUM SIZE IS 5MB' },
-          { status: 400 }
-        );
-      }
-
-      // GENERATE UNIQUE FILENAME (FLAT STORAGE)
+      // GENERATE UNIQUE FILENAME
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 15);
       const fileExtension = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
+      const fileName = `note_images/${user.id}/${timestamp}_${randomString}.${fileExtension}`;
 
       // UPLOAD TO SUPABASE STORAGE
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -190,32 +142,26 @@ export async function POST(request: NextRequest) {
       is_shared: is_shared || false
     };
 
-    // Add team context if provided (new system)
-    if (hasTeamContext) {
-      // Get the portfolio name from the portfolio_id and use it directly as portfolio_type
-      const { data: portfolioData, error: portfolioError } = await supabase
-        .from('team_portfolios')
-        .select('name')
-        .eq('id', portfolio_id)
-        .single();
+    // Add team context
+    noteData.team_id = team_id;
+    noteData.account_id = account_id;
+    noteData.portfolio_id = portfolio_id;
 
-      if (portfolioError || !portfolioData) {
-        return NextResponse.json(
-          { error: 'Invalid portfolio ID' },
-          { status: 400 }
-        );
-      }
+    // Get the portfolio name from the portfolio_id and use it as portfolio_type
+    const { data: portfolioData, error: portfolioError } = await supabase
+      .from('team_portfolios')
+      .select('name')
+      .eq('id', portfolio_id)
+      .single();
 
-      noteData.team_id = team_id;
-      noteData.account_id = account_id;
-      noteData.portfolio_id = portfolio_id;
-      noteData.portfolio_type = portfolioData.name; // Use portfolio name directly
+    if (portfolioError || !portfolioData) {
+      return NextResponse.json(
+        { error: 'Invalid portfolio ID' },
+        { status: 400 }
+      );
     }
 
-    // Add portfolio_type if provided (legacy system)
-    if (portfolio_type) {
-      noteData.portfolio_type = portfolio_type;
-    }
+    noteData.portfolio_type = portfolioData.name; // Use portfolio name directly
 
     const { data, error } = await supabase
       .from('notes')
@@ -232,24 +178,19 @@ export async function POST(request: NextRequest) {
     }
 
     // CREATE TAGS IF PROVIDED
-    if (tags && Object.keys(tags).length > 0) {
-      const tagEntries = Object.entries(tags)
-        .filter(([_, value]) => value && typeof value === 'string' && value.trim() !== '')
-        .map(([tag_name, tag_value]) => ({
-          note_id: data.id,
-          tag_name,
-          tag_value: (tag_value as string).trim()
-        }));
+    if (tags && Array.isArray(tags) && tags.length > 0) {
+      const tagData = tags.map(tag => ({
+        note_id: data.id,
+        tag: tag.trim()
+      }));
 
-      if (tagEntries.length > 0) {
-        const { error: tagError } = await supabase
-          .from('note_tags')
-          .insert(tagEntries);
+      const { error: tagError } = await supabase
+        .from('note_tags')
+        .insert(tagData);
 
-        if (tagError) {
-          console.error('ERROR CREATING TAGS:', tagError);
-          // NOTE: WE DON'T FAIL THE REQUEST IF TAGS FAIL, JUST LOG THE ERROR
-        }
+      if (tagError) {
+        console.error('ERROR CREATING TAGS:', tagError);
+        // Don't fail the note creation if tags fail
       }
     }
 

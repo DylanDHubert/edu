@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useNotes } from "../contexts/NotesContext";
 import { useChat } from "../contexts/ChatContext";
 import { useAuth } from "../contexts/AuthContext";
-import { PortfolioType } from "../utils/portfolios";
+
 import NoteModal from "./NoteModal";
 
 import { getTagColor, getTagDisplayName } from "../utils/notes";
@@ -24,7 +24,7 @@ interface NotesSectionProps {
 
 export default function NotesSection({ onNoteSelect, teamContext }: NotesSectionProps) {
   const { notes, loading, deleteNote, getNotesForPortfolio } = useNotes();
-  const { currentPortfolio } = useChat();
+
   const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<any>(null);
@@ -238,6 +238,10 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
       <NoteModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        onNoteCreated={() => {
+          // Refresh notes when a new note is created
+          // The notes will be refreshed automatically by the NotesContext
+        }}
         editingNote={editingNote}
         teamContext={teamContext}
       />

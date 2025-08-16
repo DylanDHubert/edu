@@ -7,40 +7,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// PORTFOLIO CONFIGURATIONS
-export const PORTFOLIOS = {
-  hip: {
-    name: 'HIP PORTFOLIO',
-    description: 'SURGICAL TECHNIQUES, PROTOCOLS, SPECIFICATIONS',
-    assistantId: process.env.HIP_ASSISTANT_ID || '',
-    vectorStoreId: process.env.HIP_VECTOR_STORE_ID || ''
-  },
-  knee: {
-    name: 'KNEE PORTFOLIO',
-    description: 'SURGICAL TECHNIQUES, PROTOCOLS, SPECIFICATIONS',
-    assistantId: process.env.KNEE_ASSISTANT_ID || '',
-    vectorStoreId: process.env.KNEE_VECTOR_STORE_ID || ''
-  },
-  ts_knee: {
-    name: 'TS KNEE PORTFOLIO',
-    description: 'SURGICAL TECHNIQUES, PROTOCOLS, SPECIFICATIONS',
-    assistantId: process.env.TS_KNEE_ASSISTANT_ID || '',
-    vectorStoreId: process.env.TS_KNEE_VECTOR_STORE_ID || ''
-  }
-} as const;
 
-export type PortfolioType = keyof typeof PORTFOLIOS;
-
-// GET ASSISTANT ID FOR PORTFOLIO
-export async function getAssistantId(portfolioType: PortfolioType) {
-  const portfolio = PORTFOLIOS[portfolioType];
-  
-  if (!portfolio.assistantId) {
-    throw new Error(`ASSISTANT ID NOT CONFIGURED FOR ${portfolioType.toUpperCase()} PORTFOLIO`);
-  }
-  
-  return portfolio.assistantId;
-}
 
 // CREATE NEW THREAD
 export async function createThread() {

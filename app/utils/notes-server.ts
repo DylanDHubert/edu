@@ -2,9 +2,9 @@
 
 import { createClient } from "./supabase/server";
 import { cookies } from "next/headers";
-import { PortfolioType } from "./portfolios";
 
-export async function getNotesForPortfolio(portfolioType: PortfolioType, userId: string) {
+
+export async function getNotesForPortfolio(portfolioType: string, userId: string) {
   const cookieStore = cookies();
   const supabase = await createClient(cookieStore);
 

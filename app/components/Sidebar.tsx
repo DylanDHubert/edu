@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useChat } from "../contexts/ChatContext";
-import { PORTFOLIOS, PortfolioType } from "../utils/portfolios";
 import NotesSection from "./NotesSection";
 
 interface SidebarProps {
@@ -14,8 +13,6 @@ interface SidebarProps {
 export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps) {
   const { user, signOut } = useAuth();
   const { 
-    currentPortfolio, 
-    setCurrentPortfolio, 
     chatHistory, 
     currentChat, 
     setCurrentChat, 
@@ -46,11 +43,6 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
       }
     }
   }, []);
-
-  const handlePortfolioSelect = (portfolioType: PortfolioType) => {
-    setCurrentPortfolio(portfolioType);
-    setCurrentChat(null); // CLEAR CURRENT CHAT WHEN SELECTING NEW PORTFOLIO
-  };
 
   const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // PREVENT CHAT SELECTION WHEN CLICKING DELETE
@@ -132,8 +124,6 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
           </div>
         </div>
 
-
-
         {/* TABS */}
         <div className="flex border-b border-slate-700">
           <button
@@ -182,27 +172,15 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
                       <button
                         onClick={() => {
                           setCurrentChat(chat);
-                          // Only set portfolio for individual chats
-                          if (chat.portfolio_type) {
-                            setCurrentPortfolio(chat.portfolio_type);
-                          }
                           // CLOSE MOBILE SIDEBAR WHEN SELECTING CHAT
                           setIsMobileOpen(false);
                         }}
                         className="w-full text-left text-sm"
                       >
-                        {/* PORTFOLIO BADGE */}
+                        {/* TEAM CONTEXT BADGE */}
                         <div className="flex items-center justify-between mb-2">
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            chat.portfolio_type === 'hip' ? 'bg-blue-500' :
-                            chat.portfolio_type === 'knee' ? 'bg-green-500' :
-                            chat.portfolio_type === 'ts_knee' ? 'bg-purple-500' :
-                            'bg-slate-500'
-                          } text-white`}>
-                            {chat.portfolio_type === 'hip' ? 'HIP' :
-                             chat.portfolio_type === 'knee' ? 'KNEE' :
-                             chat.portfolio_type === 'ts_knee' ? 'TS KNEE' :
-                             chat.team_id ? 'TEAM' : 'UNKNOWN'}
+                          <span className="text-xs px-2 py-1 rounded bg-blue-500 text-white">
+                            TEAM CHAT
                           </span>
                         </div>
 

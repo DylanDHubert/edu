@@ -47,32 +47,34 @@ export default function LauncherPage() {
   useEffect(() => {
     if (!authLoading && user) {
       loadUserTeams();
-      checkManagerPrivileges();
     } else if (!authLoading && !user) {
       router.push('/login');
     }
   }, [authLoading, user, router]);
 
-  const checkManagerPrivileges = async () => {
-    try {
-      const { data: invitation, error } = await supabase
-        .from('manager_invitations')
-        .select('id')
-        .eq('email', user?.email)
-        .eq('status', 'completed')
-        .single();
-
-      setManagerPrivileges({
-        hasManagerPrivileges: !error && !!invitation
-      });
-    } catch (error) {
-      console.error('Error checking manager privileges:', error);
-      setManagerPrivileges({ hasManagerPrivileges: false });
-    }
-  };
-
   const loadUserTeams = async () => {
     try {
+      console.log('=== LAUNCHER DEBUG ===');
+      console.log('User email:', user?.email);
+      console.log('User ID:', user?.id);
+      
+      // FIRST CHECK FOR MANAGER PRIVILEGES VIA API (BYPASSES RLS)
+      console.log('Checking manager privileges via API...');
+      
+      const response = await fetch('/api/auth/check-manager-privileges');
+      let hasManagerPrivileges = false;
+      
+      if (!response.ok) {
+        console.error('Failed to check manager privileges:', response.status);
+        setManagerPrivileges({ hasManagerPrivileges: false });
+      } else {
+        const { hasManagerPrivileges: apiResult, userEmail } = await response.json();
+        console.log('Manager privileges check result:', { hasManagerPrivileges: apiResult, userEmail });
+        hasManagerPrivileges = apiResult;
+        setManagerPrivileges({ hasManagerPrivileges: apiResult });
+      }
+
+      // THEN LOAD TEAM MEMBERSHIPS
       const { data: memberships, error: membershipError } = await supabase
         .from('team_members')
         .select(`
@@ -88,6 +90,8 @@ export default function LauncherPage() {
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
+      console.log('Team memberships query result:', { memberships, membershipError });
+
       if (membershipError) {
         console.error('Error loading teams:', membershipError);
         setError('Failed to load your teams');
@@ -95,18 +99,14 @@ export default function LauncherPage() {
       }
 
       if (!memberships || memberships.length === 0) {
-        // Check if user has manager privileges - if so, they can create teams
-        const { data: invitation } = await supabase
-          .from('manager_invitations')
-          .select('id')
-          .eq('email', user?.email)
-          .eq('status', 'completed')
-          .single();
-
-        if (!invitation) {
+        console.log('No team memberships found');
+        // If no teams but user has manager privileges, that's OK
+        if (!hasManagerPrivileges) {
+          console.log('No manager privileges, setting error');
           setError('You are not a member of any teams yet. Please contact your administrator.');
           return;
         }
+        console.log('Has manager privileges, continuing with empty teams list');
         // If they have manager privileges, continue with empty teams list
       }
 
@@ -242,27 +242,6 @@ export default function LauncherPage() {
                 : "You don't have any teams yet. Please contact your administrator."
               }
             </p>
-            {managerPrivileges.hasManagerPrivileges && (
-              <button
-                onClick={() => router.push('/setup/team')}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-              >
-                <svg 
-                  className="w-5 h-5 flex-shrink-0" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
-                  />
-                </svg>
-                <span className="flex-1 text-center">Create Your First Team</span>
-              </button>
-            )}
           </div>
         )}
 

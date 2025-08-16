@@ -3,15 +3,13 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { createClient } from "../utils/supabase/client";
-import { PortfolioType, PORTFOLIOS } from "../utils/portfolios";
 
 interface ChatHistory {
   id: string;
-  portfolio_type?: PortfolioType;  // Optional for individual chats
-  team_id?: string;                // Optional for team chats
-  account_id?: string;             // Optional for team chats
-  portfolio_id?: string;           // Optional for team chats
-  assistant_id?: string;           // Optional for team chats
+  team_id: string;
+  account_id: string;
+  portfolio_id: string;
+  assistant_id: string;
   thread_id: string;
   title: string;
   created_at: string;
@@ -19,12 +17,10 @@ interface ChatHistory {
 }
 
 interface ChatContextType {
-  currentPortfolio: PortfolioType | null;
-  setCurrentPortfolio: (portfolio: PortfolioType | null) => void;
   chatHistory: ChatHistory[];
   currentChat: ChatHistory | null;
   setCurrentChat: (chat: ChatHistory | null) => void;
-  createNewChat: (portfolioType?: PortfolioType) => Promise<void>;
+  createNewChat: () => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   refreshChatHistory: () => Promise<void>;
   loading: boolean;
@@ -34,7 +30,6 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [currentPortfolio, setCurrentPortfolio] = useState<PortfolioType | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [currentChat, setCurrentChat] = useState<ChatHistory | null>(null);
   const [loading, setLoading] = useState(false);
@@ -78,9 +73,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       let filteredData = data || [];
       
-      // IMPROVED FILTERING LOGIC FOR TEAM VS INDIVIDUAL CHATS
+      // TEAM-BASED CHAT FILTERING ONLY
       if (activeAssistant) {
-        // TEAM-BASED CHAT FILTERING
         // Show chats that match the current team/account/portfolio configuration
         filteredData = filteredData.filter(chat => {
           // MUST HAVE TEAM ID MATCH
@@ -112,26 +106,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           }
         });
       } else {
-        // INDIVIDUAL CHAT FILTERING (LEGACY)
-        // Show only individual portfolio chats (no team_id, account_id, portfolio_id)
-        filteredData = filteredData.filter(chat => {
-          // MUST HAVE PORTFOLIO_TYPE (individual chat)
-          if (!chat.portfolio_type) {
-            return false;
-          }
-          
-          // MUST NOT HAVE TEAM-BASED FIELDS (to avoid showing team chats)
-          if (chat.team_id || chat.account_id || chat.portfolio_id) {
-            return false;
-          }
-          
-          return true;
-        });
-        
-        console.log('FILTERED INDIVIDUAL CHATS:', {
-          totalChats: data?.length || 0,
-          filteredChats: filteredData.length
-        });
+        // NO ACTIVE ASSISTANT - SHOW NO CHATS
+        filteredData = [];
+        console.log('NO ACTIVE ASSISTANT - SHOWING NO CHATS');
       }
 
       setChatHistory(filteredData);
@@ -140,61 +117,37 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createNewChat = async (portfolioType?: PortfolioType) => {
+  const createNewChat = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      // DETERMINE IF WE'RE IN TEAM MODE OR INDIVIDUAL MODE
-      if (activeAssistant && activeAssistant.teamId && activeAssistant.accountId && activeAssistant.portfolioId) {
-        // TEAM-BASED CHAT CREATION
-        const response = await fetch('/api/chat/create-team', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            teamId: activeAssistant.teamId,
-            accountId: activeAssistant.accountId,
-            portfolioId: activeAssistant.portfolioId,
-            assistantId: activeAssistant.assistantId,
-            title: `NEW ${activeAssistant.portfolioName} CHAT`
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('FAILED TO CREATE NEW TEAM CHAT');
-        }
-
-        const newChat = await response.json();
-        setChatHistory(prev => [newChat, ...prev]);
-        setCurrentChat(newChat);
-      } else {
-        // INDIVIDUAL PORTFOLIO CHAT CREATION (LEGACY)
-        if (!portfolioType) {
-          throw new Error('PORTFOLIO TYPE REQUIRED FOR INDIVIDUAL CHATS');
-        }
-
-        const response = await fetch('/api/chat/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            portfolioType,
-            title: `NEW ${PORTFOLIOS[portfolioType].name} CHAT`
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('FAILED TO CREATE NEW CHAT');
-        }
-
-        const newChat = await response.json();
-        setChatHistory(prev => [newChat, ...prev]);
-        setCurrentChat(newChat);
-        setCurrentPortfolio(portfolioType);
+      // TEAM-BASED CHAT CREATION ONLY
+      if (!activeAssistant || !activeAssistant.teamId || !activeAssistant.accountId || !activeAssistant.portfolioId) {
+        throw new Error('NO ACTIVE TEAM ASSISTANT - PLEASE SELECT FROM LAUNCHER');
       }
+
+      const response = await fetch('/api/chat/create-team', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          teamId: activeAssistant.teamId,
+          accountId: activeAssistant.accountId,
+          portfolioId: activeAssistant.portfolioId,
+          assistantId: activeAssistant.assistantId,
+          title: `NEW ${activeAssistant.portfolioName} CHAT`
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('FAILED TO CREATE NEW TEAM CHAT');
+      }
+
+      const newChat = await response.json();
+      setChatHistory(prev => [newChat, ...prev]);
+      setCurrentChat(newChat);
     } catch (error) {
       console.error('ERROR CREATING NEW CHAT:', error);
     } finally {
@@ -224,7 +177,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       // IF DELETED CHAT WAS CURRENT, CLEAR CURRENT CHAT
       if (currentChat?.id === chatId) {
         setCurrentChat(null);
-        setCurrentPortfolio(null);
       }
     } catch (error) {
       console.error('ERROR DELETING CHAT:', error);
@@ -232,8 +184,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = {
-    currentPortfolio,
-    setCurrentPortfolio,
     chatHistory,
     currentChat,
     setCurrentChat,

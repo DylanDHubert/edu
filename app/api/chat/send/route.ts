@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../utils/supabase/server';
-import { sendMessage, sendMessageStreaming, getAssistantId } from '../../../utils/openai';
-import { PortfolioType } from '../../../utils/openai';
+import { sendMessage, sendMessageStreaming } from '../../../utils/openai';
 import { cookies } from 'next/headers';
-import { getNotesForPortfolio, getNotesForTeamContext, formatNotesForContext } from '../../../utils/notes-server';
+import { getNotesForTeamContext, formatNotesForContext } from '../../../utils/notes-server';
 import OpenAI from 'openai';
 
 const client = new OpenAI({
@@ -15,17 +14,16 @@ export async function POST(request: NextRequest) {
     const { 
       threadId, 
       message, 
-      portfolioType, 
-      assistantId: teamAssistantId, 
+      assistantId, 
       teamId, 
       accountId, 
       portfolioId, 
       streaming = false 
     } = await request.json();
     
-    if (!threadId || !message || (!portfolioType && !teamAssistantId)) {
+    if (!threadId || !message || !assistantId || !teamId || !accountId || !portfolioId) {
       return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE, AND EITHER PORTFOLIO TYPE OR ASSISTANT ID ARE REQUIRED' },
+        { error: 'THREAD ID, MESSAGE, ASSISTANT ID, TEAM ID, ACCOUNT ID, AND PORTFOLIO ID ARE REQUIRED' },
         { status: 400 }
       );
     }
@@ -57,22 +55,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GET ASSISTANT ID - Use team assistant if provided, otherwise use individual portfolio assistant
-    const assistantId = teamAssistantId || await getAssistantId(portfolioType as PortfolioType);
-    
-    // GET NOTES BASED ON CONTEXT TYPE
+    // GET NOTES FOR TEAM CONTEXT
     let notes = [];
-    if (teamId && accountId && portfolioId) {
-      // Team-based chat: get notes for specific team context
-      console.log('🗒️ FETCHING TEAM NOTES:', { teamId, accountId, portfolioId, userId: user.id });
-      notes = await getNotesForTeamContext(teamId, accountId, portfolioId, user.id);
-      console.log('🗒️ TEAM NOTES FOUND:', notes.length, 'notes');
-    } else if (portfolioType) {
-      // Individual portfolio chat: use legacy notes system
-      console.log('🗒️ FETCHING INDIVIDUAL NOTES:', { portfolioType, userId: user.id });
-      notes = await getNotesForPortfolio(portfolioType as PortfolioType, user.id);
-      console.log('🗒️ INDIVIDUAL NOTES FOUND:', notes.length, 'notes');
-    }
+    console.log('🗒️ FETCHING TEAM NOTES:', { teamId, accountId, portfolioId, userId: user.id });
+    notes = await getNotesForTeamContext(teamId, accountId, portfolioId, user.id);
+    console.log('🗒️ TEAM NOTES FOUND:', notes.length, 'notes');
     
     const notesContext = formatNotesForContext(notes);
     console.log('🗒️ FORMATTED NOTES CONTEXT LENGTH:', notesContext.length, 'characters');
@@ -111,67 +98,6 @@ export async function POST(request: NextRequest) {
               }
             );
             
-            // DEBUG LOG: PRINT FINAL AI RESPONSE
-            console.log('🤖 STREAMING AI RESPONSE RECEIVED:', {
-              finalContent: finalContent,
-              containsImageUrl: finalContent.includes('supabase.co/storage'),
-              containsImageUrlText: finalContent.includes('IMAGE URL:'),
-              containsProxyUrl: finalContent.includes('/api/images/'),
-              originalUserMessage: message,
-              userAskedAboutImage: message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')
-            });
-            
-            // DEBUG: IF USER ASKED ABOUT IMAGE, PRINT FULL RESPONSE
-            if (message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')) {
-              console.log('🔍 FULL STREAMING AI RESPONSE FOR IMAGE QUERY:');
-              console.log('---START RESPONSE---');
-              console.log(finalContent);
-              console.log('---END RESPONSE---');
-            }
-            
-            // DEBUG: CHECK FOR MARKDOWN LINKS IN AI RESPONSE
-            const markdownLinkRegex = /\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi;
-            const markdownMatches = finalContent.match(markdownLinkRegex);
-            if (markdownMatches) {
-              console.log('🖼️ MARKDOWN LINKS FOUND IN AI RESPONSE:', markdownMatches);
-            }
-            
-            // DEBUG: CHECK FOR PLAIN IMAGE URLS IN AI RESPONSE
-            const plainUrlRegex = /\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi;
-            const plainMatches = finalContent.match(plainUrlRegex);
-            if (plainMatches) {
-              console.log('🖼️ PLAIN IMAGE URLS FOUND IN AI RESPONSE:', plainMatches);
-              
-              // MAKE SERVER-SIDE FETCH TO TEST IMAGE API
-              for (const imageUrl of plainMatches) {
-                console.log('🚀 SERVER-SIDE: TESTING FETCH TO IMAGE API:', imageUrl);
-                try {
-                  const imageResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}${imageUrl}`, {
-                    method: 'GET',
-                    headers: {
-                      'Cookie': request.headers.get('cookie') || '', // FORWARD AUTH COOKIES
-                    }
-                  });
-                  
-                  console.log('📡 SERVER-SIDE: IMAGE API RESPONSE:', {
-                    url: imageUrl,
-                    status: imageResponse.status,
-                    statusText: imageResponse.statusText,
-                    headers: Object.fromEntries(imageResponse.headers.entries())
-                  });
-                  
-                  if (imageResponse.ok) {
-                    const blob = await imageResponse.blob();
-                    console.log('✅ SERVER-SIDE: IMAGE BLOB RECEIVED:', imageUrl, blob.size, 'bytes');
-                  } else {
-                    console.log('❌ SERVER-SIDE: IMAGE API FAILED:', imageUrl, imageResponse.status);
-                  }
-                } catch (error) {
-                  console.log('❌ SERVER-SIDE: IMAGE FETCH ERROR:', imageUrl, error);
-                }
-              }
-            }
-            
             // SEND COMPLETION SIGNAL
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
@@ -194,53 +120,15 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-    
-    // NON-STREAMING RESPONSE (ORIGINAL IMPLEMENTATION)
+
+    // NON-STREAMING RESPONSE
     const messages = await sendMessage(threadId, messageWithNotes, assistantId);
-    
-    // DEBUG LOG: PRINT AI RESPONSE
-    const lastMessageContent = messages[messages.length - 1]?.content?.[0];
-    const lastMessage = lastMessageContent?.type === 'text' ? lastMessageContent.text.value : 'No content';
-    console.log('🤖 AI RESPONSE RECEIVED:', {
-      messagesCount: messages.length,
-      lastMessage: lastMessage,
-      containsImageUrl: lastMessage.includes('supabase.co/storage'),
-      containsImageUrlText: lastMessage.includes('IMAGE URL:'),
-      containsProxyUrl: lastMessage.includes('/api/images/'),
-      originalUserMessage: message,
-      userAskedAboutImage: message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')
-    });
-    
-    // DEBUG: IF USER ASKED ABOUT IMAGE, PRINT FULL RESPONSE
-    if (message.toLowerCase().includes('image') || message.toLowerCase().includes('see') || message.toLowerCase().includes('show')) {
-      console.log('🔍 FULL AI RESPONSE FOR IMAGE QUERY:');
-      console.log('---START RESPONSE---');
-      console.log(lastMessage);
-      console.log('---END RESPONSE---');
-    }
     
     return NextResponse.json({ messages });
   } catch (error) {
-    console.error('ERROR SENDING MESSAGE:', error);
-    
-    // RETURN SPECIFIC ERROR MESSAGES
-    if (error instanceof Error) {
-      if (error.message.includes('TIMEOUT')) {
-        return NextResponse.json(
-          { error: 'ASSISTANT RESPONSE TIMEOUT - PLEASE TRY AGAIN' },
-          { status: 408 }
-        );
-      }
-      if (error.message.includes('FAILED')) {
-        return NextResponse.json(
-          { error: 'ASSISTANT PROCESSING FAILED - PLEASE TRY AGAIN' },
-          { status: 500 }
-        );
-      }
-    }
-    
+    console.error('ERROR IN SEND ROUTE:', error);
     return NextResponse.json(
-      { error: 'INTERNAL SERVER ERROR - PLEASE TRY AGAIN' },
+      { error: 'INTERNAL SERVER ERROR' },
       { status: 500 }
     );
   }

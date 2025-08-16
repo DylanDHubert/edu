@@ -4,8 +4,6 @@ import { useEffect } from "react";
 import { useChat } from "../contexts/ChatContext";
 
 export default function DynamicThemeColor() {
-  const { currentPortfolio } = useChat();
-
   useEffect(() => {
     // GET THE META TAG
     let themeColorMeta = document.querySelector('meta[name="theme-color"]');
@@ -17,33 +15,25 @@ export default function DynamicThemeColor() {
       document.head.appendChild(themeColorMeta);
     }
 
-    // SET COLOR BASED ON PORTFOLIO OR TEAM MODE
+    // SET COLOR BASED ON TEAM MODE
     let color = '#1e293b'; // DEFAULT SLATE-800 (MATCHES SIDEBAR)
     
-    // Check for team mode first
+    // Check for team mode
     const activeAssistant = localStorage.getItem('activeAssistant');
     if (activeAssistant) {
-      // Team mode - use header background color for seamless look
-      color = '#1e293b'; // SLATE-800 (matches header background)
-    } else if (currentPortfolio) {
-      switch (currentPortfolio) {
-        case 'hip':
-          color = '#1d4ed8'; // BLUE-700
-          break;
-        case 'knee':
-          color = '#15803d'; // GREEN-700
-          break;
-        case 'ts_knee':
-          color = '#7c3aed'; // PURPLE-700
-          break;
-        default:
-          color = '#1e293b'; // SLATE-800
+      try {
+        const assistant = JSON.parse(activeAssistant);
+        // Team mode - use header background color for seamless look
+        color = '#1e293b'; // SLATE-800 (matches header background)
+      } catch (error) {
+        console.error('Error parsing activeAssistant:', error);
+        color = '#1e293b'; // SLATE-800
       }
     }
 
     // UPDATE THE META TAG
     themeColorMeta.setAttribute('content', color);
-  }, [currentPortfolio]);
+  }, []); // No dependencies needed since we're not using currentPortfolio anymore
 
   return null; // THIS COMPONENT DOESN'T RENDER ANYTHING
 } 
