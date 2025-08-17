@@ -55,10 +55,33 @@ function ManagerInviteContent() {
       const { invitation: invitationData } = await response.json();
       setInvitation(invitationData);
 
-      // If user is logged in and email matches, we can proceed directly
+      // If user is logged in and email matches, auto-accept the invitation
       if (user && user.email === invitationData.email) {
-        // User is already logged in with the correct email
-        return;
+        // User is already logged in with the correct email - auto-accept invitation
+        console.log('User already logged in with correct email, auto-accepting invitation');
+        try {
+          const acceptResponse = await fetch('/api/managers/accept-manager-invitation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              token: token
+            }),
+          });
+
+          if (acceptResponse.ok) {
+            console.log('Invitation auto-accepted successfully, redirecting to home');
+            router.push('/');
+            return;
+          } else {
+            console.error('Failed to auto-accept invitation, showing manual accept option');
+            // Continue with normal flow if auto-accept fails
+          }
+        } catch (error) {
+          console.error('Error auto-accepting invitation:', error);
+          // Continue with normal flow if auto-accept fails
+        }
       }
 
       // If user is logged in but with different email

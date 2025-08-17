@@ -84,18 +84,44 @@ function SignupPageContent() {
         if (signInError) {
           setError("ACCOUNT CREATED BUT SIGN IN FAILED. PLEASE TRY LOGGING IN.");
         } else {
-          // CHECK IF WE HAVE INVITATION CONTEXT TO RETURN TO
+          // CHECK IF WE HAVE INVITATION CONTEXT TO AUTO-ACCEPT
           console.log('=== SIGNUP SUCCESS DEBUG ===');
           console.log('Invitation token:', invitationToken);
           console.log('Invitation type:', invitationType);
           
           if (invitationToken && invitationType) {
-            // REDIRECT BACK TO INVITATION PAGE WITH TOKEN
-            const invitationPath = invitationType === 'manager' 
-              ? `/invite/manager?token=${invitationToken}`
-              : `/invite/member?token=${invitationToken}`;
-            console.log('Redirecting to invitation path:', invitationPath);
-            router.push(invitationPath);
+            // AUTO-ACCEPT INVITATION AND REDIRECT TO HOME
+            console.log('Auto-accepting invitation and redirecting to home');
+            try {
+              const acceptResponse = await fetch('/api/managers/accept-manager-invitation', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  token: invitationToken
+                }),
+              });
+
+              if (acceptResponse.ok) {
+                console.log('Invitation accepted successfully, redirecting to home');
+                router.push('/');
+              } else {
+                console.error('Failed to auto-accept invitation, redirecting to invitation page');
+                // FALLBACK: REDIRECT TO INVITATION PAGE IF AUTO-ACCEPT FAILS
+                const invitationPath = invitationType === 'manager' 
+                  ? `/invite/manager?token=${invitationToken}`
+                  : `/invite/member?token=${invitationToken}`;
+                router.push(invitationPath);
+              }
+            } catch (error) {
+              console.error('Error auto-accepting invitation:', error);
+              // FALLBACK: REDIRECT TO INVITATION PAGE IF AUTO-ACCEPT FAILS
+              const invitationPath = invitationType === 'manager' 
+                ? `/invite/manager?token=${invitationToken}`
+                : `/invite/member?token=${invitationToken}`;
+              router.push(invitationPath);
+            }
           } else {
             // NORMAL FLOW - GO TO CHAT
             console.log('No invitation context, redirecting to chat');
@@ -115,14 +141,19 @@ function SignupPageContent() {
     <div className="min-h-screen flex items-center justify-center bg-slate-900">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-2">HHB</h1>
+          <div className="flex justify-center mb-4">
+            <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-4xl px-6 py-3 rounded-md shadow-lg relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+              <span className="relative z-10">HHB</span>
+            </div>
+          </div>
           <p className="text-slate-400">CREATE YOUR ACCOUNT</p>
           {invitationToken && invitationType && (
             <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded-md">
               <p className="text-blue-300 text-sm">
                 {invitationType === 'manager' ? 'Team Manager Invitation' : 'Team Member Invitation'}
               </p>
-              <p className="text-blue-200 text-xs mt-1">You'll be redirected back to complete your invitation</p>
+              <p className="text-blue-200 text-xs mt-1">Your invitation will be automatically accepted after signup</p>
             </div>
           )}
         </div>
@@ -222,7 +253,12 @@ export default function SignupPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">HHB</h1>
+          <div className="flex justify-center mb-4">
+            <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-4xl px-6 py-3 rounded-md shadow-lg relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+              <span className="relative z-10">HHB</span>
+            </div>
+          </div>
           <p className="text-slate-400">Loading...</p>
         </div>
       </div>

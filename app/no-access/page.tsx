@@ -11,6 +11,7 @@ export default function NoAccessPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [hasManagerPrivileges, setHasManagerPrivileges] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -30,8 +31,16 @@ export default function NoAccessPage() {
     try {
       const response = await fetch('/api/auth/check-access');
       if (response.ok) {
-        const { hasManagerPrivileges: privileges } = await response.json();
+        const { hasManagerPrivileges: privileges, isAdmin: adminStatus } = await response.json();
         setHasManagerPrivileges(privileges);
+        setIsAdmin(adminStatus);
+        
+        // IF USER IS ADMIN, THEY SHOULD NEVER BE ON THIS PAGE - REDIRECT TO HOME
+        if (adminStatus) {
+          console.log('Admin user detected on no-access page, redirecting to home');
+          router.push('/');
+          return;
+        }
       }
     } catch (error) {
       console.error('Error checking access:', error);
@@ -129,7 +138,7 @@ export default function NoAccessPage() {
                 onClick={() => router.push('/setup/team')}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
               >
-                Create New Team
+                
               </button>
             )}
             

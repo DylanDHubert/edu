@@ -16,8 +16,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if user has manager privileges using service client to bypass RLS
+    // CHECK FOR ADMIN STATUS FIRST - ADMINS GET AUTOMATIC MANAGER PRIVILEGES
     const serviceClient = createServiceClient();
+    const { data: adminUser, error: adminError } = await serviceClient
+      .from('admin_users')
+      .select('id')
+      .eq('email', user.email)
+      .single();
+
+    const isAdmin = !adminError && !!adminUser;
+
+    // Check if user has manager privileges using service client to bypass RLS
     const { data: invitation, error: inviteError } = await serviceClient
       .from('manager_invitations')
       .select('id')
@@ -25,7 +34,8 @@ export async function GET(request: NextRequest) {
       .eq('status', 'completed')
       .single();
 
-    const hasManagerPrivileges = !inviteError && !!invitation;
+    // ADMINS GET AUTOMATIC MANAGER PRIVILEGES
+    const hasManagerPrivileges = isAdmin || (!inviteError && !!invitation);
 
     // Check if user has any team memberships
     const { data: memberships, error: membershipError } = await supabase
@@ -38,13 +48,15 @@ export async function GET(request: NextRequest) {
     const hasTeamMemberships = !membershipError && memberships && memberships.length > 0;
 
     // Determine if user has access
-    const hasAccess = hasManagerPrivileges || hasTeamMemberships;
+    // ADMINS ALWAYS HAVE ACCESS REGARDLESS OF TEAM MEMBERSHIPS
+    const hasAccess = isAdmin || hasManagerPrivileges || hasTeamMemberships;
 
     return NextResponse.json({
       success: true,
       hasAccess,
       hasManagerPrivileges,
       hasTeamMemberships,
+      isAdmin,
       userEmail: user.email
     });
 

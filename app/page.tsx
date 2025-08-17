@@ -55,31 +55,23 @@ export default function HomePage() {
       console.log('User email:', user?.email);
       console.log('User ID:', user?.id);
       
-      // FIRST CHECK FOR MANAGER PRIVILEGES VIA API (BYPASSES RLS)
-      console.log('Checking manager privileges via API...');
+      // CHECK ACCESS VIA API (INCLUDES MANAGER PRIVILEGES AND ADMIN STATUS)
+      console.log('Checking access via API...');
       
-      const response = await fetch('/api/auth/check-manager-privileges');
+      const response = await fetch('/api/auth/check-access');
       let hasManagerPrivileges = false;
+      let adminStatus = false;
       
       if (!response.ok) {
-        console.error('Failed to check manager privileges:', response.status);
+        console.error('Failed to check access:', response.status);
         setManagerPrivileges({ hasManagerPrivileges: false });
       } else {
-        const { hasManagerPrivileges: apiResult, userEmail } = await response.json();
-        console.log('Manager privileges check result:', { hasManagerPrivileges: apiResult, userEmail });
+        const { hasManagerPrivileges: apiResult, isAdmin: adminResult, userEmail } = await response.json();
+        console.log('Access check result:', { hasManagerPrivileges: apiResult, isAdmin: adminResult, userEmail });
         hasManagerPrivileges = apiResult;
+        adminStatus = adminResult;
         setManagerPrivileges({ hasManagerPrivileges: apiResult });
-      }
-
-      // CHECK FOR ADMIN STATUS (DEV ONLY)
-      if (user?.email) {
-        const { data: adminUser, error: adminError } = await supabase
-          .from('admin_users')
-          .select('id')
-          .eq('email', user.email)
-          .single();
-        
-        setIsAdmin(!adminError && !!adminUser);
+        setIsAdmin(adminResult);
       }
 
       // THEN LOAD TEAM MEMBERSHIPS
@@ -110,13 +102,14 @@ export default function HomePage() {
       if (!memberships || memberships.length === 0) {
         console.log('No team memberships found');
         // If no teams but user has manager privileges, that's OK
-        if (!hasManagerPrivileges) {
-          console.log('No manager privileges, redirecting to no-access page');
+        // ADMINS CAN ALWAYS CONTINUE REGARDLESS OF MANAGER PRIVILEGES
+        if (!hasManagerPrivileges && !isAdmin) {
+          console.log('No manager privileges and not admin, redirecting to no-access page');
           router.push('/no-access');
           return;
         }
-        console.log('Has manager privileges, continuing with empty teams list');
-        // If they have manager privileges, continue with empty teams list
+        console.log('Has manager privileges or is admin, continuing with empty teams list');
+        // If they have manager privileges or are admin, continue with empty teams list
       }
 
       setTeamMemberships(memberships as TeamMember[]);
@@ -167,13 +160,12 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100">
         {/* HEADER */}
-        <header className="bg-slate-800 border-b border-slate-700 p-6">
+        <header className="bg-slate-800 border-b border-slate-700 p-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center">
-              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-xl px-4 py-2 rounded-md mr-4">
+              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-lg px-3 py-1 rounded-md">
                 HHB
               </div>
-              <h1 className="text-2xl font-semibold">Assistant</h1>
             </div>
             <div className="flex items-center space-x-4">
               <Link
@@ -195,27 +187,14 @@ export default function HomePage() {
         {/* HERO SECTION */}
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto text-center">
-            <h2 className="text-5xl font-bold mb-6">
-              AI-Powered Team Collaboration
-            </h2>
-            <p className="text-xl text-slate-400 max-w-3xl mx-auto mb-8">
-              Transform your team's knowledge management with intelligent AI assistants. 
-              Upload documents, ask questions, and get instant insights from your team's expertise.
-            </p>
-            <div className="flex justify-center space-x-4">
-              <Link
-                href="/signup"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md font-medium transition-colors"
-              >
-                Get Started Free
-              </Link>
-              <Link
-                href="/login"
-                className="bg-slate-700 hover:bg-slate-600 text-white px-8 py-3 rounded-md font-medium transition-colors"
-              >
-                Sign In
-              </Link>
+            <div className="mb-6">
+              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-6xl px-8 py-4 rounded-lg inline-block">
+                HHB
+              </div>
             </div>
+            <p className="text-xl text-slate-400 max-w-3xl mx-auto">
+              The intelligent AI assistant designed specifically for medical device sales representatives and field operations teams. 
+            </p>
           </div>
         </section>
 
@@ -333,7 +312,7 @@ export default function HomePage() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-2xl font-bold">Your Teams</h3>
-            {managerPrivileges.hasManagerPrivileges && (
+            {(managerPrivileges.hasManagerPrivileges || isAdmin) && (
               <button
                 onClick={() => router.push('/setup/team')}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center gap-2"
@@ -413,35 +392,14 @@ export default function HomePage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
+            <div className="text-center py-8 bg-slate-800 rounded-lg border border-slate-700">
               <h4 className="text-2xl font-bold text-slate-100 mb-4">No Teams Yet</h4>
-              <p className="text-slate-400 mb-6">
-                {managerPrivileges.hasManagerPrivileges 
+              <p className="text-slate-400">
+                {(managerPrivileges.hasManagerPrivileges || isAdmin)
                   ? "You have manager privileges. Create your first team to get started!"
                   : "You don't have any teams yet. Please contact your administrator."
                 }
               </p>
-              {managerPrivileges.hasManagerPrivileges && (
-                <button
-                  onClick={() => router.push('/setup/team')}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-md font-medium transition-colors flex items-center gap-3 mx-auto"
-                >
-                  <svg 
-                    className="w-5 h-5 flex-shrink-0" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
-                    />
-                  </svg>
-                  <span>Create New Team</span>
-                </button>
-              )}
             </div>
           )}
         </div>
