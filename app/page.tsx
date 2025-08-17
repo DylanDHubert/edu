@@ -163,8 +163,8 @@ export default function HomePage() {
         <header className="bg-slate-800 border-b border-slate-700 p-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center">
-              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-lg px-3 py-1 rounded-md">
-                HHB
+              <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md p-2">
+                <img src="/logo.png" alt="HHB" className="h-8 w-auto" />
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -188,8 +188,8 @@ export default function HomePage() {
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto text-center">
             <div className="mb-6">
-              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-6xl px-8 py-4 rounded-lg inline-block">
-                HHB
+              <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-lg inline-block p-6">
+                <img src="/logo.png" alt="HHB" className="h-20 w-auto" />
               </div>
             </div>
             <p className="text-xl text-slate-400 max-w-3xl mx-auto">
@@ -262,8 +262,8 @@ export default function HomePage() {
       <header className="bg-slate-800 border-b border-slate-700 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
-            <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-lg px-3 py-1 rounded-md">
-              HHB
+            <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md p-2">
+              <img src="/logo.png" alt="HHB" className="h-8 w-auto" />
             </div>
           </div>
           <div className="flex items-center space-x-4">

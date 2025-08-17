@@ -81,9 +81,9 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
           <div className="flex items-center justify-between relative">
             {/* LEFT: HHB Logo */}
             <div className="flex items-center">
-              <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-lg px-3 py-1 rounded-md mr-4 shadow-lg relative overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md mr-4 shadow-lg relative overflow-hidden p-2">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
-                <span className="relative z-10">HHB</span>
+                <img src="/logo.png" alt="HHB" className="relative z-10 h-8 w-auto" />
               </div>
             </div>
 

@@ -142,9 +142,9 @@ function SignupPageContent() {
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-4xl px-6 py-3 rounded-md shadow-lg relative overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md shadow-lg relative overflow-hidden p-4">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
-              <span className="relative z-10">HHB</span>
+              <img src="/logo.png" alt="HHB" className="relative z-10 h-24 w-auto" />
             </div>
           </div>
           <p className="text-slate-400">CREATE YOUR ACCOUNT</p>
@@ -254,9 +254,9 @@ export default function SignupPage() {
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-gradient-to-r from-slate-300 to-slate-400 text-slate-800 font-bold text-4xl px-6 py-3 rounded-md shadow-lg relative overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md shadow-lg relative overflow-hidden p-4">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
-              <span className="relative z-10">HHB</span>
+              <img src="/logo.png" alt="HHB" className="relative z-10 h-16 w-auto" />
             </div>
           </div>
           <p className="text-slate-400">Loading...</p>
