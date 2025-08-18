@@ -119,12 +119,23 @@ export function formatNotesForContext(notes: any[]): string {
     // HANDLE MULTIPLE IMAGES
     let imageInfo = '';
     if (note.images && Array.isArray(note.images) && note.images.length > 0) {
-      const imageUrls = note.images.map((image: any) => {
+      console.log('🔍 NOTES FORMATTER - Processing note with multiple images:');
+      console.log('  📝 Note title:', note.title);
+      console.log('  🖼️ Number of images:', note.images.length);
+      
+      const imageUrls = note.images.map((image: any, index: number) => {
         if (image.url) {
+          console.log(`  🔗 Image ${index + 1} original URL:`, image.url);
+          
           // EXTRACT FILENAME FROM SUPABASE URL
           const urlParts = image.url.split('/');
           const filename = urlParts[urlParts.length - 1];
+          console.log(`  📁 Image ${index + 1} URL parts:`, urlParts);
+          console.log(`  📎 Image ${index + 1} extracted filename:`, filename);
+          
           const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+          console.log(`  🎯 Image ${index + 1} generated proxy URL:`, proxyUrl);
+          
           const description = image.description ? ` (${image.description})` : '';
           return `[IMAGE URL: ${proxyUrl}${description}]`;
         }
@@ -137,9 +148,18 @@ export function formatNotesForContext(notes: any[]): string {
     }
     // BACKWARD COMPATIBILITY: HANDLE OLD SINGLE IMAGE FORMAT
     else if (note.image_url) {
+      console.log('🔍 NOTES FORMATTER - Processing note with single image (legacy):');
+      console.log('  📝 Note title:', note.title);
+      console.log('  🔗 Original image_url:', note.image_url);
+      
       const urlParts = note.image_url.split('/');
       const filename = urlParts[urlParts.length - 1];
+      console.log('  📁 URL parts:', urlParts);
+      console.log('  📎 Extracted filename:', filename);
+      
       const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+      console.log('  🎯 Generated proxy URL:', proxyUrl);
+      
       const description = note.image_description ? ` (${note.image_description})` : '';
       imageInfo = ` [IMAGE URL: ${proxyUrl}${description}]`;
     }

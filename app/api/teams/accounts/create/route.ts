@@ -273,12 +273,19 @@ export async function POST(request: NextRequest) {
                 if (uploadError) {
                   console.error('Error uploading instrument image:', uploadError);
                 } else {
+                  console.log('🔍 TEAM IMAGE UPLOAD SUCCESS:');
+                  console.log('  📄 Instrument name:', item.name);
+                  console.log('  📁 Storage file path:', filePath);
+                  console.log('  📷 Original filename:', item.imageFile.name);
+                  
                   // Create image metadata for database
                   imageMetadata = [{
                     url: filePath,
                     description: item.name,
                     filename: item.imageFile.name
                   }];
+                  
+                  console.log('  💾 Storing in database:', JSON.stringify(imageMetadata, null, 2));
                 }
               } catch (uploadError) {
                 console.error('Error processing instrument image:', uploadError);

@@ -127,10 +127,20 @@ export async function POST(request: NextRequest) {
         .from('user_note_images')
         .getPublicUrl(fileName);
 
+      console.log('🔍 REGULAR NOTE IMAGE UPLOAD SUCCESS:');
+      console.log('  📁 Storage file path:', fileName);
+      console.log('  🔗 Public URL from Supabase:', urlData.publicUrl);
+      console.log('  📝 Description:', imageDescription.trim());
+
       images.push({
         url: urlData.publicUrl,
         description: imageDescription.trim()
       });
+      
+      console.log('  💾 Storing in database:', JSON.stringify({
+        url: urlData.publicUrl,
+        description: imageDescription.trim()
+      }, null, 2));
     }
 
     // CREATE NOTE

@@ -55,10 +55,29 @@ export function createAccountPortfolioKnowledgeText(params: AccountPortfolioKnow
         }
         // Include image reference if available (use stored path or uploaded file reference)
         if (item.imageUrl && item.imageUrl.trim() && !item.imageUrl.startsWith('blob:')) {
-          // Extract filename from URL (same logic as notes formatter)
-          const urlParts = item.imageUrl.split('/');
-          const filename = urlParts[urlParts.length - 1];
-          const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+          console.log('🔍 KNOWLEDGE GENERATOR - Processing instrument image:');
+          console.log('  📄 Instrument name:', item.name);
+          console.log('  🔗 Original imageUrl:', item.imageUrl);
+          
+          let proxyUrl;
+          
+          // Check if it's already a properly formatted team image URL
+          if (item.imageUrl.startsWith('/api/images/team-') && item.imageUrl.includes('/instruments/')) {
+            // Keep the team image URL as-is - don't break it!
+            proxyUrl = item.imageUrl;
+            console.log('  🏢 DETECTED TEAM IMAGE URL - keeping as-is');
+            console.log('  🎯 Using original URL:', proxyUrl);
+          } else {
+            // For other images, extract filename (legacy behavior)
+            const urlParts = item.imageUrl.split('/');
+            const filename = urlParts[urlParts.length - 1];
+            console.log('  📁 URL parts:', urlParts);
+            console.log('  📎 Extracted filename:', filename);
+            
+            proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
+            console.log('  🔄 Generated proxy URL:', proxyUrl);
+          }
+          
           text += `\n  [IMAGE: ${item.name} - ${proxyUrl}]`;
         }
         text += "\n";

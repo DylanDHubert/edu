@@ -67,6 +67,12 @@ export async function POST(request: NextRequest) {
       console.log('🗒️ NOTES CONTEXT PREVIEW:', notesContext.substring(0, 200) + '...');
     }
     
+    // DEBUG: Look for image URLs in the context
+    if (notesContext.includes('[IMAGE URL:') || notesContext.includes('[IMAGE:')) {
+      console.log('🔍 FOUND IMAGES IN CONTEXT - Full context:');
+      console.log(notesContext);
+    }
+    
     // ADD NOTES TO MESSAGE IF AVAILABLE (BUT KEEP ORIGINAL MESSAGE FOR THREAD)
     const messageWithNotes = notesContext ? `${notesContext}USER MESSAGE: ${message}` : message;
     console.log('🗒️ FINAL MESSAGE WITH NOTES LENGTH:', messageWithNotes.length, 'characters');

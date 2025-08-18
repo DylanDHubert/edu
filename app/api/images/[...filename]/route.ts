@@ -23,6 +23,13 @@ export async function GET(
       method: request.method
     });
     
+    console.log('🔍 DEBUGGING IMAGE REQUEST:');
+    console.log('  📥 Raw filename array:', JSON.stringify(filename));
+    console.log('  📄 Joined full path:', fullPath);
+    console.log('  🌐 Full request URL:', request.url);
+    console.log('  📏 Path segments count:', filename.length);
+    console.log('  🔤 Path segments:', filename.map((segment, i) => `[${i}]: ${segment}`));
+    
     if (!filename || filename.length === 0) {
       console.log('❌ NO FILENAME PROVIDED');
       return NextResponse.json(
@@ -50,22 +57,52 @@ export async function GET(
     const decodedFilename = decodeURIComponent(fullPath);
     console.log('🖼️ FETCHING IMAGE:', decodedFilename);
     
-    // DETERMINE IMAGE TYPE BASED ON PATH STRUCTURE
+    // DETERMINE IMAGE TYPE AND CONSTRUCT PROPER STORAGE PATH
     let imageType = 'UNKNOWN';
     let bucketName = 'user_note_images'; // DEFAULT TO THE SINGLE BUCKET
-    let filePath = decodedFilename;
+    let filePath = '';
     
-    if (decodedFilename.startsWith('team-')) {
-      imageType = 'TEAM IMAGE';
-      console.log('🖼️ IMAGE TYPE:', imageType);
-      console.log('🖼️ USING BUCKET:', bucketName);
-      console.log('🖼️ FILE PATH:', filePath);
-    } else {
+    console.log('🔍 ANALYZING PATH STRUCTURE:');
+    console.log('  📄 Decoded filename:', decodedFilename);
+    console.log('  📏 Path segments:', filename);
+    
+    if (filename.length >= 3 && filename[1] === 'instruments') {
+      // TEAM IMAGE: /api/images/{teamId}/instruments/{filename}
+      imageType = 'TEAM INSTRUMENT IMAGE';
+      const teamId = filename[0];
+      const actualFilename = filename[2];
+      filePath = `${teamId}/instruments/${actualFilename}`;
+      
+      console.log('🏢 DETECTED TEAM IMAGE:');
+      console.log('  🆔 Team ID:', teamId);
+      console.log('  📁 Filename:', actualFilename);
+      console.log('  🎯 Constructed path:', filePath);
+      
+    } else if (filename.length === 1) {
+      // NOTE IMAGE: /api/images/{filename} 
+      // Need to reconstruct: note_images/{userId}/{filename}
       imageType = 'USER NOTE IMAGE';
-      console.log('🖼️ IMAGE TYPE:', imageType);
-      console.log('🖼️ USING BUCKET:', bucketName);
-      console.log('🖼️ FILE PATH:', filePath);
+      const actualFilename = filename[0];
+      filePath = `note_images/${user.id}/${actualFilename}`;
+      
+      console.log('📝 DETECTED NOTE IMAGE:');
+      console.log('  👤 User ID:', user.id);
+      console.log('  📁 Filename:', actualFilename);
+      console.log('  🎯 Constructed path:', filePath);
+      
+    } else {
+      // FALLBACK - try the original logic for other cases
+      imageType = 'FALLBACK';
+      filePath = decodedFilename;
+      
+      console.log('🔄 USING FALLBACK PATH:');
+      console.log('  📁 Original path:', filePath);
     }
+    
+    console.log('🖼️ FINAL IMAGE PROCESSING:');
+    console.log('  📂 Image type:', imageType);
+    console.log('  🪣 Bucket:', bucketName);
+    console.log('  📍 Storage path:', filePath);
     
     // FETCH THE IMAGE FROM SUPABASE STORAGE
     const { data, error } = await supabase.storage
