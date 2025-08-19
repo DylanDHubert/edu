@@ -89,8 +89,7 @@ export async function POST(request: NextRequest) {
       success: true,
       uploadUrl: signedUrlData.signedUrl,
       filePath: filePath,
-      uniqueFileName: uniqueFileName,
-      expiresAt: signedUrlData.expiresAt
+      uniqueFileName: uniqueFileName
     });
 
   } catch (error) {
