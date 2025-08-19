@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
 import { Save } from "lucide-react";
+import { uploadFilesToSupabase, processUploadedFiles } from "../../utils/file-upload";
 
 interface Portfolio {
   id?: string;
@@ -265,23 +266,24 @@ function EditPortfoliosContent() {
           portfolio.id = newPortfolio.id;
         }
 
-        // Handle new file uploads
+        // Handle new file uploads using new client-side upload flow
         if (portfolio.files.length > 0 && portfolio.id) {
-          const formData = new FormData();
-          formData.append('teamId', teamId!);
-          formData.append('portfolioId', portfolio.id);
-          
-          portfolio.files.forEach((file) => {
-            formData.append('files', file);
-          });
+          try {
+            // UPLOAD FILES DIRECTLY TO SUPABASE
+            const uploadedFiles = await uploadFilesToSupabase(
+              portfolio.files,
+              teamId!,
+              portfolio.id
+            );
 
-          const uploadResponse = await fetch('/api/teams/documents/upload', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload files for portfolio: ${portfolio.name}`);
+            // PROCESS UPLOADED FILES (UPLOAD TO OPENAI AND SAVE TO DATABASE)
+            await processUploadedFiles(
+              uploadedFiles,
+              teamId!,
+              portfolio.id
+            );
+          } catch (error) {
+            throw new Error(`Failed to upload files for portfolio: ${portfolio.name} - ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         }
       }

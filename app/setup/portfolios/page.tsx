@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
+import { uploadFilesToSupabase, processUploadedFiles } from "../../utils/file-upload";
 
 interface Portfolio {
   id?: string;
@@ -151,27 +152,28 @@ function PortfoliosSetupContent() {
 
       const { portfolios: createdPortfolios } = await response.json();
 
-      // Upload files for each portfolio
+      // Upload files for each portfolio using new client-side upload flow
       for (let i = 0; i < portfolios.length; i++) {
         const portfolio = portfolios[i];
         const createdPortfolio = createdPortfolios[i];
 
         if (portfolio.files.length > 0) {
-          const formData = new FormData();
-          formData.append('teamId', teamId!);
-          formData.append('portfolioId', createdPortfolio.id);
-          
-          portfolio.files.forEach((file) => {
-            formData.append('files', file);
-          });
+          try {
+            // UPLOAD FILES DIRECTLY TO SUPABASE
+            const uploadedFiles = await uploadFilesToSupabase(
+              portfolio.files,
+              teamId!,
+              createdPortfolio.id
+            );
 
-          const uploadResponse = await fetch('/api/teams/documents/upload', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload files for portfolio: ${portfolio.name}`);
+            // PROCESS UPLOADED FILES (UPLOAD TO OPENAI AND SAVE TO DATABASE)
+            await processUploadedFiles(
+              uploadedFiles,
+              teamId!,
+              createdPortfolio.id
+            );
+          } catch (error) {
+            throw new Error(`Failed to upload files for portfolio: ${portfolio.name} - ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         }
       }

@@ -9,15 +9,12 @@ const client = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const teamId = formData.get('teamId') as string;
-    const portfolioId = formData.get('portfolioId') as string;
-    const files = formData.getAll('files') as File[];
+    const { teamId, portfolioId, uploadedFiles } = await request.json();
 
     // Validate required fields
-    if (!teamId || !portfolioId || files.length === 0) {
+    if (!teamId || !portfolioId || !uploadedFiles || !Array.isArray(uploadedFiles)) {
       return NextResponse.json(
-        { error: 'Team ID, portfolio ID, and files are required' },
+        { error: 'Team ID, portfolio ID, and uploaded files array are required' },
         { status: 400 }
       );
     }
@@ -68,54 +65,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate files
-    for (const file of files) {
-      if (file.type !== 'application/pdf') {
-        return NextResponse.json(
-          { error: 'Only PDF files are allowed' },
-          { status: 400 }
-        );
-      }
-      if (file.size > 512 * 1024 * 1024) { // 512MB limit
-        return NextResponse.json(
-          { error: `File ${file.name} exceeds 512MB limit` },
-          { status: 400 }
-        );
-      }
-    }
-
     const uploadedDocuments = [];
     const openaiFileIds = [];
 
-    // Upload files to Supabase Storage and OpenAI
-    for (const file of files) {
-      // Generate unique filename
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2);
-      const fileExtension = '.pdf';
-      const fileName = `${timestamp}_${random}${fileExtension}`;
-      const filePath = `teams/${teamId}/portfolios/${portfolioId}/${fileName}`;
+    // Process uploaded files
+    for (const uploadedFile of uploadedFiles) {
+      const { filePath, originalName, uniqueFileName } = uploadedFile;
 
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      // Download file from Supabase Storage
+      const { data: fileData, error: downloadError } = await supabase.storage
         .from('team-documents')
-        .upload(filePath, file);
+        .download(filePath);
 
-      if (uploadError) {
-        console.error('Error uploading to Supabase:', uploadError);
+      if (downloadError) {
+        console.error('Error downloading file from Supabase:', downloadError);
         return NextResponse.json(
-          { error: 'Failed to upload file: ' + file.name },
+          { error: 'Failed to download file: ' + originalName },
           { status: 500 }
         );
       }
 
-      // Convert file to buffer for OpenAI upload
-      const arrayBuffer = await file.arrayBuffer();
+      // Convert to buffer for OpenAI upload
+      const arrayBuffer = await fileData.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
       // Upload to OpenAI
       const openaiFile = await client.files.create({
-        file: new File([buffer], file.name, { type: 'application/pdf' }),
+        file: new File([buffer], originalName, { type: 'application/pdf' }),
         purpose: 'assistants'
       });
 
@@ -127,8 +103,8 @@ export async function POST(request: NextRequest) {
         .insert({
           team_id: teamId,
           portfolio_id: portfolioId,
-          filename: fileName,
-          original_name: file.name,
+          filename: uniqueFileName,
+          original_name: originalName,
           file_path: filePath,
           openai_file_id: openaiFile.id,
           uploaded_by: user.id
@@ -147,7 +123,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       documents: uploadedDocuments,
-      message: `${files.length} file(s) uploaded and processed successfully.`
+      message: `${uploadedFiles.length} file(s) uploaded and processed successfully.`
     });
 
   } catch (error) {
