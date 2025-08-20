@@ -14,6 +14,7 @@ interface StandardHeaderProps {
   showMenuButton?: boolean;
   onMenuClick?: () => void;
   onBackClick?: () => void;
+  backButtonDisabled?: boolean;
   isChatPage?: boolean;
 }
 
@@ -28,7 +29,8 @@ export default function StandardHeader({
   showBackButton = true,
   showMenuButton = false,
   onMenuClick,
-  onBackClick
+  onBackClick,
+  backButtonDisabled = false
 }: StandardHeaderProps) {
   const router = useRouter();
 
@@ -89,11 +91,12 @@ export default function StandardHeader({
         {showBackButton && (
           <button
             onClick={handleBack}
+            disabled={backButtonDisabled}
             className={`px-3 py-2 rounded-md font-medium transition-colors text-sm relative z-10 ${
               backText === 'LOGOUT' 
                 ? 'bg-red-600 hover:bg-red-700 text-white' 
                 : backText === 'SAVE' || backText === 'SAVING...'
-                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                ? 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white' 
                 : 'bg-slate-600 hover:bg-slate-700 text-white'
             }`}
           >

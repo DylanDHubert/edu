@@ -322,6 +322,20 @@ function EditAccountsContent() {
     setAccounts(newAccounts);
   };
 
+  const isFormValid = () => {
+    // Check if any account has empty name or no portfolios
+    const hasInvalidAccount = accounts.some(account => 
+      !account.name.trim() || account.assignedPortfolios.length === 0
+    );
+    
+    if (hasInvalidAccount) return false;
+    
+    // Check for duplicate names
+    const names = accounts.map(a => a.name.trim().toLowerCase());
+    const uniqueNames = new Set(names);
+    return names.length === uniqueNames.size;
+  };
+
   const validateForm = () => {
     for (let i = 0; i < accounts.length; i++) {
       const account = accounts[i];
@@ -512,6 +526,7 @@ function EditAccountsContent() {
         showBackButton={true}
         onBackClick={handleSubmit}
         backText={isSubmitting ? 'SAVING...' : 'SAVE'}
+        backButtonDisabled={isSubmitting || !isFormValid()}
       />
 
       {/* Main Content */}
@@ -719,9 +734,12 @@ function EditAccountsContent() {
           <div className="text-center">
             <button
               onClick={addAccount}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-100 px-6 py-3 rounded-md font-medium transition-colors"
+              className="w-full bg-slate-700 hover:bg-slate-600 text-slate-100 px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
-              + Add Another Account
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span className="flex-1 text-center">Add Another Account</span>
             </button>
           </div>
 
@@ -729,8 +747,8 @@ function EditAccountsContent() {
           <div className="flex justify-end">
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+              disabled={isSubmitting || !isFormValid()}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
               <Save className="w-5 h-5 flex-shrink-0" />
               <span className="flex-1 text-center">{isSubmitting ? 'Saving Changes...' : 'Save Changes'}</span>

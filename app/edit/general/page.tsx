@@ -138,6 +138,14 @@ function EditGeneralContent() {
     }]);
   };
 
+  const isFormValid = () => {
+    // At least one doctor with a name or access/misc content is required
+    const hasValidDoctor = doctors.some(doctor => doctor.name.trim());
+    const hasAccessMisc = accessMisc.trim();
+
+    return hasValidDoctor || hasAccessMisc;
+  };
+
   const validateForm = () => {
     // At least one doctor with a name or access/misc content is required
     const hasValidDoctor = doctors.some(doctor => doctor.name.trim());
@@ -235,6 +243,7 @@ function EditGeneralContent() {
         showBackButton={true}
         onBackClick={handleSubmit}
         backText={isSubmitting ? 'SAVING...' : 'SAVE'}
+        backButtonDisabled={isSubmitting || !isFormValid()}
       />
 
       {/* Main Content */}
@@ -341,8 +350,8 @@ function EditGeneralContent() {
           <div className="flex justify-end">
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+              disabled={isSubmitting || !isFormValid()}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
               <Save className="w-5 h-5 flex-shrink-0" />
               <span className="flex-1 text-center">{isSubmitting ? 'Saving Changes...' : 'Save Changes'}</span>
