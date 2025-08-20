@@ -36,17 +36,46 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [activeAssistant, setActiveAssistant] = useState<any>(null);
   const supabase = createClient();
 
-  // Load active assistant from localStorage on mount
+  // Load active assistant from localStorage on mount and listen for changes
   useEffect(() => {
-    const storedAssistant = localStorage.getItem('activeAssistant');
-    if (storedAssistant) {
-      try {
-        const assistant = JSON.parse(storedAssistant);
-        setActiveAssistant(assistant);
-      } catch (error) {
-        console.error('Error parsing activeAssistant from localStorage:', error);
+    const loadActiveAssistant = () => {
+      const storedAssistant = localStorage.getItem('activeAssistant');
+      if (storedAssistant) {
+        try {
+          const assistant = JSON.parse(storedAssistant);
+          setActiveAssistant(assistant);
+          console.log('ACTIVE ASSISTANT UPDATED IN CHAT CONTEXT:', assistant);
+        } catch (error) {
+          console.error('Error parsing activeAssistant from localStorage:', error);
+        }
+      } else {
+        setActiveAssistant(null);
+        console.log('NO ACTIVE ASSISTANT FOUND IN LOCALSTORAGE');
       }
-    }
+    };
+
+    // Load initially
+    loadActiveAssistant();
+
+    // Listen for storage changes (when user changes teams)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'activeAssistant') {
+        loadActiveAssistant();
+      }
+    };
+
+    // Listen for custom events (for same-tab changes)
+    const handleCustomStorageChange = () => {
+      loadActiveAssistant();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('activeAssistantChanged', handleCustomStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('activeAssistantChanged', handleCustomStorageChange);
+    };
   }, []);
 
   // LOAD CHAT HISTORY WHEN USER OR ACTIVE ASSISTANT CHANGES

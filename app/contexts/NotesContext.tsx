@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { createClient } from "../utils/supabase/client";
 
@@ -44,55 +44,10 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  // LOAD NOTES WHEN USER CHANGES
-  useEffect(() => {
-    if (user) {
-      refreshNotes();
-    }
-  }, [user]);
-
-  // SET UP REAL-TIME SUBSCRIPTION FOR NOTES
-  useEffect(() => {
+  const refreshNotes = useCallback(async () => {
     if (!user) return;
 
-    const channel = supabase
-      .channel('notes-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          // REFRESH NOTES WHEN ANY CHANGE OCCURS
-          refreshNotes();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-          filter: 'is_shared=eq.true'
-        },
-        () => {
-          // REFRESH NOTES WHEN SHARED NOTES CHANGE
-          refreshNotes();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase]);
-
-  const refreshNotes = async () => {
-    if (!user) return;
-
+    console.log('🔄 REFRESHING NOTES...');
     setLoading(true);
     try {
       // GET USER'S OWN NOTES WITH TAGS
@@ -113,6 +68,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log('📝 USER NOTES LOADED:', userNotes?.length || 0, 'notes');
+
       // GET SHARED NOTES WITH TAGS
       const { data: sharedNotes, error: sharedError } = await supabase
         .from('notes')
@@ -131,6 +88,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log('📝 SHARED NOTES LOADED:', sharedNotes?.length || 0, 'notes');
+
       // COMBINE USER NOTES AND SHARED NOTES
       const allNotes = [...(userNotes || []), ...(sharedNotes || [])];
       
@@ -139,19 +98,70 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         index === self.findIndex(n => n.id === note.id)
       );
 
+      console.log('📝 TOTAL UNIQUE NOTES:', uniqueNotes.length);
+
       // PROCESS TAGS FOR EACH NOTE
       const processedNotes = uniqueNotes.map(note => ({
         ...note,
         tags: note.note_tags ? tagsArrayToObject(note.note_tags) : undefined
       }));
 
+      console.log('📝 PROCESSED NOTES:', processedNotes.length, 'notes');
       setNotes(processedNotes);
     } catch (error) {
       console.error('ERROR LOADING NOTES:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, supabase]);
+
+  // LOAD NOTES WHEN USER CHANGES
+  useEffect(() => {
+    if (user) {
+      refreshNotes();
+    }
+  }, [user, refreshNotes]);
+
+  // SET UP REAL-TIME SUBSCRIPTION FOR NOTES
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('notes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // REFRESH NOTES WHEN ANY CHANGE OCCURS
+          console.log('🔄 REAL-TIME UPDATE: User notes changed, refreshing...');
+          refreshNotes();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+          filter: 'is_shared=eq.true'
+        },
+        () => {
+          // REFRESH NOTES WHEN SHARED NOTES CHANGE
+          console.log('🔄 REAL-TIME UPDATE: Shared notes changed, refreshing...');
+          refreshNotes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase, refreshNotes]);
 
   const createNote = async (formData: FormData) => {
     if (!user) return;
@@ -227,27 +237,61 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     accountId: string;
     portfolioId: string;
   }): Note[] => {
-    return notes.filter(note => {
+    console.log('🔍 FILTERING NOTES FOR PORTFOLIO:', {
+      portfolioType,
+      teamContext,
+      totalNotes: notes.length,
+      allNotes: notes.map(n => ({ id: n.id, title: n.title, portfolio_type: n.portfolio_type, tags: n.tags }))
+    });
+
+    console.log('🔍 STARTING FILTER - NOTES ARRAY:', notes);
+    
+    const filteredNotes = notes.filter(note => {
+      console.log('🔍 CHECKING NOTE:', {
+        id: note.id,
+        title: note.title,
+        portfolio_type: note.portfolio_type,
+        tags: note.tags,
+        is_shared: note.is_shared,
+        noteKeys: Object.keys(note)
+      });
+
       // FILTER BY TEAM CONTEXT IF PROVIDED
       if (teamContext && note.tags) {
         // CHECK IF NOTE HAS TEAM TAG THAT MATCHES CURRENT TEAM
         const noteTeamId = note.tags.team;
         if (noteTeamId && noteTeamId !== teamContext.teamId) {
+          console.log('❌ NOTE FILTERED OUT: Team ID mismatch', { noteTeamId, expectedTeamId: teamContext.teamId });
           return false;
         }
         
         // CHECK IF NOTE HAS ACCOUNT TAG THAT MATCHES CURRENT ACCOUNT
         const noteAccountId = note.tags.account;
         if (noteAccountId && noteAccountId !== teamContext.accountId) {
+          console.log('❌ NOTE FILTERED OUT: Account ID mismatch', { noteAccountId, expectedAccountId: teamContext.accountId });
           return false;
         }
       }
       
       // INCLUDE GENERAL NOTES FOR ALL PORTFOLIOS
-      if (note.portfolio_type === 'general') return true;
-      // INCLUDE PORTFOLIO-SPECIFIC NOTES
-      return note.portfolio_type === portfolioType;
+      if (note.portfolio_type.toLowerCase() === 'general') {
+        console.log('✅ NOTE INCLUDED: General note');
+        return true;
+      }
+      // INCLUDE PORTFOLIO-SPECIFIC NOTES (CASE-INSENSITIVE)
+      const portfolioMatch = note.portfolio_type.toLowerCase() === portfolioType.toLowerCase();
+      console.log('✅ NOTE INCLUDED: Portfolio match', { portfolioMatch, notePortfolio: note.portfolio_type, expectedPortfolio: portfolioType });
+      return portfolioMatch;
     });
+
+    console.log('🔍 FILTERED NOTES RESULT:', {
+      totalNotes: notes.length,
+      filteredNotes: filteredNotes.length,
+      portfolioType,
+      teamContext
+    });
+
+    return filteredNotes;
   };
 
   const getUniqueTags = (): { [key: string]: string[] } => {

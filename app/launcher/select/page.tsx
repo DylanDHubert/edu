@@ -180,7 +180,7 @@ function AccountPortfolioSelectContent() {
       const selectedPortfolioData = selectedAccountData?.portfolios.find(p => p.id === selectedPortfolio);
 
       // Store assistant context and redirect to chat
-      localStorage.setItem('activeAssistant', JSON.stringify({
+      const activeAssistant = {
         assistantId,
         assistantName,
         teamId,
@@ -191,7 +191,14 @@ function AccountPortfolioSelectContent() {
         teamName: team?.name,
         teamLocation: team?.location,
         userRole: userRole
-      }));
+      };
+      
+      localStorage.setItem('activeAssistant', JSON.stringify(activeAssistant));
+      
+      // Dispatch custom event to notify ChatContext of the change
+      window.dispatchEvent(new CustomEvent('activeAssistantChanged'));
+      
+      console.log('ACTIVE ASSISTANT SET:', activeAssistant);
 
       // Redirect to the main chat interface
       router.push('/chat');

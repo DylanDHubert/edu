@@ -23,7 +23,8 @@ interface NotesSectionProps {
 }
 
 export default function NotesSection({ onNoteSelect, teamContext }: NotesSectionProps) {
-  const { notes, loading, deleteNote, getNotesForPortfolio } = useNotes();
+  console.log('🎯 NOTES SECTION COMPONENT RENDERED');
+  const { notes, loading, deleteNote, getNotesForPortfolio, refreshNotes } = useNotes();
 
   const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,13 +64,32 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
   };
 
   // GET NOTES FOR CURRENT TEAM CONTEXT
+  const portfolioType = teamContext ? teamContext.portfolioName.toLowerCase() : '';
+  console.log('🎯 PORTFOLIO TYPE FOR FILTERING:', {
+    originalPortfolioName: teamContext?.portfolioName,
+    lowercasePortfolioType: portfolioType,
+    teamContext: teamContext
+  });
+  
   const relevantNotes = teamContext 
-    ? getNotesForPortfolio(teamContext.portfolioName.toLowerCase(), {
+    ? getNotesForPortfolio(portfolioType, {
         teamId: teamContext.teamId,
         accountId: teamContext.accountId,
         portfolioId: teamContext.portfolioId
       })
     : notes;
+
+  // DEBUG: LOG RELEVANT NOTES
+  console.log('📋 NOTES SECTION - RELEVANT NOTES:', {
+    totalNotes: notes.length,
+    relevantNotes: relevantNotes.length,
+    teamContext: teamContext ? {
+      teamId: teamContext.teamId,
+      accountId: teamContext.accountId,
+      portfolioId: teamContext.portfolioId,
+      portfolioName: teamContext.portfolioName
+    } : null
+  });
 
   const getPortfolioDisplayName = (portfolioType: string) => {
     switch (portfolioType) {
@@ -95,6 +115,14 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
   const canEditNote = (note: any) => {
     return note.user_id === user?.id || !note.is_shared;
   };
+
+  // DEBUG: LOG THE ACTUAL RELEVANT NOTES CONTENT
+  console.log('🎯 RENDERING NOTES - ACTUAL CONTENT:', {
+    relevantNotes: relevantNotes,
+    relevantNotesLength: relevantNotes.length,
+    loading: loading,
+    teamContext: teamContext
+  });
 
   return (
     <>
@@ -245,8 +273,9 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onNoteCreated={() => {
-          // Refresh notes when a new note is created
-          // The notes will be refreshed automatically by the NotesContext
+          // EXPLICITLY REFRESH NOTES WHEN A NEW NOTE IS CREATED
+          // This ensures the notes list updates immediately
+          refreshNotes();
         }}
         editingNote={editingNote}
         teamContext={teamContext}

@@ -48,6 +48,21 @@ export default function HomePage() {
     }
   }, [user, loading]);
 
+  // CLEAR ACTIVE ASSISTANT WHEN USER VISITS HOME PAGE (INDICATING THEY WANT TO CHANGE TEAMS)
+  useEffect(() => {
+    if (!loading && user) {
+      // Clear any existing active assistant when visiting home page
+      const existingAssistant = localStorage.getItem('activeAssistant');
+      if (existingAssistant) {
+        console.log('CLEARING ACTIVE ASSISTANT ON HOME PAGE VISIT');
+        localStorage.removeItem('activeAssistant');
+        // Dispatch event to notify ChatContext
+        window.dispatchEvent(new CustomEvent('activeAssistantChanged'));
+        setHasActiveAssistant(false);
+      }
+    }
+  }, [user, loading]);
+
   const loadUserTeams = async () => {
     try {
       setLoadingTeams(true);
