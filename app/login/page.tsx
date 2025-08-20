@@ -99,9 +99,9 @@ function LoginPageContent() {
             router.push(invitationPath);
           }
         } else {
-          // NORMAL FLOW - GO TO CHAT
-          console.log('No invitation context, redirecting to chat');
-          router.push("/chat");
+          // NORMAL FLOW - GO TO HOME
+          console.log('No invitation context, redirecting to home');
+          router.push("/");
         }
         router.refresh();
       }

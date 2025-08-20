@@ -38,14 +38,14 @@ export default function CreateTeam() {
         .single();
 
       if (error || !data) {
-        router.push("/chat");
+        router.push("/");
         return;
       }
 
       setIsAdmin(true);
     } catch (error) {
       console.error('Error checking admin access:', error);
-      router.push("/chat");
+      router.push("/");
     } finally {
       setIsAdminLoading(false);
     }

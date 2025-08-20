@@ -52,7 +52,7 @@ export default function AdminDashboard() {
 
       if (error || !data) {
         console.log('Admin access denied - no data or error:', error);
-        router.push("/chat");
+        router.push("/");
         return;
       }
 
@@ -61,7 +61,7 @@ export default function AdminDashboard() {
       await loadDashboardData();
     } catch (error) {
       console.error('Error checking admin access:', error);
-      router.push("/chat");
+      router.push("/");
     } finally {
       setIsAdminLoading(false);
     }
