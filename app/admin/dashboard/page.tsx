@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -12,6 +12,7 @@ interface ChatAnalyticsData {
   account_name: string;
   portfolio_name: string;
   chat_title: string;
+  thread_id: string;
   timestamp: string;
   query: string;
   response: string;
@@ -72,6 +73,11 @@ export default function AdminDashboard() {
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  
+  // Thread expansion state
+  const [expandedThread, setExpandedThread] = useState<string | null>(null);
+  const [threadData, setThreadData] = useState<any>(null);
+  const [loadingThread, setLoadingThread] = useState(false);
   
   // Filter states
   const [feedbackFilter, setFeedbackFilter] = useState('all');
@@ -273,6 +279,40 @@ export default function AdminDashboard() {
       loadFeedbackAnalytics();
     } else if (activeTab === 'notes') {
       loadNotesAnalytics();
+    }
+  };
+
+  const loadThreadData = async (threadId: string) => {
+    try {
+      setLoadingThread(true);
+      console.log('🔄 Loading full thread:', threadId);
+      
+      const response = await fetch(`/api/admin/analytics/thread/${threadId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to load thread data');
+      }
+
+      const result = await response.json();
+      setThreadData(result.data);
+      setExpandedThread(threadId);
+      
+      console.log('✅ Thread loaded:', result.data?.stats);
+    } catch (error) {
+      console.error('Error loading thread:', error);
+    } finally {
+      setLoadingThread(false);
+    }
+  };
+
+  const handleThreadClick = (threadId: string) => {
+    if (expandedThread === threadId) {
+      // Collapse if already expanded
+      setExpandedThread(null);
+      setThreadData(null);
+    } else {
+      // Expand new thread
+      loadThreadData(threadId);
     }
   };
 
@@ -507,10 +547,22 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="bg-slate-800 divide-y divide-slate-700">
                     {chatData.map((chat, index) => (
-                      <tr key={index} className="hover:bg-slate-700">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                          {chat.user_email}
-                        </td>
+                      <React.Fragment key={index}>
+                        <tr 
+                          className="hover:bg-slate-700 cursor-pointer transition-colors"
+                          onClick={() => handleThreadClick(chat.thread_id)}
+                          title="Click to view full conversation"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            <div className="flex items-center gap-2">
+                              {chat.user_email}
+                              {expandedThread === chat.thread_id && (
+                                <span className="text-blue-400 text-xs">
+                                  {loadingThread ? '⏳' : '👁️'}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                         <td className="px-6 py-4 text-sm text-slate-300">
                           <div className="space-y-1">
                             <div className="font-medium">{chat.team_name}</div>
@@ -554,6 +606,67 @@ export default function AdminDashboard() {
                           {new Date(chat.timestamp).toLocaleDateString()}
                         </td>
                       </tr>
+                      
+                      {/* Expanded Thread View */}
+                      {expandedThread === chat.thread_id && threadData && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-0">
+                            <div className="bg-slate-700 rounded-lg p-6 my-4">
+                              <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold text-slate-100">
+                                  Full Conversation: {threadData.chat_title}
+                                </h3>
+                                <div className="text-sm text-slate-400">
+                                  {threadData.stats.exchanges} exchanges • {threadData.stats.total_messages} messages
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-4 max-h-96 overflow-y-auto">
+                                {threadData.conversation.map((message: any, msgIndex: number) => (
+                                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-4xl rounded-lg p-4 ${
+                                      message.role === 'user' 
+                                        ? 'bg-blue-600 text-white' 
+                                        : 'bg-slate-600 text-slate-100'
+                                    }`}>
+                                      <div className="flex justify-between items-start gap-4 mb-2">
+                                        <span className="font-medium text-sm">
+                                          {message.role === 'user' ? 'User' : 'Assistant'}
+                                        </span>
+                                        <span className="text-xs opacity-75">
+                                          {new Date(message.timestamp).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <div className="whitespace-pre-wrap text-sm">
+                                        {message.content}
+                                      </div>
+                                      {message.feedback && (
+                                        <div className="mt-3 pt-3 border-t border-opacity-20 border-white">
+                                          <div className="flex items-center gap-2">
+                                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                              message.feedback.rating === 1 
+                                                ? 'bg-green-100 text-green-800' 
+                                                : 'bg-red-100 text-red-800'
+                                            }`}>
+                                              {message.feedback.rating === 1 ? 'Positive' : 'Negative'} Feedback
+                                            </span>
+                                          </div>
+                                          {message.feedback.text_feedback && (
+                                            <div className="mt-2 text-xs opacity-90">
+                                              "{message.feedback.text_feedback}"
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                     ))}
                   </tbody>
                 </table>

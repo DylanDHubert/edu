@@ -10,9 +10,9 @@ CREATE TABLE public.account_portfolio_stores (
   vector_store_name text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT account_portfolio_stores_pkey PRIMARY KEY (id),
+  CONSTRAINT account_portfolio_stores_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
   CONSTRAINT account_portfolio_stores_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT account_portfolio_stores_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
-  CONSTRAINT account_portfolio_stores_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
+  CONSTRAINT account_portfolio_stores_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id)
 );
 CREATE TABLE public.account_portfolios (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -20,8 +20,8 @@ CREATE TABLE public.account_portfolios (
   portfolio_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT account_portfolios_pkey PRIMARY KEY (id),
-  CONSTRAINT account_portfolios_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT account_portfolios_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id)
+  CONSTRAINT account_portfolios_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
+  CONSTRAINT account_portfolios_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
 );
 CREATE TABLE public.admin_users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -44,8 +44,8 @@ CREATE TABLE public.chat_history (
   portfolio_id uuid,
   assistant_id text,
   CONSTRAINT chat_history_pkey PRIMARY KEY (id),
-  CONSTRAINT chat_history_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT chat_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT chat_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT chat_history_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
 CREATE TABLE public.manager_invitations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -74,10 +74,10 @@ CREATE TABLE public.message_ratings (
   account_id uuid,
   portfolio_id uuid,
   CONSTRAINT message_ratings_pkey PRIMARY KEY (id),
-  CONSTRAINT message_ratings_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT message_ratings_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
   CONSTRAINT message_ratings_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
   CONSTRAINT message_ratings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT message_ratings_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
+  CONSTRAINT message_ratings_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
 CREATE TABLE public.note_tags (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -105,9 +105,23 @@ CREATE TABLE public.notes (
   portfolio_id uuid,
   CONSTRAINT notes_pkey PRIMARY KEY (id),
   CONSTRAINT notes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT notes_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
   CONSTRAINT notes_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT notes_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id)
+  CONSTRAINT notes_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
+  CONSTRAINT notes_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
+);
+CREATE TABLE public.surgeons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  team_id uuid,
+  name text NOT NULL,
+  specialty text NOT NULL,
+  procedure_focus text NOT NULL,
+  notes text,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT surgeons_pkey PRIMARY KEY (id),
+  CONSTRAINT surgeons_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT surgeons_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.team_accounts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -118,8 +132,8 @@ CREATE TABLE public.team_accounts (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT team_accounts_pkey PRIMARY KEY (id),
-  CONSTRAINT team_accounts_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+  CONSTRAINT team_accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
+  CONSTRAINT team_accounts_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
 CREATE TABLE public.team_assistants (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -136,8 +150,8 @@ CREATE TABLE public.team_assistants (
   consolidated_vector_store_name text,
   CONSTRAINT team_assistants_pkey PRIMARY KEY (id),
   CONSTRAINT team_assistants_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_assistants_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
-  CONSTRAINT team_assistants_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
+  CONSTRAINT team_assistants_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
+  CONSTRAINT team_assistants_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id)
 );
 CREATE TABLE public.team_documents (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -150,9 +164,9 @@ CREATE TABLE public.team_documents (
   uploaded_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT team_documents_pkey PRIMARY KEY (id),
-  CONSTRAINT team_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id),
   CONSTRAINT team_documents_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT team_documents_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
+  CONSTRAINT team_documents_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.team_knowledge (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -169,10 +183,10 @@ CREATE TABLE public.team_knowledge (
   updated_at timestamp with time zone DEFAULT now(),
   account_id uuid,
   CONSTRAINT team_knowledge_pkey PRIMARY KEY (id),
-  CONSTRAINT team_knowledge_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
   CONSTRAINT team_knowledge_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT team_knowledge_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
-  CONSTRAINT team_knowledge_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id)
+  CONSTRAINT team_knowledge_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
+  CONSTRAINT team_knowledge_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_knowledge_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.team_member_invitations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -201,9 +215,9 @@ CREATE TABLE public.team_members (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT team_members_pkey PRIMARY KEY (id),
+  CONSTRAINT team_members_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES auth.users(id),
   CONSTRAINT team_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_members_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES auth.users(id)
+  CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
 CREATE TABLE public.team_portfolios (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
