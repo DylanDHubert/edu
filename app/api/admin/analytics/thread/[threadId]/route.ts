@@ -10,7 +10,7 @@ const client = new OpenAI({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { threadId: string } }
+  { params }: { params: Promise<{ threadId: string }> }
 ) {
   try {
     // Verify admin authentication
@@ -34,7 +34,7 @@ export async function GET(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const threadId = params.threadId;
+    const { threadId } = await params;
     console.log(`🔍 Admin requesting full thread: ${threadId}`);
 
     // Get chat context from database
