@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import { useChat } from "../contexts/ChatContext";
 import NotesSection from "./NotesSection";
 
@@ -12,6 +13,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps) {
   const { user, signOut } = useAuth();
+  const router = useRouter();
   const { 
     chatHistory, 
     currentChat, 
@@ -229,7 +231,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
         {/* CHANGE ASSISTANT BUTTON */}
         <div className="p-4 border-t border-slate-700">
           <button
-                            onClick={() => window.location.href = '/'}
+            onClick={() => router.push('/')}
             className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
           >
             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

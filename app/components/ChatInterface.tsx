@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import { useChat } from "../contexts/ChatContext";
 import StandardHeader from "./StandardHeader";
 import FeedbackModal from "./FeedbackModal";
@@ -39,6 +41,7 @@ interface ActiveAssistant {
 }
 
 export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => void }) {
+  const router = useRouter();
   const { currentChat, setCurrentChat, refreshChatHistory } = useChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -781,10 +784,10 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                           PLEASE SELECT A TEAM FROM THE HOME PAGE
           </p>
           <button
-                          onClick={() => window.location.href = '/'}
+            onClick={() => router.push('/')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
-                          GO TO HOME
+            GO TO HOME
           </button>
         </div>
       </div>
