@@ -146,7 +146,7 @@ export default function AdminDashboard() {
 
       const result = await response.json();
       setChatData(result.data || []);
-      setMetadata(prev => ({ ...prev, chats: result.metadata }));
+      setMetadata((prev: any) => ({ ...prev, chats: result.metadata }));
       
       console.log('✅ Chat analytics loaded:', result.data?.length, 'records');
     } catch (error) {
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
 
       const result = await response.json();
       setFeedbackData(result.data || []);
-      setMetadata(prev => ({ ...prev, feedback: result.metadata }));
+      setMetadata((prev: any) => ({ ...prev, feedback: result.metadata }));
       
       console.log('✅ Feedback analytics loaded:', result.data?.length, 'records');
     } catch (error) {
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
 
       const result = await response.json();
       setNotesData(result.data || []);
-      setMetadata(prev => ({ ...prev, notes: result.metadata }));
+      setMetadata((prev: any) => ({ ...prev, notes: result.metadata }));
       
       console.log('✅ Notes analytics loaded:', result.data?.length, 'records');
     } catch (error) {
