@@ -151,7 +151,8 @@ CREATE TABLE public.team_assistants (
   CONSTRAINT team_assistants_pkey PRIMARY KEY (id),
   CONSTRAINT team_assistants_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
   CONSTRAINT team_assistants_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT team_assistants_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id)
+  CONSTRAINT team_assistants_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
+  CONSTRAINT team_assistants_portfolio_unique UNIQUE (team_id, portfolio_id)
 );
 CREATE TABLE public.team_documents (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

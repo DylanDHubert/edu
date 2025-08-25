@@ -48,23 +48,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if we already have a cached consolidated assistant
+    // Check if we already have a cached portfolio assistant
     const { data: existingAssistant, error: assistantError } = await supabase
       .from('team_assistants')
       .select('*')
       .eq('team_id', teamId)
-      .eq('account_id', accountId)
       .eq('portfolio_id', portfolioId)
+      .is('account_id', null)
       .single();
 
     if (existingAssistant && !assistantError && existingAssistant.consolidated_vector_store_id) {
-      console.log('🔍 Found existing assistant, checking if cache is still valid...');
+      console.log('🔍 Found existing portfolio assistant, checking if cache is still valid...');
       
-      // Check if underlying content has been updated since vector store creation
+      // Check if underlying PDFs have been updated since vector store creation
       const vectorStoreCreatedAt = new Date(existingAssistant.created_at);
       console.log(`📅 Vector store created at: ${vectorStoreCreatedAt.toISOString()}`);
 
-      const isStale = await checkIfCacheIsStale(supabase, teamId, accountId, portfolioId, vectorStoreCreatedAt);
+      const isStale = await checkIfCacheIsStale(supabase, teamId, portfolioId, vectorStoreCreatedAt);
       
       if (isStale) {
         console.log('🔄 Cache is stale, deleting old assistant and creating new one...');
@@ -97,65 +97,69 @@ export async function POST(request: NextRequest) {
           assistantName: existingAssistant.assistant_name,
           vectorStoreId: existingAssistant.consolidated_vector_store_id,
           cached: true,
-          message: 'Using existing consolidated assistant'
+          message: 'Using existing portfolio assistant'
         });
       }
     }
 
-    // Get team, account, and portfolio names for naming
-    const names = await getNames(supabase, teamId, accountId, portfolioId);
+    // Get team and portfolio names for naming
+    const names = await getNames(supabase, teamId, portfolioId);
     
-    // Create consolidated vector store with all knowledge
-    const consolidatedVectorStore = await createConsolidatedVectorStore(
-      supabase, teamId, accountId, portfolioId, names
+    // Create portfolio vector store with PDFs only
+    const portfolioVectorStore = await createPortfolioVectorStore(
+      supabase, teamId, portfolioId, names
     );
 
-    if (!consolidatedVectorStore) {
+    if (!portfolioVectorStore) {
       return NextResponse.json(
-        { error: 'Failed to create consolidated knowledge base' },
+        { error: 'Failed to create portfolio knowledge base' },
         { status: 500 }
       );
     }
 
-    // Create OpenAI assistant with consolidated vector store
-    const assistantName = `${names.teamName} - ${names.accountName} - ${names.portfolioName} Assistant`;
+    // Generate context for this specific account
+    const accountContext = await generateAccountContext(supabase, teamId, accountId, portfolioId, names);
+    const generalContext = await generateGeneralContext(supabase, teamId, names);
+
+    // Create OpenAI assistant with portfolio vector store and account context
+    const assistantName = `${names.teamName} - ${names.portfolioName} Assistant`;
     
     try {
       const assistant = await client.beta.assistants.create({
         name: assistantName,
-        instructions: generateAssistantInstructions(names),
+        instructions: generateAssistantInstructions(names, accountContext, generalContext),
         model: "gpt-4o",
         tools: [{ type: "file_search" }],
         tool_resources: {
           file_search: {
-            vector_store_ids: [consolidatedVectorStore.id] // Single consolidated store
+            vector_store_ids: [portfolioVectorStore.id] // Portfolio PDFs only
           }
         }
       });
 
-      // Cache the consolidated assistant
+      // Cache the portfolio assistant
       const { data: cachedAssistant, error: cacheError } = await supabase
         .from('team_assistants')
         .upsert({
           team_id: teamId,
-          account_id: accountId,
+          account_id: null, // Portfolio-level assistant
           portfolio_id: portfolioId,
           assistant_id: assistant.id,
           assistant_name: assistantName,
-          consolidated_vector_store_id: consolidatedVectorStore.id,
-          consolidated_vector_store_name: consolidatedVectorStore.name,
+          consolidated_vector_store_id: portfolioVectorStore.id,
+          consolidated_vector_store_name: portfolioVectorStore.name,
           // Keep old fields for backward compatibility with placeholder values
-          general_vector_store_id: 'consolidated',
-          account_portfolio_vector_store_id: 'consolidated', 
-          portfolio_vector_store_id: 'consolidated'
+          general_vector_store_id: 'portfolio',
+          account_portfolio_vector_store_id: 'portfolio', 
+          portfolio_vector_store_id: 'portfolio'
         }, {
-          onConflict: 'team_id,account_id,portfolio_id'
+          onConflict: 'team_id,portfolio_id'
         })
         .select()
         .single();
 
       if (cacheError) {
-        console.error('Error caching consolidated assistant:', cacheError);
+        console.error('Error caching portfolio assistant:', cacheError);
         // Continue anyway, assistant is created
       }
 
@@ -163,10 +167,10 @@ export async function POST(request: NextRequest) {
         success: true,
         assistantId: assistant.id,
         assistantName: assistantName,
-        vectorStoreId: consolidatedVectorStore.id,
-        vectorStoreName: consolidatedVectorStore.name,
+        vectorStoreId: portfolioVectorStore.id,
+        vectorStoreName: portfolioVectorStore.name,
         cached: false,
-        message: 'Consolidated assistant created successfully'
+        message: 'Portfolio assistant created successfully'
       });
 
     } catch (openaiError) {
@@ -178,7 +182,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error in consolidated assistant creation:', error);
+    console.error('Error in portfolio assistant creation:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -186,50 +190,37 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function createConsolidatedVectorStore(supabase: any, teamId: string, accountId: string, portfolioId: string, names: any) {
+async function createPortfolioVectorStore(supabase: any, teamId: string, portfolioId: string, names: any) {
   try {
-    const vectorStoreName = `${names.teamName}-${names.accountName}-${names.portfolioName}-Consolidated`;
-    console.log(`Creating consolidated vector store: ${vectorStoreName}`);
+    const vectorStoreName = `${names.teamName}-${names.portfolioName}-Portfolio-PDFs`;
+    console.log(`Creating portfolio vector store: ${vectorStoreName}`);
 
-    // 1. Gather portfolio PDFs from Supabase Storage
+    // Gather portfolio PDFs from Supabase Storage
     const portfolioPDFs = await gatherPortfolioPDFs(supabase, teamId, portfolioId);
-    
-    // 2. Generate and store account knowledge text file
-    const accountKnowledgeFile = await generateAndStoreAccountKnowledge(supabase, teamId, accountId, portfolioId);
-    
-    // 3. Generate and store general knowledge text file  
-    const generalKnowledgeFile = await generateAndStoreGeneralKnowledge(supabase, teamId);
 
-    // 4. Collect all files for upload
-    const allFiles = [
-      ...portfolioPDFs,
-      ...(accountKnowledgeFile ? [accountKnowledgeFile] : []),
-      ...(generalKnowledgeFile ? [generalKnowledgeFile] : [])
-    ];
-
-    if (allFiles.length === 0) {
-      console.warn('No files found for consolidated vector store');
+    if (portfolioPDFs.length === 0) {
+      console.warn('No PDF files found for portfolio vector store');
       return null;
     }
 
-    console.log(`Uploading ${allFiles.length} files to consolidated vector store`);
+    console.log(`Uploading ${portfolioPDFs.length} PDF files to portfolio vector store`);
 
-    // 5. Create consolidated vector store in OpenAI
+    // Create portfolio vector store in OpenAI with PDFs only
     const vectorStore = await (client as any).vectorStores.create({
       name: vectorStoreName,
-      file_ids: allFiles.map(f => f.id)
+      file_ids: portfolioPDFs.map((f: any) => f.id)
     });
 
-    console.log(`Successfully created consolidated vector store: ${vectorStore.id}`);
+    console.log(`Successfully created portfolio vector store: ${vectorStore.id}`);
 
     return {
       id: vectorStore.id,
       name: vectorStoreName,
-      fileCount: allFiles.length
+      fileCount: portfolioPDFs.length
     };
 
   } catch (error) {
-    console.error('Error creating consolidated vector store:', error);
+    console.error('Error creating portfolio vector store:', error);
     return null;
   }
 }
@@ -260,7 +251,7 @@ async function gatherPortfolioPDFs(supabase: any, teamId: string, portfolioId: s
   }
 }
 
-async function generateAndStoreAccountKnowledge(supabase: any, teamId: string, accountId: string, portfolioId: string) {
+async function generateAccountContext(supabase: any, teamId: string, accountId: string, portfolioId: string, names: any) {
   try {
     // Get account info
     const { data: account } = await supabase
@@ -279,7 +270,7 @@ async function generateAndStoreAccountKnowledge(supabase: any, teamId: string, a
 
     if (!knowledgeData || knowledgeData.length === 0) {
       console.log('No account knowledge found');
-      return null;
+      return '';
     }
 
     // Transform knowledge data for text generation
@@ -299,15 +290,11 @@ async function generateAndStoreAccountKnowledge(supabase: any, teamId: string, a
       .filter((k: any) => k.category === 'technical')
       .map((k: any) => ({ title: 'Technical Information', content: k.content || k.metadata?.content || '' }));
 
-    // Get proper names
-    const { data: team } = await supabase.from('teams').select('name').eq('id', teamId).single();
-    const { data: portfolioInfo } = await supabase.from('team_portfolios').select('name').eq('id', portfolioId).single();
-
     // Generate text content
     const textContent = createAccountPortfolioKnowledgeText({
-      teamName: team?.name || 'Team',
+      teamName: names.teamName,
       accountName: account?.name || 'Unknown Account',
-      portfolioName: portfolioInfo?.name || 'Portfolio',
+      portfolioName: names.portfolioName,
       knowledge: {
         inventory,
         instruments,
@@ -315,31 +302,16 @@ async function generateAndStoreAccountKnowledge(supabase: any, teamId: string, a
       }
     });
 
-    // Upload to OpenAI as text file
-    const filename = `account-${accountId}-portfolio-${portfolioId}-knowledge.txt`;
-    const blob = new Blob([textContent], { type: 'text/plain' });
-    const file = new File([blob], filename, { type: 'text/plain' });
-
-    const openaiFile = await client.files.create({
-      file: file,
-      purpose: 'assistants'
-    });
-
-    console.log(`Generated account knowledge file: ${openaiFile.id}`);
-
-    return {
-      id: openaiFile.id,
-      name: filename,
-      type: 'text'
-    };
+    console.log(`Generated account context for ${account?.name || 'Unknown Account'}`);
+    return textContent;
 
   } catch (error) {
-    console.error('Error generating account knowledge:', error);
-    return null;
+    console.error('Error generating account context:', error);
+    return '';
   }
 }
 
-async function generateAndStoreGeneralKnowledge(supabase: any, teamId: string) {
+async function generateGeneralContext(supabase: any, teamId: string, names: any) {
   try {
     // Get general team knowledge (account_id and portfolio_id are null)
     const { data: knowledgeData } = await supabase
@@ -351,7 +323,7 @@ async function generateAndStoreGeneralKnowledge(supabase: any, teamId: string) {
 
     if (!knowledgeData || knowledgeData.length === 0) {
       console.log('No general knowledge found');
-      return null;
+      return '';
     }
 
     // Transform knowledge data
@@ -366,54 +338,29 @@ async function generateAndStoreGeneralKnowledge(supabase: any, teamId: string) {
       .filter((k: any) => k.category === 'access_misc')
       .map((k: any) => ({ title: 'Access Information', content: k.content || k.metadata?.content || '' }));
 
-    // Get proper team name
-    const { data: team } = await supabase.from('teams').select('name').eq('id', teamId).single();
-
     // Generate text content
     const textContent = createGeneralKnowledgeText({
-      teamName: team?.name || 'Team',
+      teamName: names.teamName,
       doctorInfo,
       accessMisc
     });
 
-    // Upload to OpenAI as text file
-    const filename = `team-${teamId}-general-knowledge.txt`;
-    const blob = new Blob([textContent], { type: 'text/plain' });
-    const file = new File([blob], filename, { type: 'text/plain' });
-
-    const openaiFile = await client.files.create({
-      file: file,
-      purpose: 'assistants'
-    });
-
-    console.log(`Generated general knowledge file: ${openaiFile.id}`);
-
-    return {
-      id: openaiFile.id,
-      name: filename,
-      type: 'text'
-    };
+    console.log(`Generated general context for ${names.teamName}`);
+    return textContent;
 
   } catch (error) {
-    console.error('Error generating general knowledge:', error);
-    return null;
+    console.error('Error generating general context:', error);
+    return '';
   }
 }
 
-async function getNames(supabase: any, teamId: string, accountId: string, portfolioId: string) {
+async function getNames(supabase: any, teamId: string, portfolioId: string) {
   try {
     // Get team name
     const { data: team } = await supabase
       .from('teams')
       .select('name')
       .eq('id', teamId)
-      .single();
-
-    // Get account name
-    const { data: account } = await supabase
-      .from('team_accounts')
-      .select('name')
-      .eq('id', accountId)
       .single();
 
     // Get portfolio name
@@ -425,14 +372,12 @@ async function getNames(supabase: any, teamId: string, accountId: string, portfo
 
     return {
       teamName: team?.name || 'Team',
-      accountName: account?.name || 'Account',
       portfolioName: portfolio?.name || 'Portfolio'
     };
   } catch (error) {
     console.error('Error getting names:', error);
     return {
       teamName: 'Team',
-      accountName: 'Account', 
       portfolioName: 'Portfolio'
     };
   }
@@ -441,14 +386,13 @@ async function getNames(supabase: any, teamId: string, accountId: string, portfo
 async function checkIfCacheIsStale(
   supabase: any, 
   teamId: string, 
-  accountId: string, 
   portfolioId: string, 
   vectorStoreCreatedAt: Date
 ): Promise<boolean> {
   try {
     console.log('🔍 Checking cache staleness...');
 
-    // 1. Check if any portfolio PDFs were uploaded/updated after vector store creation
+    // Check if any portfolio PDFs were uploaded/updated after vector store creation
     const { data: latestDocuments } = await supabase
       .from('team_documents')
       .select('created_at')
@@ -465,73 +409,7 @@ async function checkIfCacheIsStale(
       }
     }
 
-    // 2. Check if account information was updated after vector store creation
-    const { data: accountInfo } = await supabase
-      .from('team_accounts')
-      .select('updated_at')
-      .eq('id', accountId)
-      .single();
-
-    if (accountInfo && accountInfo.updated_at) {
-      const accountUpdatedAt = new Date(accountInfo.updated_at);
-      if (accountUpdatedAt > vectorStoreCreatedAt) {
-        console.log(`🏥 Account info updated: ${accountUpdatedAt.toISOString()} > ${vectorStoreCreatedAt.toISOString()}`);
-        return true;
-      }
-    }
-
-    // 3. Check if account-specific knowledge was updated after vector store creation
-    const { data: latestAccountKnowledge } = await supabase
-      .from('team_knowledge')
-      .select('updated_at')
-      .eq('team_id', teamId)
-      .eq('account_id', accountId)
-      .eq('portfolio_id', portfolioId)
-      .order('updated_at', { ascending: false })
-      .limit(1);
-
-    if (latestAccountKnowledge && latestAccountKnowledge.length > 0) {
-      const latestKnowledgeDate = new Date(latestAccountKnowledge[0].updated_at);
-      if (latestKnowledgeDate > vectorStoreCreatedAt) {
-        console.log(`🧠 Account knowledge updated: ${latestKnowledgeDate.toISOString()} > ${vectorStoreCreatedAt.toISOString()}`);
-        return true;
-      }
-    }
-
-    // 4. Check if general team knowledge was updated after vector store creation
-    const { data: latestGeneralKnowledge } = await supabase
-      .from('team_knowledge')
-      .select('updated_at')
-      .eq('team_id', teamId)
-      .is('account_id', null)
-      .is('portfolio_id', null)
-      .order('updated_at', { ascending: false })
-      .limit(1);
-
-    if (latestGeneralKnowledge && latestGeneralKnowledge.length > 0) {
-      const latestGeneralDate = new Date(latestGeneralKnowledge[0].updated_at);
-      if (latestGeneralDate > vectorStoreCreatedAt) {
-        console.log(`🌐 General knowledge updated: ${latestGeneralDate.toISOString()} > ${vectorStoreCreatedAt.toISOString()}`);
-        return true;
-      }
-    }
-
-    // 5. Check if team information itself was updated after vector store creation
-    const { data: teamInfo } = await supabase
-      .from('teams')
-      .select('updated_at')
-      .eq('id', teamId)
-      .single();
-
-    if (teamInfo && teamInfo.updated_at) {
-      const teamUpdatedAt = new Date(teamInfo.updated_at);
-      if (teamUpdatedAt > vectorStoreCreatedAt) {
-        console.log(`👥 Team info updated: ${teamUpdatedAt.toISOString()} > ${vectorStoreCreatedAt.toISOString()}`);
-        return true;
-      }
-    }
-
-    console.log('✅ Cache is still fresh - no updates detected');
+    console.log('✅ Cache is still fresh - no PDF updates detected');
     return false;
 
   } catch (error) {
@@ -541,17 +419,22 @@ async function checkIfCacheIsStale(
   }
 }
 
-function generateAssistantInstructions(names: { teamName: string; accountName: string; portfolioName: string }): string {
-  return `YOU ARE AN EXPERT MEDICAL ASSISTANT SPECIALIZING IN ${names.portfolioName.toUpperCase()}. USE YOUR KNOWLEDGE BASE TO ANSWER QUESTIONS ABOUT SURGICAL TECHNIQUES, PROTOCOLS, AND MEDICAL PROCEDURES. ALWAYS PROVIDE ACCURATE, DETAILED INFORMATION BASED ON THE UPLOADED DOCUMENTS.
+function generateAssistantInstructions(
+  names: { teamName: string; portfolioName: string }, 
+  accountContext: string, 
+  generalContext: string
+): string {
+  let instructions = `YOU ARE AN EXPERT MEDICAL ASSISTANT SPECIALIZING IN ${names.portfolioName.toUpperCase()}. USE YOUR KNOWLEDGE BASE TO ANSWER QUESTIONS ABOUT SURGICAL TECHNIQUES, PROTOCOLS, AND MEDICAL PROCEDURES.
 
 You have access to:
-1. ${names.portfolioName} portfolio documentation (PDFs)
-2. ${names.accountName} specific knowledge and inventory
-3. ${names.teamName} general team knowledge
+1. ${names.portfolioName} portfolio documentation (PDFs) - use file search for specific document lookup
+2. Account-specific knowledge (provided in context below)
+3. ${names.teamName} general team knowledge (provided in context below)
 
 RESPONSE GUIDELINES:
 - Provide comprehensive, detailed answers about surgical techniques and procedures
-- Answer questions thoroughly using information from all available documentation and knowledge
+- Use file search for specific document content and detailed procedures
+- Use context information for account-specific details and general team information
 - ONLY when referencing images from the team knowledge: include the URL directly in your response
 - Format for team images: "The Hip Tray Set A contains primary instruments: /api/images/hip_tray_a.jpg"
 - Do NOT add quotes, explanatory text, or markdown formatting around the URL
@@ -559,4 +442,16 @@ RESPONSE GUIDELINES:
 - For all other responses, provide normal detailed medical information
 
 IMPORTANT: FORMAT YOUR RESPONSES AS PLAIN TEXT ONLY. DO NOT USE MARKDOWN FORMATTING. USE SIMPLE TEXT WITH LINE BREAKS FOR ORGANIZATION. AVOID USING MARKDOWN SYMBOLS LIKE #, *, -, OR \`\`\`. JUST USE CLEAN, READABLE PLAIN TEXT.`;
+
+  // Add account-specific context
+  if (accountContext) {
+    instructions += `\n\nACCOUNT-SPECIFIC KNOWLEDGE:\n${accountContext}`;
+  }
+
+  // Add general team context
+  if (generalContext) {
+    instructions += `\n\nGENERAL TEAM KNOWLEDGE:\n${generalContext}`;
+  }
+
+  return instructions;
 } 
