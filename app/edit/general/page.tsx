@@ -7,13 +7,6 @@ import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
 import { Save } from "lucide-react";
 
-interface Doctor {
-  id: string;
-  name: string;
-  specialty: string;
-  notes: string;
-}
-
 interface Surgeon {
   id: string;
   name: string;
@@ -30,7 +23,6 @@ function EditGeneralContent() {
   const supabase = createClient();
 
   const [team, setTeam] = useState<any>(null);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [surgeons, setSurgeons] = useState<Surgeon[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,25 +84,6 @@ function EditGeneralContent() {
       }
 
       // Transform data for editing
-      const doctorsData = knowledgeData
-        ?.filter(k => k.category === 'doctor_info')
-        .map(k => ({
-          id: k.id,
-          name: k.metadata?.name || k.title || '',
-          specialty: k.metadata?.specialty || '',
-          notes: k.metadata?.notes || ''
-        })) || [];
-
-      // Add empty doctor if none exist
-      if (doctorsData.length === 0) {
-        doctorsData.push({
-          id: `temp-${Date.now()}`,
-          name: '',
-          specialty: '',
-          notes: ''
-        });
-      }
-
       const surgeonsData = knowledgeData
         ?.filter(k => k.category === 'surgeon_info')
         .map(k => ({
@@ -132,38 +105,12 @@ function EditGeneralContent() {
         });
       }
 
-      setDoctors(doctorsData);
       setSurgeons(surgeonsData);
 
     } catch (error) {
       console.error('Error loading existing data:', error);
       setError('Failed to load team data');
     }
-  };
-
-  const addDoctor = () => {
-    setDoctors([...doctors, {
-      id: `temp-${Date.now()}`,
-      name: '',
-      specialty: '',
-      notes: ''
-    }]);
-  };
-
-  const updateDoctor = (index: number, field: keyof Doctor, value: string) => {
-    const newDoctors = [...doctors];
-    newDoctors[index] = { ...newDoctors[index], [field]: value };
-    setDoctors(newDoctors);
-  };
-
-  const removeDoctor = (index: number) => {
-    const newDoctors = doctors.filter((_, i) => i !== index);
-    setDoctors(newDoctors.length > 0 ? newDoctors : [{
-      id: `temp-${Date.now()}`,
-      name: '',
-      specialty: '',
-      notes: ''
-    }]);
   };
 
   const addSurgeon = () => {
@@ -194,20 +141,17 @@ function EditGeneralContent() {
   };
 
   const isFormValid = () => {
-    // At least one doctor, surgeon, or access/misc content is required
-    const hasValidDoctor = doctors.some(doctor => doctor.name.trim());
+    // At least one surgeon is required
     const hasValidSurgeon = surgeons.some(surgeon => surgeon.name.trim());
-
-    return hasValidDoctor || hasValidSurgeon;
+    return hasValidSurgeon;
   };
 
   const validateForm = () => {
-    // At least one doctor, surgeon, or access/misc content is required
-    const hasValidDoctor = doctors.some(doctor => doctor.name.trim());
+    // At least one surgeon is required
     const hasValidSurgeon = surgeons.some(surgeon => surgeon.name.trim());
 
-    if (!hasValidDoctor && !hasValidSurgeon) {
-      setError('Please add at least one doctor or surgeon');
+    if (!hasValidSurgeon) {
+      setError('Please add at least one surgeon');
       return false;
     }
 
@@ -226,7 +170,6 @@ function EditGeneralContent() {
     try {
       // Prepare data for API call
       const generalKnowledge = {
-        doctors: doctors.filter(doctor => doctor.name.trim()),
         surgeons: surgeons.filter(surgeon => surgeon.name.trim()),
       };
 
@@ -310,76 +253,6 @@ function EditGeneralContent() {
         )}
 
         <div className="space-y-6">
-          {/* Doctor Information */}
-          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-slate-100">Doctor Information</h3>
-              <button
-                onClick={addDoctor}
-                className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-md font-medium transition-colors"
-              >
-                + Add Doctor
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {doctors.map((doctor, index) => (
-                <div key={doctor.id} className="p-4 bg-slate-700 rounded border border-slate-600">
-                  <div className="flex justify-between items-start mb-4">
-                    <h4 className="text-slate-200 font-medium">Doctor {index + 1}</h4>
-                    <button
-                      onClick={() => removeDoctor(index)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Doctor Name
-                      </label>
-                      <input
-                        type="text"
-                        value={doctor.name}
-                        onChange={(e) => updateDoctor(index, 'name', e.target.value)}
-                        placeholder="Dr. Smith"
-                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Specialty
-                      </label>
-                      <input
-                        type="text"
-                        value={doctor.specialty}
-                        onChange={(e) => updateDoctor(index, 'specialty', e.target.value)}
-                        placeholder="Orthopedic Surgeon"
-                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Notes & Details
-                    </label>
-                    <textarea
-                      value={doctor.notes}
-                      onChange={(e) => updateDoctor(index, 'notes', e.target.value)}
-                      placeholder="Preferences, contact info, special requirements, etc."
-                      rows={3}
-                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Surgeon Information */}
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
             <div className="flex justify-between items-center mb-6">

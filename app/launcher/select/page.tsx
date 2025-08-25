@@ -369,7 +369,7 @@ function AccountPortfolioSelectContent() {
               <ul className="text-blue-300 text-sm space-y-1 mb-4">
                 <li>• <strong>Portfolio Documents</strong>: All PDFs uploaded for {availablePortfolios.find(p => p.id === selectedPortfolio)?.name}</li>
                 <li>• <strong>Account Knowledge</strong>: Inventory, instruments, and technical info for {selectedAccountData?.name}</li>
-                <li>• <strong>General Team Knowledge</strong>: Doctor information, access details, and team-wide info</li>
+                <li>• <strong>General Team Knowledge</strong>: Surgeon information, access details, and team-wide info</li>
               </ul>
               <p className="text-blue-400 text-xs">
                 The assistant combines all relevant knowledge sources for intelligent, context-aware responses.

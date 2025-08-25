@@ -173,7 +173,7 @@ CREATE TABLE public.team_knowledge (
   team_id uuid,
   portfolio_id uuid,
   account_name text,
-  category text NOT NULL CHECK (category = ANY (ARRAY['inventory'::text, 'instruments'::text, 'technical'::text, 'doctor_info'::text, 'access_misc'::text, 'surgeon_info'::text])),
+  category text NOT NULL CHECK (category = ANY (ARRAY['inventory'::text, 'instruments'::text, 'technical'::text, 'access_misc'::text, 'surgeon_info'::text])),
   title text NOT NULL,
   content text NOT NULL,
   images jsonb,

@@ -44,61 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle doctor knowledge - UPDATE or INSERT each doctor
-    if (generalKnowledge.doctors && generalKnowledge.doctors.length > 0) {
-      for (const doctor of generalKnowledge.doctors) {
-        if (doctor.name && doctor.name.trim()) {
-          // Check if this doctor already exists
-          const { data: existingDoctor, error: checkError } = await supabase
-            .from('team_knowledge')
-            .select('id')
-            .eq('team_id', teamId)
-            .is('account_id', null)
-            .is('portfolio_id', null)
-            .eq('category', 'doctor_info')
-            .eq('title', doctor.name.trim())
-            .single();
 
-          const knowledgeData = {
-            title: doctor.name.trim(),
-            content: `${doctor.specialty?.trim() || ''} - ${doctor.notes?.trim() || ''}`,
-            metadata: {
-              name: doctor.name.trim(),
-              specialty: doctor.specialty?.trim() || '',
-              notes: doctor.notes?.trim() || ''
-            },
-            updated_at: new Date().toISOString()
-          };
-
-          if (existingDoctor && !checkError) {
-            // UPDATE existing record
-            const { error: doctorError } = await supabase
-              .from('team_knowledge')
-              .update(knowledgeData)
-              .eq('id', existingDoctor.id);
-
-            if (doctorError) {
-              console.error('Error updating doctor knowledge:', doctorError);
-            }
-          } else {
-            // INSERT new record
-            const { error: doctorError } = await supabase
-              .from('team_knowledge')
-              .insert({
-                team_id: teamId,
-                account_id: null,
-                portfolio_id: null,
-                category: 'doctor_info',
-                ...knowledgeData
-              });
-
-            if (doctorError) {
-              console.error('Error creating doctor knowledge:', doctorError);
-            }
-          }
-        }
-      }
-    }
 
     // Handle surgeon knowledge - UPDATE or INSERT each surgeon
     if (generalKnowledge.surgeons && generalKnowledge.surgeons.length > 0) {
@@ -168,13 +114,6 @@ export async function POST(request: NextRequest) {
     if (allCurrentKnowledge) {
       // Build list of titles that should exist
       const shouldExist = new Set();
-      
-      // Add doctors
-      if (generalKnowledge.doctors) {
-        generalKnowledge.doctors.forEach((doctor: any) => {
-          if (doctor.name?.trim()) shouldExist.add(`doctor_info:${doctor.name.trim()}`);
-        });
-      }
       
       // Add surgeons
       if (generalKnowledge.surgeons) {

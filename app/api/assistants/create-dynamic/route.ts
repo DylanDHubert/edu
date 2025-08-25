@@ -332,13 +332,6 @@ async function generateGeneralContext(supabase: any, teamId: string, names: any)
     }
 
     // Transform knowledge data
-    const doctorInfo = knowledgeData
-      .filter((k: any) => k.category === 'doctor_info')
-      .map((k: any) => ({
-        title: k.metadata?.name || k.title || '',
-        content: `${k.metadata?.specialty || ''} - ${k.metadata?.notes || ''}`
-      }));
-
     const surgeonInfo = knowledgeData
       .filter((k: any) => k.category === 'surgeon_info')
       .map((k: any) => ({
@@ -349,7 +342,6 @@ async function generateGeneralContext(supabase: any, teamId: string, names: any)
     // Generate text content
     const textContent = createGeneralKnowledgeText({
       teamName: names.teamName,
-      doctorInfo,
       surgeonInfo
     });
 

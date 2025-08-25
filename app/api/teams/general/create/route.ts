@@ -65,35 +65,7 @@ export async function POST(request: NextRequest) {
     // Store general knowledge items in database
     const savedKnowledge = [];
 
-    // Store doctor information
-    for (const item of knowledge.doctorInfo || []) {
-      if (item.title?.trim() || item.content?.trim()) {
-        const { data: savedItem, error: saveError } = await supabase
-          .from('team_knowledge')
-          .insert({
-            team_id: teamId,
-            account_id: null, // General knowledge is not account-specific
-            portfolio_id: null, // General knowledge is not portfolio-specific
-            category: 'doctor_info',
-            title: item.title?.trim() || 'Doctor Information',
-            content: item.content?.trim() || '',
-            metadata: {
-              name: item.title?.trim() || 'Doctor Information',
-              specialty: '', // Onboarding doesn't capture specialty separately
-              notes: item.content?.trim() || ''
-            },
-            created_by: user.id
-          })
-          .select()
-          .single();
 
-        if (saveError) {
-          console.error('Error saving doctor info:', saveError);
-        } else {
-          savedKnowledge.push(savedItem);
-        }
-      }
-    }
 
     // Store surgeon information
     for (const item of knowledge.surgeonInfo || []) {
@@ -154,7 +126,7 @@ export async function POST(request: NextRequest) {
     // Generate general knowledge text for OpenAI
     const knowledgeText = createGeneralKnowledgeText({
       teamName: team.name,
-      doctorInfo: knowledge.doctorInfo || [],
+
       surgeonInfo: knowledge.surgeonInfo || [],
       accessMisc: knowledge.accessMisc || []
     });

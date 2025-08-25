@@ -126,30 +126,14 @@ export function createAccountPortfolioKnowledgeText(params: AccountPortfolioKnow
 
 interface GeneralKnowledgeParams {
   teamName: string;
-  doctorInfo: Array<{ title: string; content: string }>;
   surgeonInfo: Array<{ title: string; content: string }>;
   accessMisc?: Array<{ title: string; content: string }>;
 }
 
 export function createGeneralKnowledgeText(params: GeneralKnowledgeParams): string {
-  const { teamName, doctorInfo, surgeonInfo } = params;
+  const { teamName, surgeonInfo } = params;
   
   let text = `=== ${teamName.toUpperCase()} - GENERAL TEAM KNOWLEDGE ===\n\n`;
-  
-  // Doctor Information Section
-  if (doctorInfo && doctorInfo.length > 0) {
-    text += "DOCTOR INFORMATION:\n";
-    for (const info of doctorInfo) {
-      if (info.title && info.title.trim()) {
-        text += `- ${info.title}`;
-        if (info.content && info.content.trim()) {
-          text += `: ${info.content}`;
-        }
-        text += "\n";
-      }
-    }
-    text += "\n";
-  }
 
   // Surgeon Information Section
   if (surgeonInfo && surgeonInfo.length > 0) {
