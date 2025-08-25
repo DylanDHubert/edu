@@ -100,52 +100,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Handle access & misc knowledge - UPDATE or INSERT
-    if (generalKnowledge.accessMisc && generalKnowledge.accessMisc.trim()) {
-      // Check if access misc already exists
-      const { data: existingAccess, error: checkError } = await supabase
-        .from('team_knowledge')
-        .select('id')
-        .eq('team_id', teamId)
-        .is('account_id', null)
-        .is('portfolio_id', null)
-        .eq('category', 'access_misc')
-        .eq('title', 'Access & Miscellaneous')
-        .single();
+    // Handle surgeon knowledge - UPDATE or INSERT each surgeon
+    if (generalKnowledge.surgeons && generalKnowledge.surgeons.length > 0) {
+      for (const surgeon of generalKnowledge.surgeons) {
+        if (surgeon.name && surgeon.name.trim()) {
+          // Check if this surgeon already exists
+          const { data: existingSurgeon, error: checkError } = await supabase
+            .from('team_knowledge')
+            .select('id')
+            .eq('team_id', teamId)
+            .is('account_id', null)
+            .is('portfolio_id', null)
+            .eq('category', 'surgeon_info')
+            .eq('title', surgeon.name.trim())
+            .single();
 
-      const knowledgeData = {
-        title: 'Access & Miscellaneous',
-        content: generalKnowledge.accessMisc.trim(),
-        metadata: {
-          content: generalKnowledge.accessMisc.trim()
-        },
-        updated_at: new Date().toISOString()
-      };
+          const knowledgeData = {
+            title: surgeon.name.trim(),
+            content: `${surgeon.specialty?.trim() || ''} - ${surgeon.procedure_focus?.trim() || ''} - ${surgeon.notes?.trim() || ''}`,
+            metadata: {
+              name: surgeon.name.trim(),
+              specialty: surgeon.specialty?.trim() || '',
+              procedure_focus: surgeon.procedure_focus?.trim() || '',
+              notes: surgeon.notes?.trim() || ''
+            },
+            updated_at: new Date().toISOString()
+          };
 
-      if (existingAccess && !checkError) {
-        // UPDATE existing record
-        const { error: accessError } = await supabase
-          .from('team_knowledge')
-          .update(knowledgeData)
-          .eq('id', existingAccess.id);
+          if (existingSurgeon && !checkError) {
+            // UPDATE existing record
+            const { error: surgeonError } = await supabase
+              .from('team_knowledge')
+              .update(knowledgeData)
+              .eq('id', existingSurgeon.id);
 
-        if (accessError) {
-          console.error('Error updating access knowledge:', accessError);
-        }
-      } else {
-        // INSERT new record
-        const { error: accessError } = await supabase
-          .from('team_knowledge')
-          .insert({
-            team_id: teamId,
-            account_id: null,
-            portfolio_id: null,
-            category: 'access_misc',
-            ...knowledgeData
-          });
+            if (surgeonError) {
+              console.error('Error updating surgeon knowledge:', surgeonError);
+            }
+          } else {
+            // INSERT new record
+            const { error: surgeonError } = await supabase
+              .from('team_knowledge')
+              .insert({
+                team_id: teamId,
+                account_id: null,
+                portfolio_id: null,
+                category: 'surgeon_info',
+                ...knowledgeData
+              });
 
-        if (accessError) {
-          console.error('Error creating access knowledge:', accessError);
+            if (surgeonError) {
+              console.error('Error creating surgeon knowledge:', surgeonError);
+            }
+          }
         }
       }
     }
@@ -169,9 +176,11 @@ export async function POST(request: NextRequest) {
         });
       }
       
-      // Add access misc
-      if (generalKnowledge.accessMisc?.trim()) {
-        shouldExist.add('access_misc:Access & Miscellaneous');
+      // Add surgeons
+      if (generalKnowledge.surgeons) {
+        generalKnowledge.surgeons.forEach((surgeon: any) => {
+          if (surgeon.name?.trim()) shouldExist.add(`surgeon_info:${surgeon.name.trim()}`);
+        });
       }
 
       // Delete any records that shouldn't exist anymore

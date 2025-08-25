@@ -13,7 +13,8 @@ interface NoteModalProps {
     title: string;
     content: string;
     is_shared: boolean;
-    tags?: string[];
+    is_portfolio_shared: boolean;
+    images?: Array<{url: string, description: string}> | null;
     team_id?: string;
     account_id?: string;
     portfolio_id?: string;
@@ -32,10 +33,9 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [isShared, setIsShared] = useState(false);
-  const [tags, setTags] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState("");
-  const [images, setImages] = useState<{ file: File; description: string }[]>([]);
+  const [sharingLevel, setSharingLevel] = useState<'private' | 'account' | 'portfolio' | 'team'>('private');
+  const [newImages, setNewImages] = useState<{ file: File; description: string }[]>([]);
+  const [existingImages, setExistingImages] = useState<Array<{url: string, description: string}>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const supabase = createClient();
@@ -46,15 +46,24 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
       if (editingNote) {
         setTitle(editingNote.title);
         setContent(editingNote.content);
-        setIsShared(editingNote.is_shared);
-        setTags(editingNote.tags || []);
+        // Determine sharing level from editing note
+        if (editingNote.is_portfolio_shared) {
+          setSharingLevel('portfolio');
+        } else if (editingNote.is_shared) {
+          setSharingLevel('team');
+        } else if (editingNote.account_id) {
+          setSharingLevel('account');
+        } else {
+          setSharingLevel('private');
+        }
+        setExistingImages(editingNote.images || []);
       } else {
         setTitle("");
         setContent("");
-        setIsShared(false);
-        setTags([]);
+        setSharingLevel('private');
+        setExistingImages([]);
       }
-      setImages([]);
+      setNewImages([]);
       setError("");
     }
   }, [isOpen, editingNote]);
@@ -73,8 +82,8 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
       const formData = new FormData();
       formData.append('title', title.trim());
       formData.append('content', content.trim());
-      formData.append('is_shared', isShared.toString());
-      formData.append('tags', JSON.stringify(tags));
+      formData.append('is_shared', (sharingLevel === 'team').toString());
+      formData.append('is_portfolio_shared', (sharingLevel === 'portfolio').toString());
 
       // ADD TEAM CONTEXT IF AVAILABLE
       if (teamContext) {
@@ -83,8 +92,11 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
         formData.append('portfolio_id', teamContext.portfolioId);
       }
 
-      // ADD IMAGES
-      images.forEach((image, index) => {
+      // ADD EXISTING IMAGES
+      formData.append('existing_images', JSON.stringify(existingImages));
+
+      // ADD NEW IMAGES
+      newImages.forEach((image, index) => {
         formData.append(`image_${index}`, image.file);
         formData.append(`image_description_${index}`, image.description);
       });
@@ -114,28 +126,27 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
     }
   };
 
-  const addTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
-      setNewTag("");
-    }
+  const addNewImage = () => {
+    setNewImages([...newImages, { file: new File([], ''), description: '' }]);
   };
 
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+  const removeNewImage = (index: number) => {
+    setNewImages(newImages.filter((_, i) => i !== index));
   };
 
-  const addImage = () => {
-    setImages([...images, { file: new File([], ''), description: '' }]);
-  };
-
-  const removeImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
-
-  const updateImage = (index: number, field: 'file' | 'description', value: File | string) => {
-    setImages(images.map((image, i) => 
+  const updateNewImage = (index: number, field: 'file' | 'description', value: File | string) => {
+    setNewImages(newImages.map((image, i) => 
       i === index ? { ...image, [field]: value } : image
+    ));
+  };
+
+  const removeExistingImage = (index: number) => {
+    setExistingImages(existingImages.filter((_, i) => i !== index));
+  };
+
+  const updateExistingImageDescription = (index: number, description: string) => {
+    setExistingImages(existingImages.map((image, i) => 
+      i === index ? { ...image, description } : image
     ));
   };
 
@@ -162,7 +173,16 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
             <div className="mb-4 p-3 bg-blue-900/20 border border-blue-700 rounded-md">
               <p className="text-blue-300 text-sm font-medium">ADDING TO:</p>
               <p className="text-blue-200 text-sm">
-                {teamContext.teamName} → {teamContext.accountName} → {teamContext.portfolioName}
+                {sharingLevel === 'team' ? (
+                  // Team-wide sharing
+                  `${teamContext.teamName} → Entire Team`
+                ) : sharingLevel === 'portfolio' ? (
+                  // Portfolio-wide sharing
+                  `${teamContext.teamName} → All Accounts → ${teamContext.portfolioName}`
+                ) : (
+                  // Private or Account-specific
+                  `${teamContext.teamName} → ${teamContext.accountName} → ${teamContext.portfolioName}`
+                )}
               </p>
             </div>
           )}
@@ -204,88 +224,141 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
               />
             </div>
 
-            <div>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={isShared}
-                  onChange={(e) => setIsShared(e.target.checked)}
-                  className="rounded border-slate-600 text-slate-500 focus:ring-slate-500"
-                />
-                <span className="text-sm text-slate-300">SHARE WITH TEAM</span>
-              </label>
-              {isShared && teamContext && (
-                <p className="text-xs text-slate-400 mt-1">
-                  <strong>NOTE:</strong> SHARED NOTES WILL BE VISIBLE TO ALL USERS IN THE {teamContext.portfolioName.toUpperCase()} PORTFOLIO.
-                </p>
+            <div className="space-y-3">
+              <div className="text-sm text-slate-400 mb-2">
+                SHARING OPTIONS:
+              </div>
+              
+              {teamContext && (
+                <>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      id="private"
+                      type="radio"
+                      name="sharing"
+                      checked={sharingLevel === 'private'}
+                      onChange={() => setSharingLevel('private')}
+                      className="w-4 h-4 text-slate-600 bg-slate-700 border-slate-600 rounded focus:ring-slate-500 focus:ring-2"
+                    />
+                    <label htmlFor="private" className="text-sm text-slate-300">
+                      <span className="font-medium">Private</span> - Just me
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <input
+                      id="account"
+                      type="radio"
+                      name="sharing"
+                      checked={sharingLevel === 'account'}
+                      onChange={() => setSharingLevel('account')}
+                      disabled={!teamContext.accountId}
+                      className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50"
+                    />
+                    <label htmlFor="account" className="text-sm text-slate-300">
+                      <span className="font-medium">Account</span> - {teamContext.accountName} only
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <input
+                      id="portfolio"
+                      type="radio"
+                      name="sharing"
+                      checked={sharingLevel === 'portfolio'}
+                      onChange={() => setSharingLevel('portfolio')}
+                      className="w-4 h-4 text-green-600 bg-slate-700 border-slate-600 rounded focus:ring-green-500 focus:ring-2"
+                    />
+                    <label htmlFor="portfolio" className="text-sm text-slate-300">
+                      <span className="font-medium">Portfolio</span> - All hospitals in this portfolio
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <input
+                      id="team"
+                      type="radio"
+                      name="sharing"
+                      checked={sharingLevel === 'team'}
+                      onChange={() => setSharingLevel('team')}
+                      className="w-4 h-4 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500 focus:ring-2"
+                    />
+                    <label htmlFor="team" className="text-sm text-slate-300">
+                      <span className="font-medium">Team</span> - Everyone on the team
+                    </label>
+                  </div>
+                </>
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                TAGS
-              </label>
-              <div className="flex space-x-2 mb-2">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                  placeholder="ADD TAG"
-                />
-                <button
-                  type="button"
-                  onClick={addTag}
-                  className="px-4 py-2 bg-slate-600 text-slate-100 rounded-md hover:bg-slate-500 transition-colors"
-                >
-                  ADD
-                </button>
+            {/* EXISTING IMAGES */}
+            {existingImages.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  EXISTING IMAGES ({existingImages.length})
+                </label>
+                <div className="space-y-3">
+                  {existingImages.map((image, index) => (
+                    <div key={index} className="border border-slate-600 rounded-md p-3 bg-slate-700">
+                      <div className="flex items-start space-x-3">
+                        <img
+                          src={image.url}
+                          alt={image.description}
+                          className="w-20 h-20 object-cover rounded-md"
+                          onError={(e) => {
+                            console.error('Failed to load image:', image.url);
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={image.description}
+                            onChange={(e) => updateExistingImageDescription(index, e.target.value)}
+                            placeholder="DESCRIPTION"
+                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent mb-2"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExistingImage(index)}
+                            className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
+                          >
+                            REMOVE
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-slate-600 text-slate-200"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(tag)}
-                      className="ml-1 text-slate-400 hover:text-slate-200"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
+            )}
 
+            {/* NEW IMAGES */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                IMAGES
+                ADD NEW IMAGES
               </label>
-              {images.map((image, index) => (
+              {newImages.map((image, index) => (
                 <div key={index} className="flex space-x-2 mb-2">
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) updateImage(index, 'file', file);
+                      if (file) updateNewImage(index, 'file', file);
                     }}
                     className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                   />
                   <input
                     type="text"
                     value={image.description}
-                    onChange={(e) => updateImage(index, 'description', e.target.value)}
+                    onChange={(e) => updateNewImage(index, 'description', e.target.value)}
                     placeholder="DESCRIPTION"
                     className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                   />
                   <button
                     type="button"
-                    onClick={() => removeImage(index)}
+                    onClick={() => removeNewImage(index)}
                     className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                   >
                     REMOVE
@@ -294,7 +367,7 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
               ))}
               <button
                 type="button"
-                onClick={addImage}
+                onClick={addNewImage}
                 className="px-4 py-2 bg-slate-600 text-slate-100 rounded-md hover:bg-slate-500 transition-colors"
               >
                 ADD IMAGE

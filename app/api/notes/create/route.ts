@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
     const is_shared = formData.get('is_shared') === 'true';
-    const tags = formData.get('tags') ? JSON.parse(formData.get('tags') as string) : null;
+    const is_portfolio_shared = formData.get('is_portfolio_shared') === 'true';
     
     // Team context
     const team_id = formData.get('team_id') as string | null;
@@ -64,53 +64,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // VALIDATE TEAM CONTEXT
-    const hasTeamContext = team_id && account_id && portfolio_id;
-    if (!hasTeamContext) {
-      return NextResponse.json(
-        { error: 'TEAM CONTEXT IS REQUIRED' },
-        { status: 400 }
-      );
-    }
-
-    // VERIFY USER IS A MEMBER OF THIS TEAM
-    const { data: teamMember, error: memberError } = await supabase
-      .from('team_members')
-      .select('role')
-      .eq('team_id', team_id)
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .single();
-
-    if (memberError || !teamMember) {
-      return NextResponse.json(
-        { error: 'ACCESS DENIED TO THIS TEAM' },
-        { status: 403 }
-      );
-    }
-
-    // UPLOAD IMAGES
+    // HANDLE IMAGE UPLOADS
     const images: Array<{url: string, description: string}> = [];
-    
+
     for (let i = 0; i < imageFiles.length; i++) {
       const imageFile = imageFiles[i];
       const imageDescription = imageDescriptions[i];
-      
-      if (!imageDescription.trim()) {
-        return NextResponse.json(
-          { error: 'ALL IMAGES MUST HAVE DESCRIPTIONS' },
-          { status: 400 }
-        );
+
+      if (!imageFile || !imageDescription.trim()) {
+        continue;
       }
 
       // GENERATE UNIQUE FILENAME
       const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const fileExtension = imageFile.name.split('.').pop();
-      const fileName = `note_images/${user.id}/${timestamp}_${randomString}.${fileExtension}`;
+      const random = Math.random().toString(36).substring(2);
+      const fileExtension = imageFile.name.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/${timestamp}_${random}.${fileExtension}`;
 
       // UPLOAD TO SUPABASE STORAGE
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('user_note_images')
         .upload(fileName, imageFile);
 
@@ -122,7 +94,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // GET PUBLIC URL
+      // GET PUBLIC URL FROM SUPABASE
       const { data: urlData } = supabase.storage
         .from('user_note_images')
         .getPublicUrl(fileName);
@@ -149,13 +121,20 @@ export async function POST(request: NextRequest) {
       title: title.trim(),
       content: content.trim(),
       images: images.length > 0 ? images : null,
-      is_shared: is_shared || false
+      is_shared: is_shared || false,
+      is_portfolio_shared: is_portfolio_shared || false
     };
 
     // Add team context
     noteData.team_id = team_id;
-    noteData.account_id = account_id;
     noteData.portfolio_id = portfolio_id;
+    
+    // Handle account_id based on portfolio sharing
+    if (is_portfolio_shared) {
+      noteData.account_id = null; // Portfolio-shared notes have no specific account
+    } else {
+      noteData.account_id = account_id;
+    }
 
     // Get the portfolio name from the portfolio_id and use it as portfolio_type
     const { data: portfolioData, error: portfolioError } = await supabase
@@ -185,23 +164,6 @@ export async function POST(request: NextRequest) {
         { error: 'FAILED TO CREATE NOTE' },
         { status: 500 }
       );
-    }
-
-    // CREATE TAGS IF PROVIDED
-    if (tags && Array.isArray(tags) && tags.length > 0) {
-      const tagData = tags.map(tag => ({
-        note_id: data.id,
-        tag: tag.trim()
-      }));
-
-      const { error: tagError } = await supabase
-        .from('note_tags')
-        .insert(tagData);
-
-      if (tagError) {
-        console.error('ERROR CREATING TAGS:', tagError);
-        // Don't fail the note creation if tags fail
-      }
     }
 
     return NextResponse.json(data);

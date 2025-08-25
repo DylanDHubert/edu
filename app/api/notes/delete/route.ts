@@ -3,10 +3,19 @@ import { createClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function DELETE(request: NextRequest) {
+  return handleDelete(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleDelete(request);
+}
+
+async function handleDelete(request: NextRequest) {
   try {
-    const { id } = await request.json();
+    const body = await request.json();
+    const noteId = body.id || body.noteId; // Handle both parameter names
     
-    if (!id) {
+    if (!noteId) {
       return NextResponse.json(
         { error: 'NOTE ID IS REQUIRED' },
         { status: 400 }
@@ -25,11 +34,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // GET NOTE TO CHECK FOR IMAGE BEFORE DELETING
+    // GET NOTE TO CHECK FOR IMAGES BEFORE DELETING
     const { data: note, error: fetchError } = await supabase
       .from('notes')
-      .select('image_url')
-      .eq('id', id)
+      .select('images')
+      .eq('id', noteId)
       .eq('user_id', user.id)
       .single();
 
@@ -41,25 +50,33 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // DELETE ASSOCIATED IMAGE IF IT EXISTS
-    if (note.image_url) {
+    // DELETE ASSOCIATED IMAGES IF THEY EXIST
+    if (note.images && Array.isArray(note.images) && note.images.length > 0) {
       try {
-        // EXTRACT FILENAME FROM URL (FLAT STORAGE)
-        const urlParts = note.image_url.split('/');
-        const fileName = urlParts[urlParts.length - 1];
+        // DELETE ALL IMAGES IN THE ARRAY
+        for (const image of note.images) {
+          if (image.url) {
+            // EXTRACT USER ID AND FILENAME FROM API URL
+            const urlParts = image.url.split('/');
+            if (urlParts.length >= 4 && urlParts[1] === 'api' && urlParts[2] === 'images') {
+              const userId = urlParts[3];
+              const fileName = urlParts[4];
+              const storagePath = `${userId}/${fileName}`;
+              
+              console.log('🗑️ DELETING IMAGE FROM STORAGE:', storagePath);
+              
+              const { error: deleteImageError } = await supabase.storage
+                .from('user_note_images')
+                .remove([storagePath]);
 
-        // DELETE FROM STORAGE
-        const { error: deleteImageError } = await supabase.storage
-          .from('user_note_images')
-          .remove([fileName]);
-
-        if (deleteImageError) {
-          console.error('ERROR DELETING IMAGE:', deleteImageError);
-          // DON'T FAIL THE REQUEST IF IMAGE DELETE FAILS
+              if (deleteImageError) {
+                console.error('ERROR DELETING IMAGE:', deleteImageError);
+              }
+            }
+          }
         }
       } catch (error) {
-        console.error('ERROR PROCESSING IMAGE DELETE:', error);
-        // DON'T FAIL THE REQUEST IF IMAGE DELETE FAILS
+        console.error('ERROR PROCESSING IMAGES DELETE:', error);
       }
     }
 
@@ -67,7 +84,7 @@ export async function DELETE(request: NextRequest) {
     const { error } = await supabase
       .from('notes')
       .delete()
-      .eq('id', id)
+      .eq('id', noteId)
       .eq('user_id', user.id); // ENSURE USER OWNS THE NOTE
 
     if (error) {

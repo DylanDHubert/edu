@@ -78,25 +78,26 @@ export async function GET(
       console.log('  📁 Filename:', actualFilename);
       console.log('  🎯 Constructed path:', filePath);
       
-    } else if (filename.length === 1) {
-      // NOTE IMAGE: /api/images/{filename} 
-      // Need to reconstruct: note_images/{userId}/{filename}
+    } else if (filename.length === 2) {
+      // NOTE IMAGE: /api/images/{userId}/{filename}
+      // This matches the storage path: userId/filename
       imageType = 'USER NOTE IMAGE';
-      const actualFilename = filename[0];
-      filePath = `note_images/${user.id}/${actualFilename}`;
+      const userId = filename[0];
+      const actualFilename = filename[1];
+      filePath = `${userId}/${actualFilename}`;
       
       console.log('📝 DETECTED NOTE IMAGE:');
-      console.log('  👤 User ID:', user.id);
+      console.log('  👤 User ID:', userId);
       console.log('  📁 Filename:', actualFilename);
       console.log('  🎯 Constructed path:', filePath);
       
     } else {
-      // FALLBACK - try the original logic for other cases
-      imageType = 'FALLBACK';
-      filePath = decodedFilename;
-      
-      console.log('🔄 USING FALLBACK PATH:');
-      console.log('  📁 Original path:', filePath);
+      // INVALID PATH - return error
+      console.log('❌ INVALID IMAGE PATH FORMAT');
+      return NextResponse.json(
+        { error: 'INVALID IMAGE PATH FORMAT. EXPECTED: /api/images/{userId}/{filename} OR /api/images/{teamId}/instruments/{filename}' },
+        { status: 400 }
+      );
     }
     
     console.log('🖼️ FINAL IMAGE PROCESSING:');

@@ -15,6 +15,7 @@ interface KnowledgeData {
   inventory: Array<{ item: string; quantity: number; notes: string }>;
   instruments: Array<{ name: string; description: string; imageUrl?: string }>;
   technical: Array<{ title: string; content: string }>;
+  accessMisc: Array<{ title: string; content: string }>;
 }
 
 interface AccountPortfolioKnowledgeParams {
@@ -100,6 +101,21 @@ export function createAccountPortfolioKnowledgeText(params: AccountPortfolioKnow
     }
     text += "\n";
   }
+
+  // Access & Misc Section
+  if (knowledge.accessMisc && knowledge.accessMisc.length > 0) {
+    text += "ACCESS & MISCELLANEOUS:\n";
+    for (const item of knowledge.accessMisc) {
+      if (item.title && item.title.trim()) {
+        text += `- ${item.title}`;
+        if (item.content && item.content.trim()) {
+          text += `: ${item.content}`;
+        }
+        text += "\n";
+      }
+    }
+    text += "\n";
+  }
   
   // Add footer
   text += `\nThis knowledge is specific to ${accountName} for ${portfolioName} procedures.\n`;
@@ -111,11 +127,12 @@ export function createAccountPortfolioKnowledgeText(params: AccountPortfolioKnow
 interface GeneralKnowledgeParams {
   teamName: string;
   doctorInfo: Array<{ title: string; content: string }>;
-  accessMisc: Array<{ title: string; content: string }>;
+  surgeonInfo: Array<{ title: string; content: string }>;
+  accessMisc?: Array<{ title: string; content: string }>;
 }
 
 export function createGeneralKnowledgeText(params: GeneralKnowledgeParams): string {
-  const { teamName, doctorInfo, accessMisc } = params;
+  const { teamName, doctorInfo, surgeonInfo } = params;
   
   let text = `=== ${teamName.toUpperCase()} - GENERAL TEAM KNOWLEDGE ===\n\n`;
   
@@ -133,11 +150,11 @@ export function createGeneralKnowledgeText(params: GeneralKnowledgeParams): stri
     }
     text += "\n";
   }
-  
-  // Access & Misc Section
-  if (accessMisc && accessMisc.length > 0) {
-    text += "ACCESS & MISCELLANEOUS:\n";
-    for (const info of accessMisc) {
+
+  // Surgeon Information Section
+  if (surgeonInfo && surgeonInfo.length > 0) {
+    text += "SURGEON INFORMATION:\n";
+    for (const info of surgeonInfo) {
       if (info.title && info.title.trim()) {
         text += `- ${info.title}`;
         if (info.content && info.content.trim()) {

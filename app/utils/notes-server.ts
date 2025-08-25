@@ -53,7 +53,7 @@ export async function getNotesForTeamContext(teamId: string, accountId: string, 
   try {
     console.log('🔍 QUERYING NOTES WITH:', { teamId, accountId, portfolioId, userId });
     
-    // GET NOTES FOR EXACT TEAM CONTEXT
+    // GET NOTES FOR TEAM CONTEXT (INCLUDING PORTFOLIO-SHARED NOTES)
     const { data: notes, error } = await supabase
       .from('notes')
       .select(`
@@ -63,9 +63,9 @@ export async function getNotesForTeamContext(teamId: string, accountId: string, 
         portfolio:team_portfolios(name)
       `)
       .eq('team_id', teamId)
-      .eq('account_id', accountId)
       .eq('portfolio_id', portfolioId)
-      .or(`user_id.eq.${userId},is_shared.eq.true`)
+      .or(`user_id.eq.${userId},is_shared.eq.true,is_portfolio_shared.eq.true`)
+      .or(`account_id.eq.${accountId},account_id.is.null`)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -104,9 +104,17 @@ export function formatNotesForContext(notes: any[]): string {
   const notesText = notes.map((note, index) => {
     // Determine context label
     let contextLabel = '';
-    if (note.team && note.account && note.portfolio) {
-      // Team-based note
-      contextLabel = `${note.team.name} → ${note.account.name} → ${note.portfolio.name}`;
+    if (note.team && note.portfolio) {
+      if (note.account) {
+        // Account-specific note
+        contextLabel = `${note.team.name} → ${note.account.name} → ${note.portfolio.name}`;
+      } else if (note.is_portfolio_shared) {
+        // Portfolio-shared note
+        contextLabel = `${note.team.name} → ALL ACCOUNTS → ${note.portfolio.name}`;
+      } else {
+        // Portfolio-level note (no account)
+        contextLabel = `${note.team.name} → ${note.portfolio.name}`;
+      }
     } else if (note.portfolio_type) {
       // Legacy individual note
       contextLabel = note.portfolio_type === 'general' ? 'GENERAL' : note.portfolio_type.toUpperCase();
@@ -114,30 +122,23 @@ export function formatNotesForContext(notes: any[]): string {
       contextLabel = 'UNKNOWN';
     }
     
-    const sharedLabel = note.is_shared ? ' (SHARED)' : '';
+    const sharedLabel = note.is_shared ? ' (TEAM)' : '';
+    const portfolioSharedLabel = note.is_portfolio_shared ? ' (PORTFOLIO)' : '';
     
-    // HANDLE MULTIPLE IMAGES
+    // HANDLE IMAGES
     let imageInfo = '';
     if (note.images && Array.isArray(note.images) && note.images.length > 0) {
-      console.log('🔍 NOTES FORMATTER - Processing note with multiple images:');
+      console.log('🔍 NOTES FORMATTER - Processing note with images:');
       console.log('  📝 Note title:', note.title);
       console.log('  🖼️ Number of images:', note.images.length);
       
       const imageUrls = note.images.map((image: any, index: number) => {
         if (image.url) {
-          console.log(`  🔗 Image ${index + 1} original URL:`, image.url);
+          console.log(`  🔗 Image ${index + 1} URL:`, image.url);
           
-          // EXTRACT FILENAME FROM SUPABASE URL
-          const urlParts = image.url.split('/');
-          const filename = urlParts[urlParts.length - 1];
-          console.log(`  📁 Image ${index + 1} URL parts:`, urlParts);
-          console.log(`  📎 Image ${index + 1} extracted filename:`, filename);
-          
-          const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
-          console.log(`  🎯 Image ${index + 1} generated proxy URL:`, proxyUrl);
-          
+          // USE THE URL DIRECTLY (ALREADY IN CORRECT FORMAT)
           const description = image.description ? ` (${image.description})` : '';
-          return `[IMAGE URL: ${proxyUrl}${description}]`;
+          return `[IMAGE URL: ${image.url}${description}]`;
         }
         return '';
       }).filter((url: string) => url !== '');
@@ -146,25 +147,8 @@ export function formatNotesForContext(notes: any[]): string {
         imageInfo = ` ${imageUrls.join(' ')}`;
       }
     }
-    // BACKWARD COMPATIBILITY: HANDLE OLD SINGLE IMAGE FORMAT
-    else if (note.image_url) {
-      console.log('🔍 NOTES FORMATTER - Processing note with single image (legacy):');
-      console.log('  📝 Note title:', note.title);
-      console.log('  🔗 Original image_url:', note.image_url);
-      
-      const urlParts = note.image_url.split('/');
-      const filename = urlParts[urlParts.length - 1];
-      console.log('  📁 URL parts:', urlParts);
-      console.log('  📎 Extracted filename:', filename);
-      
-      const proxyUrl = `/api/images/${encodeURIComponent(filename)}`;
-      console.log('  🎯 Generated proxy URL:', proxyUrl);
-      
-      const description = note.image_description ? ` (${note.image_description})` : '';
-      imageInfo = ` [IMAGE URL: ${proxyUrl}${description}]`;
-    }
     
-    return `NOTE ${index + 1} - ${contextLabel}${sharedLabel}:
+    return `NOTE ${index + 1} - ${contextLabel}${sharedLabel}${portfolioSharedLabel}:
 TITLE: ${note.title}
 CONTENT: ${note.content}${imageInfo}
 ---`;

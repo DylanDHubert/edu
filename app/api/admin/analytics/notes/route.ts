@@ -145,13 +145,11 @@ export async function GET(request: NextRequest) {
         title: note.title,
         content: note.content,
         is_shared: note.is_shared,
+        is_portfolio_shared: note.is_portfolio_shared,
         images: processedImages,
         image_count: processedImages.length,
         created_at: note.created_at,
-        updated_at: note.updated_at,
-        // Legacy image fields for backwards compatibility
-        image_url: note.image_url,
-        image_description: note.image_description
+        updated_at: note.updated_at
       };
     });
 

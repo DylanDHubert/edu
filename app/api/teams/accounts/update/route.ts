@@ -382,6 +382,48 @@ async function updateAccountKnowledge(supabase: any, teamId: string, accountData
       }
     }
 
+    // Handle access & misc knowledge - UPDATE or INSERT
+    if (accountData.accessMisc && accountData.accessMisc.trim()) {
+      // Check if access misc already exists
+      const { data: existingAccess, error: checkError } = await supabase
+        .from('team_knowledge')
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('account_id', accountData.id)
+        .eq('portfolio_id', portfolioId)
+        .eq('category', 'access_misc')
+        .eq('title', 'Access & Miscellaneous')
+        .single();
+
+      const knowledgeData = {
+        title: 'Access & Miscellaneous',
+        content: accountData.accessMisc.trim(),
+        metadata: {
+          content: accountData.accessMisc.trim()
+        },
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingAccess && !checkError) {
+        // UPDATE existing record
+        await supabase
+          .from('team_knowledge')
+          .update(knowledgeData)
+          .eq('id', existingAccess.id);
+      } else {
+        // INSERT new record
+        await supabase
+          .from('team_knowledge')
+          .insert({
+            team_id: teamId,
+            account_id: accountData.id,
+            portfolio_id: portfolioId,
+            category: 'access_misc',
+            ...knowledgeData
+          });
+      }
+    }
+
     // Clean up any orphaned records for removed items
     // Get all current knowledge items for this account+portfolio
     const { data: allCurrentKnowledge } = await supabase
@@ -412,6 +454,11 @@ async function updateAccountKnowledge(supabase: any, teamId: string, accountData
       // Add technical info
       if (accountData.technicalInfo?.trim()) {
         shouldExist.add('technical:Technical Information');
+      }
+
+      // Add access & misc
+      if (accountData.accessMisc?.trim()) {
+        shouldExist.add('access_misc:Access & Miscellaneous');
       }
 
       // Delete any records that shouldn't exist anymore

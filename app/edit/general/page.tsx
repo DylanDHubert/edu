@@ -14,6 +14,14 @@ interface Doctor {
   notes: string;
 }
 
+interface Surgeon {
+  id: string;
+  name: string;
+  specialty: string;
+  procedure_focus: string;
+  notes: string;
+}
+
 function EditGeneralContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -23,7 +31,7 @@ function EditGeneralContent() {
 
   const [team, setTeam] = useState<any>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [accessMisc, setAccessMisc] = useState<string>('');
+  const [surgeons, setSurgeons] = useState<Surgeon[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
@@ -103,9 +111,29 @@ function EditGeneralContent() {
         });
       }
 
-      const accessData = knowledgeData?.find(k => k.category === 'access_misc');
-      setAccessMisc(accessData?.content || accessData?.metadata?.content || '');
+      const surgeonsData = knowledgeData
+        ?.filter(k => k.category === 'surgeon_info')
+        .map(k => ({
+          id: k.id,
+          name: k.metadata?.name || k.title || '',
+          specialty: k.metadata?.specialty || '',
+          procedure_focus: k.metadata?.procedure_focus || '',
+          notes: k.metadata?.notes || ''
+        })) || [];
+
+      // Add empty surgeon if none exist
+      if (surgeonsData.length === 0) {
+        surgeonsData.push({
+          id: `temp-${Date.now()}`,
+          name: '',
+          specialty: '',
+          procedure_focus: '',
+          notes: ''
+        });
+      }
+
       setDoctors(doctorsData);
+      setSurgeons(surgeonsData);
 
     } catch (error) {
       console.error('Error loading existing data:', error);
@@ -138,21 +166,48 @@ function EditGeneralContent() {
     }]);
   };
 
-  const isFormValid = () => {
-    // At least one doctor with a name or access/misc content is required
-    const hasValidDoctor = doctors.some(doctor => doctor.name.trim());
-    const hasAccessMisc = accessMisc.trim();
+  const addSurgeon = () => {
+    setSurgeons([...surgeons, {
+      id: `temp-${Date.now()}`,
+      name: '',
+      specialty: '',
+      procedure_focus: '',
+      notes: ''
+    }]);
+  };
 
-    return hasValidDoctor || hasAccessMisc;
+  const updateSurgeon = (index: number, field: keyof Surgeon, value: string) => {
+    const newSurgeons = [...surgeons];
+    newSurgeons[index] = { ...newSurgeons[index], [field]: value };
+    setSurgeons(newSurgeons);
+  };
+
+  const removeSurgeon = (index: number) => {
+    const newSurgeons = surgeons.filter((_, i) => i !== index);
+    setSurgeons(newSurgeons.length > 0 ? newSurgeons : [{
+      id: `temp-${Date.now()}`,
+      name: '',
+      specialty: '',
+      procedure_focus: '',
+      notes: ''
+    }]);
+  };
+
+  const isFormValid = () => {
+    // At least one doctor, surgeon, or access/misc content is required
+    const hasValidDoctor = doctors.some(doctor => doctor.name.trim());
+    const hasValidSurgeon = surgeons.some(surgeon => surgeon.name.trim());
+
+    return hasValidDoctor || hasValidSurgeon;
   };
 
   const validateForm = () => {
-    // At least one doctor with a name or access/misc content is required
+    // At least one doctor, surgeon, or access/misc content is required
     const hasValidDoctor = doctors.some(doctor => doctor.name.trim());
-    const hasAccessMisc = accessMisc.trim();
+    const hasValidSurgeon = surgeons.some(surgeon => surgeon.name.trim());
 
-    if (!hasValidDoctor && !hasAccessMisc) {
-      setError('Please add at least one doctor or some access/misc information');
+    if (!hasValidDoctor && !hasValidSurgeon) {
+      setError('Please add at least one doctor or surgeon');
       return false;
     }
 
@@ -172,7 +227,7 @@ function EditGeneralContent() {
       // Prepare data for API call
       const generalKnowledge = {
         doctors: doctors.filter(doctor => doctor.name.trim()),
-        accessMisc: accessMisc.trim()
+        surgeons: surgeons.filter(surgeon => surgeon.name.trim()),
       };
 
       const response = await fetch('/api/teams/general/update', {
@@ -325,24 +380,86 @@ function EditGeneralContent() {
             </div>
           </div>
 
-          {/* Access & Miscellaneous */}
+          {/* Surgeon Information */}
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-            <h3 className="text-lg font-semibold text-slate-100 mb-6">Access & Miscellaneous</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                General Information
-              </label>
-              <textarea
-                value={accessMisc}
-                onChange={(e) => setAccessMisc(e.target.value)}
-                placeholder="Parking instructions, door codes, vendor credentialing, facility access notes, general team information, etc."
-                rows={8}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-slate-500 text-sm mt-2">
-                Include any information that applies to the entire team, such as facility access, parking, general protocols, etc.
-              </p>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-100">Surgeon Information</h3>
+              <button
+                onClick={addSurgeon}
+                className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-md font-medium transition-colors"
+              >
+                + Add Surgeon
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {surgeons.map((surgeon, index) => (
+                <div key={surgeon.id} className="p-4 bg-slate-700 rounded border border-slate-600">
+                  <div className="flex justify-between items-start mb-4">
+                    <h4 className="text-slate-200 font-medium">Surgeon {index + 1}</h4>
+                    <button
+                      onClick={() => removeSurgeon(index)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Surgeon Name
+                      </label>
+                      <input
+                        type="text"
+                        value={surgeon.name}
+                        onChange={(e) => updateSurgeon(index, 'name', e.target.value)}
+                        placeholder="Dr. Johnson"
+                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Specialty
+                      </label>
+                      <input
+                        type="text"
+                        value={surgeon.specialty}
+                        onChange={(e) => updateSurgeon(index, 'specialty', e.target.value)}
+                        placeholder="Cardiovascular Surgery"
+                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Procedure Focus
+                    </label>
+                    <input
+                      type="text"
+                      value={surgeon.procedure_focus}
+                      onChange={(e) => updateSurgeon(index, 'procedure_focus', e.target.value)}
+                      placeholder="Heart bypass surgery, valve replacement"
+                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Notes & Details
+                    </label>
+                    <textarea
+                      value={surgeon.notes}
+                      onChange={(e) => updateSurgeon(index, 'notes', e.target.value)}
+                      placeholder="Surgical preferences, equipment requirements, team preferences, etc."
+                      rows={3}
+                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

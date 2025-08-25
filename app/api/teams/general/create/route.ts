@@ -95,6 +95,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Store surgeon information
+    for (const item of knowledge.surgeonInfo || []) {
+      if (item.title?.trim() || item.content?.trim()) {
+        const { data: savedItem, error: saveError } = await supabase
+          .from('team_knowledge')
+          .insert({
+            team_id: teamId,
+            account_id: null, // General knowledge is not account-specific
+            portfolio_id: null, // General knowledge is not portfolio-specific
+            category: 'surgeon_info',
+            title: item.title?.trim() || 'Surgeon Information',
+            content: item.content?.trim() || '',
+            metadata: {
+              name: item.title?.trim() || 'Surgeon Information',
+              specialty: '', // Onboarding doesn't capture specialty separately
+              procedure_focus: '', // Onboarding doesn't capture procedure focus separately
+              notes: item.content?.trim() || ''
+            },
+            created_by: user.id
+          })
+          .select()
+          .single();
+
+        if (saveError) {
+          console.error('Error saving surgeon info:', saveError);
+        } else {
+          savedKnowledge.push(savedItem);
+        }
+      }
+    }
+
     // Store access & misc information
     for (const item of knowledge.accessMisc || []) {
       if (item.title?.trim() || item.content?.trim()) {
@@ -124,6 +155,7 @@ export async function POST(request: NextRequest) {
     const knowledgeText = createGeneralKnowledgeText({
       teamName: team.name,
       doctorInfo: knowledge.doctorInfo || [],
+      surgeonInfo: knowledge.surgeonInfo || [],
       accessMisc: knowledge.accessMisc || []
     });
 

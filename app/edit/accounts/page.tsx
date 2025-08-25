@@ -31,6 +31,7 @@ interface Account {
   inventory: Inventory[];
   instruments: Instrument[];
   technicalInfo: string;
+  accessMisc: string;
 }
 
 function EditAccountsContent() {
@@ -147,6 +148,10 @@ function EditAccountsContent() {
         const techKnowledge = knowledgeData.find((k: any) => k.category === 'technical');
         const technicalInfo = techKnowledge?.content || techKnowledge?.metadata?.content || '';
 
+        // Extract access misc info
+        const accessKnowledge = knowledgeData.find((k: any) => k.category === 'access_misc');
+        const accessMisc = accessKnowledge?.content || accessKnowledge?.metadata?.content || '';
+
         return {
           id: account.id,
           name: account.name,
@@ -154,7 +159,8 @@ function EditAccountsContent() {
           assignedPortfolios: account.account_portfolios?.map((ap: any) => ap.portfolio_id) || [],
           inventory,
           instruments,
-          technicalInfo
+          technicalInfo,
+          accessMisc
         };
       }) || [];
 
@@ -167,7 +173,8 @@ function EditAccountsContent() {
           assignedPortfolios: [],
           inventory: [],
           instruments: [],
-          technicalInfo: ''
+          technicalInfo: '',
+          accessMisc: ''
         });
       }
 
@@ -187,7 +194,8 @@ function EditAccountsContent() {
       assignedPortfolios: [],
       inventory: [],
       instruments: [],
-      technicalInfo: ''
+      technicalInfo: '',
+      accessMisc: ''
     }]);
   };
 
@@ -227,7 +235,8 @@ function EditAccountsContent() {
       assignedPortfolios: [],
       inventory: [],
       instruments: [],
-      technicalInfo: ''
+      technicalInfo: '',
+      accessMisc: ''
     }]);
   };
 
@@ -412,7 +421,8 @@ function EditAccountsContent() {
             assignedPortfolios: account.assignedPortfolios,
             inventory: account.inventory,
             instruments: instrumentsForSubmission,
-            technicalInfo: account.technicalInfo?.trim() || ''
+            technicalInfo: account.technicalInfo?.trim() || '',
+            accessMisc: account.accessMisc?.trim() || ''
           };
         });
 
@@ -440,7 +450,8 @@ function EditAccountsContent() {
             ...instrument,
             imageFile: undefined // Remove file object
           })),
-          technicalInfo: account.technicalInfo?.trim() || ''
+          technicalInfo: account.technicalInfo?.trim() || '',
+          accessMisc: account.accessMisc?.trim() || ''
         }));
 
                  // Call API with JSON
@@ -726,6 +737,23 @@ function EditAccountsContent() {
                   rows={4}
                   className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+
+              {/* Access & Miscellaneous */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Access & Miscellaneous <span className="text-slate-500">(Optional)</span>
+                </label>
+                <textarea
+                  value={account.accessMisc}
+                  onChange={(e) => updateAccount(accountIndex, 'accessMisc', e.target.value)}
+                  placeholder="Parking instructions, door codes, vendor credentialing, facility access notes, etc."
+                  rows={4}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-slate-500 text-sm mt-2">
+                  Include any information specific to this account, such as facility access, parking, protocols, etc.
+                </p>
               </div>
             </div>
           ))}

@@ -290,6 +290,10 @@ async function generateAccountContext(supabase: any, teamId: string, accountId: 
       .filter((k: any) => k.category === 'technical')
       .map((k: any) => ({ title: 'Technical Information', content: k.content || k.metadata?.content || '' }));
 
+    const accessMisc = knowledgeData
+      .filter((k: any) => k.category === 'access_misc')
+      .map((k: any) => ({ title: 'Access Information', content: k.content || k.metadata?.content || '' }));
+
     // Generate text content
     const textContent = createAccountPortfolioKnowledgeText({
       teamName: names.teamName,
@@ -298,7 +302,8 @@ async function generateAccountContext(supabase: any, teamId: string, accountId: 
       knowledge: {
         inventory,
         instruments,
-        technical
+        technical,
+        accessMisc
       }
     });
 
@@ -334,15 +339,18 @@ async function generateGeneralContext(supabase: any, teamId: string, names: any)
         content: `${k.metadata?.specialty || ''} - ${k.metadata?.notes || ''}`
       }));
 
-    const accessMisc = knowledgeData
-      .filter((k: any) => k.category === 'access_misc')
-      .map((k: any) => ({ title: 'Access Information', content: k.content || k.metadata?.content || '' }));
+    const surgeonInfo = knowledgeData
+      .filter((k: any) => k.category === 'surgeon_info')
+      .map((k: any) => ({
+        title: k.metadata?.name || k.title || '',
+        content: `${k.metadata?.specialty || ''} - ${k.metadata?.procedure_focus || ''} - ${k.metadata?.notes || ''}`
+      }));
 
     // Generate text content
     const textContent = createGeneralKnowledgeText({
       teamName: names.teamName,
       doctorInfo,
-      accessMisc
+      surgeonInfo
     });
 
     console.log(`Generated general context for ${names.teamName}`);
@@ -454,4 +462,4 @@ IMPORTANT: FORMAT YOUR RESPONSES AS PLAIN TEXT ONLY. DO NOT USE MARKDOWN FORMATT
   }
 
   return instructions;
-} 
+}

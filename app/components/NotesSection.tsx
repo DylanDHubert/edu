@@ -1,17 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useNotes } from "../contexts/NotesContext";
-import { useChat } from "../contexts/ChatContext";
-import { useAuth } from "../contexts/AuthContext";
-
-import NoteModal from "./NoteModal";
-
-import { getTagColor, getTagDisplayName } from "../utils/notes";
+import { useState } from "react";
+import { useNotes } from '../contexts/NotesContext';
+import { useAuth } from '../contexts/AuthContext';
+import NoteModal from './NoteModal';
 
 interface NotesSectionProps {
-  onNoteSelect?: () => void;
-  // Team context for note creation
   teamContext?: {
     teamId: string;
     teamName: string;
@@ -22,15 +16,37 @@ interface NotesSectionProps {
   } | null;
 }
 
-export default function NotesSection({ onNoteSelect, teamContext }: NotesSectionProps) {
-  console.log('🎯 NOTES SECTION COMPONENT RENDERED');
-  const { notes, loading, deleteNote, getNotesForPortfolio, refreshNotes } = useNotes();
+function getPortfolioColor(portfolioType: string): string {
+  const colors: { [key: string]: string } = {
+    'resume': 'bg-blue-600',
+    'cover letter': 'bg-green-600',
+    'portfolio': 'bg-purple-600',
+    'general': 'bg-gray-600',
+  };
+  return colors[portfolioType.toLowerCase()] || 'bg-slate-600';
+}
 
+function getPortfolioDisplayName(portfolioType: string): string {
+  return portfolioType.charAt(0).toUpperCase() + portfolioType.slice(1);
+}
+
+export default function NotesSection({ teamContext }: NotesSectionProps) {
+  console.log('🎯 NOTES SECTION COMPONENT RENDERED');
+  const { notes, loading, getNotesForPortfolio, deleteNote, refreshNotes } = useNotes();
   const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<any>(null);
 
+  // GET RELEVANT NOTES FOR CURRENT PORTFOLIO
+  const relevantNotes = teamContext 
+    ? getNotesForPortfolio(teamContext.portfolioName, teamContext)
+    : notes;
 
+  console.log('📝 NOTES SECTION - RELEVANT NOTES:', {
+    totalNotes: notes.length,
+    relevantNotes: relevantNotes.length,
+    teamContext: teamContext?.portfolioName
+  });
 
   const handleEditNote = (note: any) => {
     // CHECK IF USER OWNS THE NOTE OR IF IT'S NOT SHARED
@@ -63,74 +79,30 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
     setIsModalOpen(true);
   };
 
-  // GET NOTES FOR CURRENT TEAM CONTEXT
-  const portfolioType = teamContext ? teamContext.portfolioName.toLowerCase() : '';
-  console.log('🎯 PORTFOLIO TYPE FOR FILTERING:', {
-    originalPortfolioName: teamContext?.portfolioName,
-    lowercasePortfolioType: portfolioType,
-    teamContext: teamContext
-  });
-  
-  const relevantNotes = teamContext 
-    ? getNotesForPortfolio(portfolioType, {
-        teamId: teamContext.teamId,
-        accountId: teamContext.accountId,
-        portfolioId: teamContext.portfolioId
-      })
-    : notes;
-
-  // DEBUG: LOG RELEVANT NOTES
-  console.log('📋 NOTES SECTION - RELEVANT NOTES:', {
-    totalNotes: notes.length,
-    relevantNotes: relevantNotes.length,
-    teamContext: teamContext ? {
-      teamId: teamContext.teamId,
-      accountId: teamContext.accountId,
-      portfolioId: teamContext.portfolioId,
-      portfolioName: teamContext.portfolioName
-    } : null
-  });
-
-  const getPortfolioDisplayName = (portfolioType: string) => {
-    switch (portfolioType) {
-      case 'general': return 'GENERAL';
-      case 'hip': return 'HIP';
-      case 'knee': return 'KNEE';
-      case 'ts_knee': return 'TS KNEE';
-      default: return portfolioType.toUpperCase();
-    }
-  };
-
-  const getPortfolioColor = (portfolioType: string) => {
-    switch (portfolioType) {
-      case 'general': return 'bg-slate-500';
-      case 'hip': return 'bg-blue-500';
-      case 'knee': return 'bg-green-500';
-      case 'ts_knee': return 'bg-purple-500';
-      default: return 'bg-slate-500';
-    }
-  };
-
   // CHECK IF USER CAN EDIT A NOTE
   const canEditNote = (note: any) => {
     return note.user_id === user?.id || !note.is_shared;
   };
 
-  // DEBUG: LOG THE ACTUAL RELEVANT NOTES CONTENT
-  console.log('🎯 RENDERING NOTES - ACTUAL CONTENT:', {
-    relevantNotes: relevantNotes,
-    relevantNotesLength: relevantNotes.length,
-    loading: loading,
-    teamContext: teamContext
-  });
+  if (loading) {
+    return (
+      <div className="flex-1 bg-slate-800 p-4">
+        <div className="animate-pulse space-y-3">
+          <div className="h-4 bg-slate-700 rounded w-1/4"></div>
+          <div className="h-4 bg-slate-700 rounded w-1/2"></div>
+          <div className="h-4 bg-slate-700 rounded w-3/4"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-
-
-      <div className="p-4 border-b border-slate-700 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-300">NOTES</h2>
+      <div className="flex-1 bg-slate-800 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-100">
+            NOTES {teamContext && `(${relevantNotes.length})`}
+          </h3>
           <button
             onClick={handleAddNote}
             className="text-xs bg-slate-600 hover:bg-slate-500 text-slate-100 px-2 py-1 rounded transition-colors"
@@ -139,15 +111,14 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
           </button>
         </div>
 
-
-
-        {loading ? (
-          <div className="text-xs text-slate-400 text-center py-4">
-            LOADING NOTES...
-          </div>
-        ) : relevantNotes.length === 0 ? (
-          <div className="text-xs text-slate-400 text-center py-4">
-            NO NOTES YET
+        {relevantNotes.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-slate-400 text-sm">
+              {teamContext 
+                ? `NO NOTES FOR ${teamContext.portfolioName.toUpperCase()} PORTFOLIO`
+                : 'NO NOTES FOUND'
+              }
+            </p>
           </div>
         ) : (
           <div className="space-y-2 flex-1 overflow-y-auto scrollbar-hide">
@@ -156,29 +127,21 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
                 key={note.id}
                 className="bg-slate-700 rounded-md p-3 text-sm group relative"
               >
-                {/* PORTFOLIO BADGE AND TAGS */}
+                {/* PORTFOLIO BADGE */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-1">
                     <span className={`text-xs px-2 py-1 rounded ${getPortfolioColor(note.portfolio_type)} text-white`}>
                       {getPortfolioDisplayName(note.portfolio_type)}
                     </span>
-                    {/* CUSTOM TAGS */}
-                    {note.tags && Object.entries(note.tags).map(([category, value]) => {
-                      if (!value || typeof value !== 'string' || value.trim() === '') return null;
-                      return (
-                        <span
-                          key={category}
-                          className={`text-xs px-1 py-0.5 rounded ${getTagColor(category)} text-white`}
-                          title={`${getTagDisplayName(category)}: ${value}`}
-                        >
-                          {value}
-                        </span>
-                      );
-                    })}
                   </div>
-                  {note.is_shared && (
-                    <span className="text-xs text-slate-400" title="SHARED NOTE">
-                      SHARED
+                  {note.is_portfolio_shared && (
+                    <span className="text-xs text-green-400" title="SHARED ACROSS ALL ACCOUNTS IN PORTFOLIO">
+                      PORTFOLIO
+                    </span>
+                  )}
+                  {note.is_shared && !note.is_portfolio_shared && (
+                    <span className="text-xs text-purple-400" title="SHARED WITH ENTIRE TEAM">
+                      TEAM
                     </span>
                   )}
                 </div>
@@ -196,55 +159,25 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
                   }
                 </div>
 
-                {/* MULTIPLE IMAGE PREVIEW */}
-                {(note.images && note.images.length > 0) && (
-                  <div className="mb-2">
-                    <div className="text-xs text-slate-400 mb-1">
-                      {note.images.length} IMAGE{note.images.length > 1 ? 'S' : ''}
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      {note.images.slice(0, 4).map((image: any, index: number) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={image.url}
-                            alt={`NOTE IMAGE ${index + 1}`}
-                            className="w-full h-16 object-cover rounded-md border border-slate-600"
-                            onError={(e) => {
-                              // HIDE IMAGE IF IT FAILS TO LOAD
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                          {index === 3 && note.images && note.images.length > 4 && (
-                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-md">
-                              <span className="text-xs text-white">+{note.images.length - 4}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* BACKWARD COMPATIBILITY: SINGLE IMAGE */}
-                {(!note.images || note.images.length === 0) && note.image_url && (
-                  <div className="mb-2">
-                    <img
-                      src={note.image_url}
-                      alt="NOTE IMAGE"
-                      className="w-full h-20 object-cover rounded-md border border-slate-600"
-                      onError={(e) => {
-                        // HIDE IMAGE IF IT FAILS TO LOAD
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                {/* IMAGE INDICATOR */}
+                {note.images && note.images.length > 0 && (
+                  <div className="flex items-center space-x-1 mb-2">
+                    <span className="text-slate-400 text-xs">📷</span>
+                    <span className="text-slate-400 text-xs">
+                      {`${note.images.length} image${note.images.length > 1 ? 's' : ''}`}
+                    </span>
                   </div>
                 )}
 
                 {/* NOTE METADATA */}
                 <div className="text-xs text-slate-500 mb-2">
-                  {new Date(note.updated_at).toLocaleDateString()}
+                  {new Date(note.created_at).toLocaleDateString()}
+                  {note.updated_at !== note.created_at && (
+                    <span className="ml-2">(UPDATED: {new Date(note.updated_at).toLocaleDateString()})</span>
+                  )}
                 </div>
 
-                {/* ACTION BUTTONS - MOVED TO BOTTOM RIGHT LIKE CHAT HISTORY */}
+                {/* ACTION BUTTONS */}
                 {note.user_id === user?.id && (
                   <button
                     onClick={() => handleDeleteNote(note.id)}
@@ -274,7 +207,6 @@ export default function NotesSection({ onNoteSelect, teamContext }: NotesSection
         onClose={handleCloseModal}
         onNoteCreated={() => {
           // EXPLICITLY REFRESH NOTES WHEN A NEW NOTE IS CREATED
-          // This ensures the notes list updates immediately
           refreshNotes();
         }}
         editingNote={editingNote}
