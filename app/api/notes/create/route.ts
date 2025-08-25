@@ -94,23 +94,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // GET PUBLIC URL FROM SUPABASE
-      const { data: urlData } = supabase.storage
-        .from('user_note_images')
-        .getPublicUrl(fileName);
+      // GENERATE CUSTOM API URL INSTEAD OF SUPABASE PUBLIC URL
+      const imageUrl = `/api/images/${user.id}/${timestamp}_${random}.${fileExtension}`;
 
       console.log('🔍 REGULAR NOTE IMAGE UPLOAD SUCCESS:');
       console.log('  📁 Storage file path:', fileName);
-      console.log('  🔗 Public URL from Supabase:', urlData.publicUrl);
+      console.log('  🔗 Custom API URL:', imageUrl);
       console.log('  📝 Description:', imageDescription.trim());
 
       images.push({
-        url: urlData.publicUrl,
+        url: imageUrl,
         description: imageDescription.trim()
       });
       
       console.log('  💾 Storing in database:', JSON.stringify({
-        url: urlData.publicUrl,
+        url: imageUrl,
         description: imageDescription.trim()
       }, null, 2));
     }
