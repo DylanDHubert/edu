@@ -441,7 +441,24 @@ RESPONSE GUIDELINES:
 - Do NOT say "you can view" or "available here" - just include the URL directly after the description
 - For all other responses, provide normal detailed medical information
 
-IMPORTANT: FORMAT YOUR RESPONSES AS PLAIN TEXT ONLY. DO NOT USE MARKDOWN FORMATTING. USE SIMPLE TEXT WITH LINE BREAKS FOR ORGANIZATION. AVOID USING MARKDOWN SYMBOLS LIKE #, *, -, OR \`\`\`. JUST USE CLEAN, READABLE PLAIN TEXT.`;
+IMPORTANT: ALWAYS FORMAT YOUR RESPONSES USING MARKDOWN SYNTAX FOR BETTER READABILITY. You MUST use:
+- ## Headers for main sections (use ## or ###)
+- **Bold text** for emphasis
+- - Bullet points for lists 
+- 1. Numbered lists for steps
+- Proper line breaks between paragraphs
+
+EXAMPLE FORMAT:
+## Main Topic
+
+**Key Points:**
+- First important point
+- Second important point
+
+### Subsection
+More detailed information here.
+
+This markdown formatting is REQUIRED for all responses to ensure proper display in the user interface.`;
 
   // Add account-specific context
   if (accountContext) {

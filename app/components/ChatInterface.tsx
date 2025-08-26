@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useChat } from "../contexts/ChatContext";
 import StandardHeader from "./StandardHeader";
 import FeedbackModal from "./FeedbackModal";
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -73,13 +74,17 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     }
   }, []);
 
-  // FORMAT MARKDOWN FOR BOLD AND ITALICS ONLY
-  const formatMarkdown = (text: string) => {
-    // REPLACE **BOLD** WITH <strong>BOLD</strong>
-    let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    // REPLACE *ITALIC* WITH <em>ITALIC</em>
-    formattedText = formattedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    return formattedText;
+  // SIMPLE MARKDOWN STYLING COMPONENTS
+  const markdownComponents = {
+    h1: ({children}: any) => <h1 className="text-2xl font-bold text-slate-100 mt-6 mb-3">{children}</h1>,
+    h2: ({children}: any) => <h2 className="text-xl font-semibold text-slate-100 mt-6 mb-3">{children}</h2>,
+    h3: ({children}: any) => <h3 className="text-lg font-semibold text-slate-100 mt-4 mb-2">{children}</h3>,
+    p: ({children}: any) => <p className="mb-4 text-slate-100">{children}</p>,
+    ul: ({children}: any) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
+    ol: ({children}: any) => <ol className="mb-4 ml-4 space-y-1 list-decimal list-inside">{children}</ol>,
+    li: ({children}: any) => <li className="text-slate-100">{children}</li>,
+    strong: ({children}: any) => <strong className="font-semibold text-slate-100">{children}</strong>,
+    em: ({children}: any) => <em className="italic text-slate-100">{children}</em>,
   };
 
   // EXTRACT IMAGE URLS FROM TEXT
@@ -124,33 +129,24 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
 
   // RENDER TEXT WITHOUT IMAGE URLS (CLEAN TEXT)
   const renderTextWithImageUrlsAsText = (text: string) => {
-    console.log('🔥 renderTextWithImageUrlsAsText INPUT:', text);
-    
     // REMOVE [IMAGE URL: ...] FORMAT COMPLETELY
     let processedText = text.replace(/\[IMAGE URL:\s*\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp)\]/gi, '');
-    console.log('🔥 AFTER REMOVING [IMAGE URL: ...] FORMAT:', processedText);
     
     // REMOVE MARKDOWN IMAGE LINKS COMPLETELY
     processedText = processedText.replace(/\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi, '');
-    console.log('🔥 AFTER REMOVING MARKDOWN LINKS:', processedText);
     
     // REMOVE PLAIN IMAGE URLS COMPLETELY
     processedText = processedText.replace(/\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi, '');
-    console.log('🔥 AFTER REMOVING PLAIN URLS:', processedText);
     
-    // CLEAN UP EXTRA SPACES AND PUNCTUATION
+    // CLEAN UP EXTRA SPACES AND PUNCTUATION (BUT PRESERVE LINE BREAKS)
     processedText = processedText.replace(/\s*\.\s*\./g, '.'); // REMOVE DOUBLE PERIODS
-    processedText = processedText.replace(/\s+/g, ' '); // NORMALIZE SPACES
+    processedText = processedText.replace(/[ \t]+/g, ' '); // NORMALIZE SPACES (but keep newlines)
     processedText = processedText.trim(); // REMOVE LEADING/TRAILING SPACES
     
-    console.log('🔥 FINAL CLEAN TEXT:', processedText);
-    
     return (
-      <span
-        dangerouslySetInnerHTML={{ 
-          __html: formatMarkdown(processedText) 
-        }}
-      />
+      <ReactMarkdown components={markdownComponents}>
+        {processedText}
+      </ReactMarkdown>
     );
   };
 
@@ -599,6 +595,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     // REGULAR MESSAGE SENDING
     if (!currentChat || !activeAssistant) return;
 
+    // CHECK IF THIS IS THE FIRST MESSAGE (no existing messages and title starts with "Untitled")
+    const isFirstMessage = messages.length === 0 && currentChat.title.startsWith('Untitled');
+    
     // ADD TEMPORARY USER MESSAGE FOR EXISTING CHATS
     const tempUserMessage: Message = {
       id: `temp-user-${Date.now()}`,
@@ -610,6 +609,33 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     
     // START LOADING STATE IMMEDIATELY
     setIsLoading(true);
+
+    // UPDATE CHAT TITLE IF THIS IS THE FIRST MESSAGE
+    if (isFirstMessage) {
+      try {
+        const newTitle = messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend;
+        const updateResponse = await fetch('/api/chat/update-title', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chatId: currentChat.id,
+            title: newTitle
+          }),
+        });
+
+        if (updateResponse.ok) {
+          // Update current chat title in context
+          setCurrentChat({ ...currentChat, title: newTitle });
+          // Refresh chat history to show updated title
+          await refreshChatHistory();
+        }
+      } catch (error) {
+        console.error('Error updating chat title:', error);
+        // Continue with message sending even if title update fails
+      }
+    }
 
     try {
       const response = await fetch('/api/chat/send', {
@@ -849,8 +875,8 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     return (
                       <div key={index} className="whitespace-pre-wrap">
                         {message.role === 'assistant' ? (
-                          <div className="whitespace-pre-wrap leading-none">
-                            {renderTextWithImageUrlsAsText(text.split('\n').filter(line => line.trim() !== '').join('\n'))}
+                          <div>
+                            {renderTextWithImageUrlsAsText(text)}
                             
                             {/* RENDER IMAGES BELOW TEXT */}
                             {(() => {
@@ -887,11 +913,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             })()}
                           </div>
                         ) : (
-                          <span 
-                            dangerouslySetInnerHTML={{ 
-                              __html: formatMarkdown(text) 
-                            }}
-                          />
+                          <ReactMarkdown components={markdownComponents}>
+                            {text}
+                          </ReactMarkdown>
                         )}
                         {message.role === 'assistant' && content.text.annotations && content.text.annotations.length > 0 && (
                           <div className="mt-2 text-xs text-slate-400 border-t border-slate-600 pt-2">

@@ -20,12 +20,14 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
     setCurrentChat, 
     createNewChat, 
     deleteChat,
+    refreshChatHistory,
     loading 
   } = useChat();
 
   // MOBILE STATE MANAGEMENT
   const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
   const [activeAssistant, setActiveAssistant] = useState<any>(null);
+  const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
 
   // Load active assistant from localStorage
   useEffect(() => {
@@ -50,6 +52,51 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
     e.stopPropagation(); // PREVENT CHAT SELECTION WHEN CLICKING DELETE
     if (confirm('ARE YOU SURE YOU WANT TO DELETE THIS CHAT?')) {
       await deleteChat(chatId);
+    }
+  };
+
+  const handleNewChat = async () => {
+    if (!activeAssistant || isCreatingNewChat) return;
+    
+    setIsCreatingNewChat(true);
+    
+    try {
+      // Create new chat with current activeAssistant configuration
+      const response = await fetch('/api/chat/create-team', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          teamId: activeAssistant.teamId,
+          accountId: activeAssistant.accountId,
+          portfolioId: activeAssistant.portfolioId,
+          assistantId: activeAssistant.assistantId,
+          title: `Untitled ${activeAssistant.portfolioName || 'Chat'}`
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create new chat');
+      }
+
+      const newChat = await response.json();
+      
+      // Set as current chat
+      setCurrentChat(newChat);
+      
+      // Refresh chat history to show the new chat
+      await refreshChatHistory();
+      
+      // Close mobile sidebar
+      setIsMobileOpen(false);
+      
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+      // Could add user notification here
+    } finally {
+      setIsCreatingNewChat(false);
     }
   };
 
@@ -155,7 +202,22 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
           {activeTab === 'chat' ? (
             // CHAT HISTORY TAB
             <div className="p-4 flex flex-col h-full">
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex-shrink-0">CHAT HISTORY</h2>
+              <div className="flex-shrink-0 mb-4">
+                <h2 className="text-sm font-semibold text-slate-300 mb-3">CHAT HISTORY</h2>
+                {/* NEW CHAT BUTTON */}
+                <button
+                  onClick={handleNewChat}
+                  disabled={!activeAssistant || isCreatingNewChat}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                >
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="flex-1 text-center">
+                    {isCreatingNewChat ? 'Creating...' : 'New Chat'}
+                  </span>
+                </button>
+              </div>
               {chatHistory.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-8">
                   NO CHAT HISTORY YET
