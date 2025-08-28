@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
+import InviteModal from "../../components/InviteModal";
 
 interface TeamMember {
   id: string;
@@ -28,11 +29,7 @@ interface PendingInvite {
   created_at: string;
 }
 
-interface NewInvite {
-  name: string;
-  email: string;
-  role: 'manager' | 'member';
-}
+
 
 function EditMembersContent() {
   const { user, loading } = useAuth();
@@ -44,11 +41,11 @@ function EditMembersContent() {
   const [team, setTeam] = useState<any>(null);
   const [existingMembers, setExistingMembers] = useState<TeamMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
-  const [newInvites, setNewInvites] = useState<NewInvite[]>([{ name: '', email: '', role: 'member' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -133,20 +130,11 @@ function EditMembersContent() {
     }
   };
 
-  const addNewInvite = () => {
-    setNewInvites([...newInvites, { name: '', email: '', role: 'member' }]);
-  };
-
-  const updateNewInvite = (index: number, field: keyof NewInvite, value: any) => {
-    const updated = [...newInvites];
-    updated[index] = { ...updated[index], [field]: value };
-    setNewInvites(updated);
-  };
-
-  const removeNewInvite = (index: number) => {
-    if (newInvites.length > 1) {
-      setNewInvites(newInvites.filter((_, i) => i !== index));
-    }
+  const handleInviteSent = () => {
+    // Reload data after invitation is sent
+    loadExistingData();
+    setSuccessMessage('Invitation sent successfully');
+    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   const removeMember = async (memberId: string, memberEmail: string) => {
@@ -224,92 +212,6 @@ function EditMembersContent() {
     } catch (error) {
       console.error('Error cancelling invite:', error);
       setError('Failed to cancel invitation');
-    }
-  };
-
-  const validateForm = () => {
-    const validInvites = newInvites.filter(invite => invite.name.trim() && invite.email.trim());
-    
-    if (validInvites.length === 0) {
-      setError('Please add at least one team member to invite');
-      return false;
-    }
-
-    // Validate email formats
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    for (const invite of validInvites) {
-      if (!emailRegex.test(invite.email)) {
-        setError(`Invalid email format: ${invite.email}`);
-        return false;
-      }
-    }
-
-    // Check for duplicate emails in new invites
-    const emails = validInvites.map(inv => inv.email.toLowerCase());
-    const uniqueEmails = new Set(emails);
-    if (emails.length !== uniqueEmails.size) {
-      setError('Duplicate email addresses found in new invitations');
-      return false;
-    }
-
-    // Check against existing members and pending invites
-    const existingEmails = new Set([
-      ...existingMembers
-        .map(m => m.profiles?.email?.toLowerCase())
-        .filter(email => email && !email.includes('@unknown.com')), // Exclude placeholder emails
-      ...pendingInvites.map(inv => inv.email.toLowerCase())
-    ]);
-
-    for (const invite of validInvites) {
-      if (existingEmails.has(invite.email.toLowerCase())) {
-        setError(`${invite.email} is already a team member or has a pending invitation`);
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    setError(null);
-    setSuccessMessage(null);
-    
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const validInvites = newInvites.filter(invite => invite.name.trim() && invite.email.trim());
-
-      const response = await fetch('/api/teams/members/invite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          teamId,
-          invites: validInvites
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send invitations');
-      }
-
-      // Reset form and reload data
-      setNewInvites([{ name: '', email: '', role: 'member' }]);
-      loadExistingData();
-      setSuccessMessage(`Successfully sent ${validInvites.length} invitation(s)!`);
-      setTimeout(() => setSuccessMessage(null), 5000);
-
-    } catch (error) {
-      console.error('Error sending invitations:', error);
-      setError(error instanceof Error ? error.message : 'Failed to send invitations');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -467,89 +369,35 @@ function EditMembersContent() {
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
             <h3 className="text-lg font-semibold text-slate-100 mb-6">Invite New Members</h3>
             
-            <div className="space-y-4">
-              {newInvites.map((invite, index) => (
-                <div key={index} className="p-4 bg-slate-700 rounded border border-slate-600">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Full Name <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={invite.name}
-                        onChange={(e) => updateNewInvite(index, 'name', e.target.value)}
-                        placeholder="John Smith"
-                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Email Address <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        value={invite.email}
-                        onChange={(e) => updateNewInvite(index, 'email', e.target.value)}
-                        placeholder="john@company.com"
-                        className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Role <span className="text-red-400">*</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <select
-                          value={invite.role}
-                          onChange={(e) => updateNewInvite(index, 'role', e.target.value as 'manager' | 'member')}
-                          className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="member">Team Member</option>
-                          <option value="manager">Manager</option>
-                        </select>
-                        {newInvites.length > 1 && (
-                          <button
-                            onClick={() => removeNewInvite(index)}
-                            className="px-3 py-2 rounded text-xs font-medium bg-red-900/50 text-red-300 border border-red-700 hover:bg-red-800/50"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4">
+            <div className="text-center py-8">
+              <p className="text-slate-400 mb-6">
+                Invite new members to join your team. They'll receive an in-app invitation that they can accept or decline.
+              </p>
+              
               <button
-                onClick={addNewInvite}
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                onClick={() => setShowInviteModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors flex items-center gap-3 mx-auto"
               >
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                <span className="flex-1 text-center">Add Another Invitation</span>
-              </button>
-
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-              >
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                <span className="flex-1 text-center">{isSubmitting ? 'Sending Invitations...' : 'Send Invitations'}</span>
+                <span>Invite New Member</span>
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Invitation Modal */}
+      {showInviteModal && (
+        <InviteModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          teamId={teamId!}
+          teamName={team.name}
+          onInviteSent={handleInviteSent}
+        />
+      )}
     </div>
   );
 }

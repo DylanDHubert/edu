@@ -47,19 +47,9 @@ CREATE TABLE public.chat_history (
   CONSTRAINT chat_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT chat_history_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
-CREATE TABLE public.manager_invitations (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  email text NOT NULL,
-  name text NOT NULL,
-  invitation_token text NOT NULL UNIQUE,
-  invited_by uuid,
-  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'accepted'::text, 'expired'::text, 'completed'::text])),
-  created_at timestamp with time zone DEFAULT now(),
-  expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval),
-  accepted_at timestamp with time zone,
-  CONSTRAINT manager_invitations_pkey PRIMARY KEY (id),
-  CONSTRAINT manager_invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES auth.users(id)
-);
+-- MANAGER_INVITATIONS TABLE REMOVED
+-- This table was used for the old manager invitation system
+-- It has been removed as part of the simplification where any authenticated user can create teams
 CREATE TABLE public.message_ratings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,

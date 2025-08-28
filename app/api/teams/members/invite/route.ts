@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
-import { sendTeamMemberInvitationEmail } from '../../../../utils/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,16 +56,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get manager info for invitation emails
-    const { data: managerInfo, error: managerError } = await supabase
-      .from('team_members')
-      .select('user_id')
-      .eq('team_id', teamId)
-      .eq('is_original_manager', true)
-      .single();
-
-    const inviterName = user.email || 'Team Manager'; // Fallback to email if name not available
-
     // Process each invitation
     const sentInvitations = [];
     const errors = [];
@@ -79,23 +68,19 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if user is already a team member
-        const { data: existingMember, error: memberCheckError } = await supabase
-          .from('team_members')
-          .select('id, status')
+        // Check if invitation already exists
+        const { data: existingInvitation } = await supabase
+          .from('team_member_invitations')
+          .select('id')
           .eq('team_id', teamId)
-          .eq('user_id', 
-            // We'll check by email since we don't have user_id yet
-            // This is a simplified check - in a real system you'd lookup by email
-            'placeholder'
-          )
+          .eq('email', invite.email.toLowerCase())
+          .eq('status', 'pending')
           .single();
 
-        // Note: The above query won't work as intended since we don't have user_id
-        // In a real implementation, you'd either:
-        // 1. Look up users by email first
-        // 2. Store pending invitations in a separate table
-        // For now, we'll assume no duplicates
+        if (existingInvitation) {
+          errors.push(`An invitation for ${invite.email} already exists`);
+          continue;
+        }
 
         // Generate invitation token
         const invitationToken = generateInvitationToken();
@@ -121,21 +106,6 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Send invitation email
-        try {
-          await sendTeamMemberInvitationEmail({
-            memberEmail: invite.email,
-            memberName: invite.name,
-            memberRole: invite.role,
-            teamName: team.name,
-            invitationToken,
-            invitedBy: inviterName
-          });
-        } catch (emailError) {
-          console.error('Error sending invitation email:', emailError);
-          // Don't fail the request if email fails, just log it
-        }
-
         sentInvitations.push({
           email: invite.email,
           name: invite.name,
@@ -153,7 +123,7 @@ export async function POST(request: NextRequest) {
       success: true,
       sentInvitations,
       errors: errors.length > 0 ? errors : undefined,
-      message: `${sentInvitations.length} invitation(s) sent successfully${errors.length > 0 ? ` with ${errors.length} error(s)` : ''}.`
+      message: `${sentInvitations.length} invitation(s) created successfully${errors.length > 0 ? ` with ${errors.length} error(s)` : ''}.`
     });
 
   } catch (error) {
@@ -167,9 +137,7 @@ export async function POST(request: NextRequest) {
 
 // Helper function to generate a secure invitation token
 function generateInvitationToken(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  return crypto.randomUUID();
 }
 
  

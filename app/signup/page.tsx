@@ -84,49 +84,9 @@ function SignupPageContent() {
         if (signInError) {
           setError("ACCOUNT CREATED BUT SIGN IN FAILED. PLEASE TRY LOGGING IN.");
         } else {
-          // CHECK IF WE HAVE INVITATION CONTEXT TO AUTO-ACCEPT
-          console.log('=== SIGNUP SUCCESS DEBUG ===');
-          console.log('Invitation token:', invitationToken);
-          console.log('Invitation type:', invitationType);
-          
-          if (invitationToken && invitationType) {
-            // AUTO-ACCEPT INVITATION AND REDIRECT TO HOME
-            console.log('Auto-accepting invitation and redirecting to home');
-            try {
-              const acceptResponse = await fetch('/api/managers/accept-manager-invitation', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  token: invitationToken
-                }),
-              });
-
-              if (acceptResponse.ok) {
-                console.log('Invitation accepted successfully, redirecting to home');
-                router.push('/');
-              } else {
-                console.error('Failed to auto-accept invitation, redirecting to invitation page');
-                // FALLBACK: REDIRECT TO INVITATION PAGE IF AUTO-ACCEPT FAILS
-                const invitationPath = invitationType === 'manager' 
-                  ? `/invite/manager?token=${invitationToken}`
-                  : `/invite/member?token=${invitationToken}`;
-                router.push(invitationPath);
-              }
-            } catch (error) {
-              console.error('Error auto-accepting invitation:', error);
-              // FALLBACK: REDIRECT TO INVITATION PAGE IF AUTO-ACCEPT FAILS
-              const invitationPath = invitationType === 'manager' 
-                ? `/invite/manager?token=${invitationToken}`
-                : `/invite/member?token=${invitationToken}`;
-              router.push(invitationPath);
-            }
-          } else {
-            // NORMAL FLOW - GO TO HOME
-            console.log('No invitation context, redirecting to home');
-            router.push("/");
-          }
+          // NORMAL FLOW - GO TO HOME
+          console.log('Signup successful, redirecting to home');
+          router.push("/");
           router.refresh();
         }
       }

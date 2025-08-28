@@ -21,16 +21,34 @@ interface TeamMember {
   };
 }
 
-interface ManagerPrivileges {
-  hasManagerPrivileges: boolean;
+interface TeamInvitation {
+  id: string;
+  team_id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+  teams: {
+    id: string;
+    name: string;
+    description: string;
+    location: string;
+  };
+  inviter: {
+    email: string;
+  };
 }
+
+
 
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [hasActiveAssistant, setHasActiveAssistant] = useState(false);
   const [teamMemberships, setTeamMemberships] = useState<TeamMember[]>([]);
-  const [managerPrivileges, setManagerPrivileges] = useState<ManagerPrivileges>({ hasManagerPrivileges: false });
+  const [pendingInvitations, setPendingInvitations] = useState<TeamInvitation[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
@@ -43,8 +61,9 @@ export default function HomePage() {
         setHasActiveAssistant(true);
       }
       
-      // LOAD USER TEAMS
+      // LOAD USER TEAMS AND INVITATIONS
       loadUserTeams();
+      loadPendingInvitations();
     }
   }, [user, loading]);
 
@@ -79,13 +98,10 @@ export default function HomePage() {
       
       if (!response.ok) {
         console.error('Failed to check access:', response.status);
-        setManagerPrivileges({ hasManagerPrivileges: false });
       } else {
-        const { hasManagerPrivileges: apiResult, isAdmin: adminResult, userEmail } = await response.json();
-        console.log('Access check result:', { hasManagerPrivileges: apiResult, isAdmin: adminResult, userEmail });
-        hasManagerPrivileges = apiResult;
+        const { isAdmin: adminResult, userEmail } = await response.json();
+        console.log('Access check result:', { isAdmin: adminResult, userEmail });
         adminStatus = adminResult;
-        setManagerPrivileges({ hasManagerPrivileges: apiResult });
         setIsAdmin(adminResult);
       }
 
@@ -109,32 +125,77 @@ export default function HomePage() {
 
       if (membershipError) {
         console.error('Error loading teams:', membershipError);
-        // REDIRECT TO NO-ACCESS PAGE ON ERROR
-        router.push('/no-access');
-        return;
+        // Just continue with empty teams list - user can still create teams
+        console.log('Error loading teams, continuing with empty list');
       }
 
       if (!memberships || memberships.length === 0) {
         console.log('No team memberships found');
-        // If no teams but user has manager privileges, that's OK
-        // ADMINS CAN ALWAYS CONTINUE REGARDLESS OF MANAGER PRIVILEGES
-        if (!hasManagerPrivileges && !isAdmin) {
-          console.log('No manager privileges and not admin, redirecting to no-access page');
-          router.push('/no-access');
-          return;
-        }
-        console.log('Has manager privileges or is admin, continuing with empty teams list');
-        // If they have manager privileges or are admin, continue with empty teams list
+        // ANY AUTHENTICATED USER CAN CONTINUE WITH EMPTY TEAMS LIST
+        // They can create teams or accept invitations
+        console.log('Continuing with empty teams list - user can create teams');
       }
 
       setTeamMemberships(memberships as TeamMember[]);
 
     } catch (error) {
       console.error('Error loading user teams:', error);
-      // REDIRECT TO NO-ACCESS PAGE ON ERROR
-      router.push('/no-access');
+      // Just continue with empty teams list - user can still create teams
+      console.log('Error loading teams, continuing with empty list');
     } finally {
       setLoadingTeams(false);
+    }
+  };
+
+  const loadPendingInvitations = async () => {
+    try {
+      const response = await fetch('/api/teams/invite');
+      
+      if (response.ok) {
+        const { invitations } = await response.json();
+        setPendingInvitations(invitations || []);
+      } else {
+        console.error('Failed to load pending invitations');
+        setPendingInvitations([]);
+      }
+    } catch (error) {
+      console.error('Error loading pending invitations:', error);
+      setPendingInvitations([]);
+    }
+  };
+
+  const handleAcceptInvitation = async (invitationId: string) => {
+    try {
+      const response = await fetch('/api/teams/accept-invitation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invitationId
+        }),
+      });
+
+      if (response.ok) {
+        // Reload teams and invitations
+        await loadUserTeams();
+        await loadPendingInvitations();
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to accept invitation:', errorData.error);
+      }
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId: string) => {
+    try {
+      // For now, we'll just remove it from the local state
+      // In a full implementation, you might want to update the invitation status to 'declined'
+      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId));
+    } catch (error) {
+      console.error('Error declining invitation:', error);
     }
   };
 
@@ -311,12 +372,9 @@ export default function HomePage() {
               <p className="text-slate-300 font-medium">{user.email}</p>
             </div>
             <div className="text-right flex gap-2">
-              <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                {managerPrivileges.hasManagerPrivileges ? 'Manager' : 'User'}
-              </span>
               {isAdmin && (
                 <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                  Super
+                  Admin
                 </span>
               )}
             </div>
@@ -327,7 +385,7 @@ export default function HomePage() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-2xl font-bold">Your Teams</h3>
-            {(managerPrivileges.hasManagerPrivileges || isAdmin) && (
+            {user && (
               <button
                 onClick={() => router.push('/setup/team')}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center gap-2"
@@ -410,16 +468,73 @@ export default function HomePage() {
             <div className="text-center py-8 bg-slate-800 rounded-lg border border-slate-700">
               <h4 className="text-2xl font-bold text-slate-100 mb-4">No Teams Yet</h4>
               <p className="text-slate-400">
-                {(managerPrivileges.hasManagerPrivileges || isAdmin)
-                  ? "You have manager privileges. Create your first team to get started!"
-                  : "You don't have any teams yet. Please contact your administrator."
-                }
+                Create your first team to get started!
               </p>
             </div>
           )}
         </div>
 
+        {/* PENDING INVITATIONS SECTION */}
+        {pendingInvitations.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold mb-6">Pending Invitations</h3>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+              {pendingInvitations.map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="bg-slate-800 rounded-lg border border-yellow-500/50 p-6"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <h4 className="text-xl font-semibold text-slate-100">
+                      {invitation.teams.name}
+                    </h4>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      invitation.role === 'manager' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1)}
+                    </span>
+                  </div>
 
+                  {invitation.teams.location && (
+                    <p className="text-slate-400 mb-2 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      {invitation.teams.location}
+                    </p>
+                  )}
+
+                  {invitation.teams.description && (
+                    <p className="text-slate-300 text-sm mb-4">
+                      {invitation.teams.description}
+                    </p>
+                  )}
+
+                  <div className="mb-4">
+                    <p className="text-slate-400 text-xs mt-1">
+                      Expires: {new Date(invitation.expires_at).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => handleAcceptInvitation(invitation.id)}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition-colors text-sm"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => handleDeclineInvitation(invitation.id)}
+                      className="flex-1 bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-md font-medium transition-colors text-sm"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* RECENT ACTIVITY SECTION - COMING SOON */}
         <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 mb-12">

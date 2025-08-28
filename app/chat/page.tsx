@@ -30,8 +30,9 @@ export default function ChatPage() {
         const { hasAccess, hasManagerPrivileges, hasTeamMemberships } = await response.json();
         
         if (!hasAccess) {
-          // USER HAS NO ACCESS - REDIRECT TO NO-ACCESS PAGE
-          router.push('/no-access');
+          // This shouldn't happen since all authenticated users have access
+          console.error('User has no access despite being authenticated');
+          router.push('/');
           return;
         }
 
@@ -53,12 +54,13 @@ export default function ChatPage() {
           router.push("/");
         }
       } else {
-        // API ERROR - REDIRECT TO NO-ACCESS PAGE
-        router.push('/no-access');
+        // API ERROR - REDIRECT TO HOME PAGE
+        console.error('API error checking access, redirecting to home');
+        router.push('/');
       }
     } catch (error) {
       console.error('Error checking user access:', error);
-      router.push('/no-access');
+      router.push('/');
     }
   };
 

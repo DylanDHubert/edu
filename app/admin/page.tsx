@@ -135,12 +135,6 @@ export default function AdminDashboard() {
             </div>
             <div className="flex space-x-4">
               <button
-                onClick={() => router.push('/admin/create-team')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
-              >
-                Invite Manager
-              </button>
-              <button
                 onClick={() => router.push('/admin/dashboard')}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
               >

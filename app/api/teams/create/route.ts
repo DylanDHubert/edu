@@ -26,28 +26,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user has manager privileges - USE SERVICE CLIENT TO BYPASS RLS
+    // ANY AUTHENTICATED USER CAN CREATE TEAMS NOW
     console.log('=== TEAM CREATION DEBUG ===');
     console.log('User email:', user.email);
-    console.log('Checking for manager privileges...');
+    console.log('Creating team for authenticated user...');
     
     const serviceClient = createServiceClient();
-    const { data: invitation, error: inviteError } = await serviceClient
-      .from('manager_invitations')
-      .select('*')
-      .eq('email', user.email)
-      .eq('status', 'completed')
-      .single();
-      
-    console.log('Manager privileges check result:', invitation);
-    console.log('Manager privileges check error:', inviteError);
-
-    if (inviteError || !invitation) {
-      return NextResponse.json(
-        { error: 'Manager privileges required to create teams' },
-        { status: 403 }
-      );
-    }
 
     // Create the team - USE SERVICE CLIENT TO BYPASS RLS
     const { data: team, error: teamError } = await serviceClient
@@ -90,8 +74,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Note: Manager invitation status is already 'completed', no need to update
 
     return NextResponse.json({
       success: true,

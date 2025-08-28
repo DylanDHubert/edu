@@ -10,7 +10,7 @@ export default function NoAccessPage() {
   const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [hasManagerPrivileges, setHasManagerPrivileges] = useState(false);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
 
@@ -22,17 +22,16 @@ export default function NoAccessPage() {
         return;
       }
       
-      // CHECK MANAGER PRIVILEGES
-      checkManagerPrivileges();
+      // CHECK ACCESS
+      checkAccess();
     }
   }, [authLoading, user, router]);
 
-  const checkManagerPrivileges = async () => {
+  const checkAccess = async () => {
     try {
       const response = await fetch('/api/auth/check-access');
       if (response.ok) {
-        const { hasManagerPrivileges: privileges, isAdmin: adminStatus } = await response.json();
-        setHasManagerPrivileges(privileges);
+        const { isAdmin: adminStatus } = await response.json();
         setIsAdmin(adminStatus);
         
         // IF USER IS ADMIN, THEY SHOULD NEVER BE ON THIS PAGE - REDIRECT TO HOME
@@ -84,63 +83,37 @@ export default function NoAccessPage() {
             </div>
             <h1 className="text-3xl font-bold text-slate-100 mb-2">Access Restricted</h1>
             <p className="text-slate-400">
-              {hasManagerPrivileges 
-                ? "You have manager privileges but are not a member of any teams yet."
-                : "You don't have access to any teams or manager privileges."
-              }
+              You don't have access to any teams yet.
             </p>
           </div>
 
           <div className="bg-slate-700 rounded-md p-6 mb-6">
             <h2 className="text-lg font-semibold text-slate-100 mb-3">What you can do:</h2>
             <div className="space-y-3 text-left">
-              {hasManagerPrivileges ? (
-                <>
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                    <div>
-                      <p className="text-slate-200 font-medium">Create a new team</p>
-                      <p className="text-slate-400 text-sm">Use your manager privileges to set up your own team</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                    <div>
-                      <p className="text-slate-200 font-medium">Wait for an invitation</p>
-                      <p className="text-slate-400 text-sm">A team manager can invite you to join their team</p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                    <div>
-                      <p className="text-slate-200 font-medium">Request manager privileges</p>
-                      <p className="text-slate-400 text-sm">Contact an administrator to get manager access</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                    <div>
-                      <p className="text-slate-200 font-medium">Wait for an invitation</p>
-                      <p className="text-slate-400 text-sm">A team manager can invite you to join their team</p>
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="flex items-start gap-3">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <p className="text-slate-200 font-medium">Create a new team</p>
+                  <p className="text-slate-400 text-sm">Set up your own team and start collaborating</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <p className="text-slate-200 font-medium">Wait for an invitation</p>
+                  <p className="text-slate-400 text-sm">A team manager can invite you to join their team</p>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            {hasManagerPrivileges && (
-              <button
-                onClick={() => router.push('/setup/team')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
-              >
-                
-              </button>
-            )}
+            <button
+              onClick={() => router.push('/setup/team')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
+            >
+              Create New Team
+            </button>
             
             <button
               onClick={handleLogout}
