@@ -9,9 +9,11 @@ import NotesSection from "./NotesSection";
 interface SidebarProps {
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
+  isDesktopOpen: boolean;
+  setIsDesktopOpen: (open: boolean) => void;
 }
 
-export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps) {
+export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, setIsDesktopOpen }: SidebarProps) {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const { 
@@ -120,58 +122,12 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 
       {/* SIDEBAR */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-40
+        fixed inset-y-0 left-0 z-40
         w-full lg:w-80 bg-slate-800 border-r border-slate-700 flex flex-col
         transform transition-transform duration-300 ease-in-out
-        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${isDesktopOpen ? 'lg:translate-x-0' : 'lg:-translate-x-full'}
       `}>
-        {/* HEADER */}
-        <div className="bg-slate-800 border-b border-slate-700 p-4">
-          <div className="flex items-center justify-between relative">
-            {/* LEFT: HHB Logo */}
-            <div className="flex items-center">
-              <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md mr-4 shadow-lg relative overflow-hidden p-2">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
-                <img src="/logo.png" alt="HHB" className="relative z-10 h-8 w-auto" />
-              </div>
-            </div>
-
-            {/* CENTER: Team/Context Info */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center pointer-events-auto">
-                {activeAssistant?.accountName && activeAssistant?.portfolioName ? (
-                  // CHAT PAGE LAYOUT: 2 lines only
-                  <>
-                    <h1 className="text-xl font-bold text-slate-100">
-                      {activeAssistant.teamName} • {activeAssistant.teamLocation}
-                    </h1>
-                    <p className="text-slate-400 text-sm mt-1">
-                      {activeAssistant.accountName} • {activeAssistant.portfolioName}
-                    </p>
-                  </>
-                ) : (
-                  // REGULAR PAGE LAYOUT: 2 lines with role
-                  <>
-                    <h1 className="text-xl font-bold text-slate-100">{activeAssistant?.teamName || 'HHB Stryker Assistant'}</h1>
-                    {activeAssistant?.teamLocation && activeAssistant?.userRole && (
-                      <p className="text-slate-400 text-sm mt-1">
-                        {activeAssistant.teamLocation} • {activeAssistant.userRole === 'manager' ? 'Team Manager' : 'Team Member'}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* RIGHT: Close Button */}
-            <button
-              onClick={() => setIsMobileOpen(false)}
-              className="lg:hidden bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-md font-medium transition-colors text-sm relative z-10"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
 
         {/* TABS */}
         <div className="flex border-b border-slate-700">

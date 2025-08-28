@@ -12,6 +12,7 @@ export default function ChatPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false); // DESKTOP SIDEBAR STATE
 
   useEffect(() => {
     if (!loading && !user) {
@@ -64,6 +65,17 @@ export default function ChatPage() {
     }
   };
 
+  // HANDLE MENU CLICK FOR BOTH MOBILE AND DESKTOP
+  const handleMenuClick = () => {
+    // ON MOBILE: TOGGLE MOBILE OVERLAY
+    // ON DESKTOP: TOGGLE SIDEBAR VISIBILITY
+    if (window.innerWidth >= 1024) { // lg breakpoint
+      setIsDesktopSidebarOpen(!isDesktopSidebarOpen);
+    } else {
+      setIsMobileOpen(!isMobileOpen);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
@@ -82,9 +94,16 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen bg-slate-900">
       <DynamicThemeColor />
-      <Sidebar isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
-      <div className="flex-1 flex flex-col lg:ml-0">
-        <ChatInterface onMenuClick={() => setIsMobileOpen(!isMobileOpen)} />
+      <Sidebar 
+        isMobileOpen={isMobileOpen} 
+        setIsMobileOpen={setIsMobileOpen}
+        isDesktopOpen={isDesktopSidebarOpen}
+        setIsDesktopOpen={setIsDesktopSidebarOpen}
+      />
+      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${
+        isDesktopSidebarOpen ? 'lg:ml-80' : 'lg:ml-0'
+      }`}>
+        <ChatInterface onMenuClick={handleMenuClick} />
       </div>
     </div>
   );
