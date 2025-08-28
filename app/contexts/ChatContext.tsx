@@ -69,12 +69,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       loadActiveAssistant();
     };
 
+    // Listen for clear current chat event
+    const handleClearCurrentChat = () => {
+      setCurrentChat(null);
+      console.log('CURRENT CHAT CLEARED');
+    };
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('activeAssistantChanged', handleCustomStorageChange);
+    window.addEventListener('clearCurrentChat', handleClearCurrentChat);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('activeAssistantChanged', handleCustomStorageChange);
+      window.removeEventListener('clearCurrentChat', handleClearCurrentChat);
     };
   }, []);
 

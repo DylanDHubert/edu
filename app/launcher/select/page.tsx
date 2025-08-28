@@ -271,6 +271,9 @@ function AccountPortfolioSelectContent() {
       // Dispatch custom event to notify ChatContext of the change
       window.dispatchEvent(new CustomEvent('activeAssistantChanged'));
       
+      // CLEAR CURRENT CHAT TO ENSURE FRESH START
+      window.dispatchEvent(new CustomEvent('clearCurrentChat'));
+      
       console.log('ACTIVE ASSISTANT SET:', activeAssistant);
 
       // Redirect to the main chat interface
