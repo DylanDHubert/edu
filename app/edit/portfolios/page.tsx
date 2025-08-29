@@ -5,7 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
-import { Save } from "lucide-react";
+import { Save, ChevronDown, ChevronRight } from "lucide-react";
 import { uploadFilesToSupabase, processUploadedFiles } from "../../utils/file-upload";
 
 interface Portfolio {
@@ -28,6 +28,8 @@ function EditPortfoliosContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  // Add state for managing expanded portfolios
+  const [expandedPortfolios, setExpandedPortfolios] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!loading && !user) {
@@ -311,6 +313,18 @@ function EditPortfoliosContent() {
     }
   };
 
+  // Add toggle function for expanding/collapsing portfolio documents
+  const togglePortfolioDocuments = (portfolioId: string | undefined, portfolioIndex: number) => {
+    const key = portfolioId || `new-${portfolioIndex}`;
+    const newExpanded = new Set(expandedPortfolios);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedPortfolios(newExpanded);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
@@ -406,23 +420,42 @@ function EditPortfoliosContent() {
                 </div>
               </div>
 
-              {/* Existing Documents */}
+              {/* Existing Documents - Collapsible */}
               {portfolio.existingDocuments && portfolio.existingDocuments.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="text-md font-medium text-slate-100 mb-3">Existing Documents</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {portfolio.existingDocuments.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-md">
-                        <span className="text-slate-300 text-sm">{doc.original_name}</span>
-                        <button
-                          onClick={() => removeExistingDocument(index, doc.id)}
-                          className="text-red-400 hover:text-red-300 text-sm"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => togglePortfolioDocuments(portfolio.id, index)}
+                    className="flex items-center justify-between w-full text-left mb-3 hover:bg-slate-700/50 p-2 rounded-md transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-md font-medium text-slate-100">Existing Documents</h4>
+                      <span className="text-sm text-slate-400 bg-slate-700 px-2 py-1 rounded-full">
+                        {portfolio.existingDocuments.length} document{portfolio.existingDocuments.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {expandedPortfolios.has(portfolio.id || `new-${index}`) ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                  
+                  {/* Collapsible Documents List */}
+                  {expandedPortfolios.has(portfolio.id || `new-${index}`) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 transition-all duration-200 ease-in-out">
+                      {portfolio.existingDocuments.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-md">
+                          <span className="text-slate-300 text-sm">{doc.original_name}</span>
+                          <button
+                            onClick={() => removeExistingDocument(index, doc.id)}
+                            className="text-red-400 hover:text-red-300 text-sm"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

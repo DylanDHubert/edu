@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import ImageUpload from "../../components/ImageUpload";
 import StandardHeader from "../../components/StandardHeader";
-import { Save } from "lucide-react";
+import { Save, ChevronDown, ChevronRight } from "lucide-react";
 
 interface Inventory {
   id: string;
@@ -47,6 +47,8 @@ function EditAccountsContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  // Add state for managing expanded accounts
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!loading && !user) {
@@ -483,6 +485,28 @@ function EditAccountsContent() {
     }
   };
 
+  // Add toggle function for expanding/collapsing account details
+  const toggleAccountDetails = (accountId: string | undefined, accountIndex: number) => {
+    const key = accountId || `new-${accountIndex}`;
+    const newExpanded = new Set(expandedAccounts);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedAccounts(newExpanded);
+  };
+
+  // Helper function to count knowledge items for an account
+  const getKnowledgeItemCount = (account: Account) => {
+    let count = 0;
+    count += account.inventory.length;
+    count += account.instruments.length;
+    if (account.technicalInfo.trim()) count += 1;
+    if (account.accessMisc.trim()) count += 1;
+    return count;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
@@ -550,18 +574,50 @@ function EditAccountsContent() {
 
         <div className="space-y-6">
           {accounts.map((account, accountIndex) => (
-            <div key={accountIndex} className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <div className="flex justify-between items-start mb-6">
-                <h3 className="text-lg font-semibold text-slate-100">
-                  {account.id ? `Edit Account: ${account.name}` : `New Account ${accountIndex + 1}`}
-                </h3>
+            <div key={accountIndex} className="bg-slate-800 rounded-lg border border-slate-700">
+              {/* Collapsible Header */}
+              <div className="p-6 pb-4">
                 <button
-                  onClick={() => removeAccount(accountIndex)}
-                  className="text-red-400 hover:text-red-300 font-medium"
+                  onClick={() => toggleAccountDetails(account.id, accountIndex)}
+                  className="flex items-center justify-between w-full text-left mb-4 hover:bg-slate-700/50 p-3 rounded-md transition-colors"
                 >
-                  Delete Account
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-slate-100">
+                      {account.name || `New Account ${accountIndex + 1}`}
+                    </h3>
+                    {account.name && (
+                      <span className="text-sm text-slate-400 bg-slate-700 px-2 py-1 rounded-full">
+                        {getKnowledgeItemCount(account)} knowledge item{getKnowledgeItemCount(account) !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {account.assignedPortfolios.length > 0 && (
+                      <span className="text-xs text-slate-500 bg-slate-600 px-2 py-1 rounded-full">
+                        {account.assignedPortfolios.length} portfolio{account.assignedPortfolios.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeAccount(accountIndex);
+                      }}
+                      className="text-red-400 hover:text-red-300 font-medium text-sm px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
+                    >
+                      Delete
+                    </button>
+                    {expandedAccounts.has(account.id || `new-${accountIndex}`) ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    )}
+                  </div>
                 </button>
               </div>
+
+              {/* Collapsible Content */}
+              {expandedAccounts.has(account.id || `new-${accountIndex}`) && (
+                <div className="px-6 pb-6 transition-all duration-200 ease-in-out">
 
               {/* Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -755,6 +811,8 @@ function EditAccountsContent() {
                   Include any information specific to this account, such as facility access, parking, protocols, etc.
                 </p>
               </div>
+                </div>
+              )}
             </div>
           ))}
 
