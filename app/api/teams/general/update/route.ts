@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (generalKnowledge.surgeons && generalKnowledge.surgeons.length > 0) {
       for (const surgeon of generalKnowledge.surgeons) {
         if (surgeon.name && surgeon.name.trim()) {
-          // Check if this surgeon already exists
+          // Check if this specific surgeon + procedure combination already exists
           const { data: existingSurgeon, error: checkError } = await supabase
             .from('team_knowledge')
             .select('id')
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
             .is('portfolio_id', null)
             .eq('category', 'surgeon_info')
             .eq('title', surgeon.name.trim())
+            .eq('metadata->>procedure_focus', surgeon.procedure_focus?.trim() || '')
             .single();
 
           const knowledgeData = {
@@ -103,33 +104,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clean up any orphaned general knowledge records for removed items
-    const { data: allCurrentKnowledge } = await supabase
-      .from('team_knowledge')
-      .select('id, category, title')
-      .eq('team_id', teamId)
-      .is('account_id', null)
-      .is('portfolio_id', null);
+    // Clean up orphaned entries only for surgeons being saved (not all surgeons)
+    if (generalKnowledge.surgeons && generalKnowledge.surgeons.length > 0) {
+      // Get list of surgeon names being saved in this request
+      const surgeonsBeingSaved = new Set();
+      generalKnowledge.surgeons.forEach((surgeon: any) => {
+        if (surgeon.name?.trim()) {
+          surgeonsBeingSaved.add(surgeon.name.trim());
+        }
+      });
 
-    if (allCurrentKnowledge) {
-      // Build list of titles that should exist
-      const shouldExist = new Set();
-      
-      // Add surgeons
-      if (generalKnowledge.surgeons) {
-        generalKnowledge.surgeons.forEach((surgeon: any) => {
-          if (surgeon.name?.trim()) shouldExist.add(`surgeon_info:${surgeon.name.trim()}`);
-        });
-      }
+      // Only clean up entries for surgeons being saved in this request
+      for (const surgeonName of surgeonsBeingSaved) {
+        // Get all existing entries for this specific surgeon
+        const { data: existingEntries } = await supabase
+          .from('team_knowledge')
+          .select('id, metadata')
+          .eq('team_id', teamId)
+          .eq('category', 'surgeon_info')
+          .eq('title', surgeonName)
+          .is('account_id', null)
+          .is('portfolio_id', null);
 
-      // Delete any records that shouldn't exist anymore
-      for (const record of allCurrentKnowledge) {
-        const key = `${record.category}:${record.title}`;
-        if (!shouldExist.has(key)) {
-          await supabase
-            .from('team_knowledge')
-            .delete()
-            .eq('id', record.id);
+        if (existingEntries) {
+          // Build list of procedure_focus values that should exist for this surgeon
+          const shouldExist = new Set();
+          generalKnowledge.surgeons.forEach((surgeon: any) => {
+            if (surgeon.name?.trim() === surgeonName) {
+              const procedureFocus = surgeon.procedure_focus?.trim() || '';
+              shouldExist.add(procedureFocus);
+            }
+          });
+
+          // Delete entries for this surgeon that shouldn't exist anymore
+          for (const entry of existingEntries) {
+            const procedureFocus = entry.metadata?.procedure_focus || '';
+            if (!shouldExist.has(procedureFocus)) {
+              await supabase
+                .from('team_knowledge')
+                .delete()
+                .eq('id', entry.id);
+            }
+          }
         }
       }
     }

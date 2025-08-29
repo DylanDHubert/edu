@@ -62,3 +62,21 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* SAFARI AND CHROME */
 }
+
+/* MARKDOWN SPACING RESET - Remove all default margins */
+.markdown-content * {
+  margin: 0 !important;
+}
+
+/* DEBUG: Add visible borders to see spacing issues - DISABLED FOR NOW */
+/*
+.markdown-content {
+  border: 1px solid rgba(255, 0, 0, 0.2) !important;
+  background: rgba(255, 0, 0, 0.05) !important;
+}
+
+.markdown-content > * {
+  border: 1px solid rgba(0, 255, 0, 0.2) !important;
+  background: rgba(0, 255, 0, 0.05) !important;
+}
+*/

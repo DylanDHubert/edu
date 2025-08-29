@@ -7,6 +7,7 @@ import { useChat } from "../contexts/ChatContext";
 import StandardHeader from "./StandardHeader";
 import FeedbackModal from "./FeedbackModal";
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
@@ -74,17 +75,55 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     }
   }, []);
 
-  // SIMPLE MARKDOWN STYLING COMPONENTS
+  // MARKDOWN STYLING COMPONENTS WITH MINIMAL SPACING
   const markdownComponents = {
-    h1: ({children}: any) => <h1 className="text-2xl font-bold text-slate-100 mt-6 mb-3">{children}</h1>,
-    h2: ({children}: any) => <h2 className="text-xl font-semibold text-slate-100 mt-6 mb-3">{children}</h2>,
-    h3: ({children}: any) => <h3 className="text-lg font-semibold text-slate-100 mt-4 mb-2">{children}</h3>,
-    p: ({children}: any) => <p className="mb-4 text-slate-100">{children}</p>,
-    ul: ({children}: any) => <ul className="mb-4 ml-4 space-y-1">{children}</ul>,
-    ol: ({children}: any) => <ol className="mb-4 ml-4 space-y-1 list-decimal list-inside">{children}</ol>,
+    h1: ({children}: any) => <h1 className="text-2xl font-bold text-slate-100 mt-2 mb-1">{children}</h1>,
+    h2: ({children}: any) => {
+      console.log('🔍 H2 DEBUG - Content:', children);
+      return <h2 className="text-xl font-semibold text-slate-100 mt-2 mb-1">{children}</h2>;
+    },
+    h3: ({children}: any) => <h3 className="text-lg font-semibold text-slate-100 mt-1 mb-0.5">{children}</h3>,
+    p: ({children}: any) => {
+      console.log('🔍 PARAGRAPH DEBUG - Content:', children);
+      console.log('🔍 PARAGRAPH DEBUG - Is empty:', !children || (typeof children === 'string' && children.trim() === ''));
+      
+      // Don't render empty paragraphs
+      if (!children || (typeof children === 'string' && children.trim() === '')) {
+        return null;
+      }
+      
+      return <p className="mb-1 text-slate-100">{children}</p>;
+    },
+    ul: ({children}: any) => {
+      console.log('🔍 UL DEBUG - Content:', children);
+      return <ul className="mb-1 ml-4 space-y-0">{children}</ul>;
+    },
+    ol: ({children}: any) => <ol className="mb-1 ml-4 space-y-0 list-decimal list-inside">{children}</ol>,
     li: ({children}: any) => <li className="text-slate-100">{children}</li>,
     strong: ({children}: any) => <strong className="font-semibold text-slate-100">{children}</strong>,
     em: ({children}: any) => <em className="italic text-slate-100">{children}</em>,
+    // TABLE COMPONENTS
+    table: ({children}: any) => {
+      console.log('🔍 TABLE DEBUG - Table component rendered');
+      return (
+        <div className="overflow-x-auto mb-2">
+          <table className="min-w-full border border-slate-600 bg-slate-800 rounded-lg border-collapse">{children}</table>
+        </div>
+      );
+    },
+    thead: ({children}: any) => <thead className="bg-slate-700">{children}</thead>,
+    tbody: ({children}: any) => <tbody>{children}</tbody>,
+    tr: ({children}: any) => <tr className="border-b border-slate-600">{children}</tr>,
+    th: ({children}: any) => (
+      <th className="px-3 py-1 text-left text-slate-100 font-semibold border-r border-slate-600 last:border-r-0">
+        {children}
+      </th>
+    ),
+    td: ({children}: any) => (
+      <td className="px-3 py-1 text-slate-100 border-r border-slate-600 last:border-r-0">
+        {children}
+      </td>
+    ),
   };
 
   // EXTRACT IMAGE URLS FROM TEXT
@@ -129,6 +168,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
 
   // RENDER TEXT WITHOUT IMAGE URLS (CLEAN TEXT)
   const renderTextWithImageUrlsAsText = (text: string) => {
+    console.log('🔍 MARKDOWN DEBUG - Original text:', text);
+    console.log('🔍 MARKDOWN DEBUG - Original text (escaped):', JSON.stringify(text));
+    
     // REMOVE [IMAGE URL: ...] FORMAT COMPLETELY
     let processedText = text.replace(/\[IMAGE URL:\s*\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp)\]/gi, '');
     
@@ -138,15 +180,27 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     // REMOVE PLAIN IMAGE URLS COMPLETELY
     processedText = processedText.replace(/\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi, '');
     
-    // CLEAN UP EXTRA SPACES AND PUNCTUATION (BUT PRESERVE LINE BREAKS)
+    // AGGRESSIVE WHITESPACE CLEANUP
     processedText = processedText.replace(/\s*\.\s*\./g, '.'); // REMOVE DOUBLE PERIODS
-    processedText = processedText.replace(/[ \t]+/g, ' '); // NORMALIZE SPACES (but keep newlines)
+    processedText = processedText.replace(/[ \t]+/g, ' '); // NORMALIZE SPACES
+    processedText = processedText.replace(/\n\s*\n\s*\n/g, '\n\n'); // MAX 2 consecutive newlines
+    processedText = processedText.replace(/\n[ \t]+/g, '\n'); // REMOVE SPACES AFTER NEWLINES
+    processedText = processedText.replace(/[ \t]+\n/g, '\n'); // REMOVE SPACES BEFORE NEWLINES
     processedText = processedText.trim(); // REMOVE LEADING/TRAILING SPACES
     
+    console.log('🔍 MARKDOWN DEBUG - Processed text:', processedText);
+    console.log('🔍 MARKDOWN DEBUG - Processed text (escaped):', JSON.stringify(processedText));
+    console.log('🔍 MARKDOWN DEBUG - Has table syntax:', /\|.*\|/.test(processedText));
+    
     return (
-      <ReactMarkdown components={markdownComponents}>
-        {processedText}
-      </ReactMarkdown>
+      <div className="markdown-content">
+        <ReactMarkdown 
+          components={markdownComponents}
+          remarkPlugins={[remarkGfm]}
+        >
+          {processedText}
+        </ReactMarkdown>
+      </div>
     );
   };
 
@@ -913,9 +967,14 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             })()}
                           </div>
                         ) : (
-                          <ReactMarkdown components={markdownComponents}>
-                            {text}
-                          </ReactMarkdown>
+                          <div className="markdown-content">
+                            <ReactMarkdown 
+                              components={markdownComponents}
+                              remarkPlugins={[remarkGfm]}
+                            >
+                              {text}
+                            </ReactMarkdown>
+                          </div>
                         )}
                         {message.role === 'assistant' && content.text.annotations && content.text.annotations.length > 0 && (
                           <div className="mt-2 text-xs text-slate-400 border-t border-slate-600 pt-2">

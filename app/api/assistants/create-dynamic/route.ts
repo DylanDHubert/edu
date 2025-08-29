@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
-import { createAccountPortfolioKnowledgeText, createGeneralKnowledgeText } from '../../../utils/knowledge-generator';
+import { createAccountPortfolioKnowledgeText, createGeneralKnowledgeText, filterSurgeonInfoByPortfolio } from '../../../utils/knowledge-generator';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -331,13 +331,8 @@ async function generateGeneralContext(supabase: any, teamId: string, names: any)
       return '';
     }
 
-    // Transform knowledge data
-    const surgeonInfo = knowledgeData
-      .filter((k: any) => k.category === 'surgeon_info')
-      .map((k: any) => ({
-        title: k.metadata?.name || k.title || '',
-        content: `${k.metadata?.specialty || ''} - ${k.metadata?.procedure_focus || ''} - ${k.metadata?.notes || ''}`
-      }));
+    // Filter surgeon info by portfolio type (include general + relevant procedures)
+    const surgeonInfo = filterSurgeonInfoByPortfolio(knowledgeData, names.portfolioName);
 
     // Generate text content
     const textContent = createGeneralKnowledgeText({

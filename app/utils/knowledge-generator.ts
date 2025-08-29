@@ -155,4 +155,93 @@ export function createGeneralKnowledgeText(params: GeneralKnowledgeParams): stri
   text += `For account-specific information, refer to individual account knowledge bases.\n`;
   
   return text;
+}
+
+// Filter surgeon info by portfolio type - includes general practice + matching procedures
+export function filterSurgeonInfoByPortfolio(
+  surgeonKnowledgeData: any[], 
+  portfolioName: string
+): Array<{ title: string; content: string }> {
+  if (!surgeonKnowledgeData || surgeonKnowledgeData.length === 0) {
+    return [];
+  }
+
+  console.log(`🔍 FILTERING SURGEON INFO FOR PORTFOLIO: ${portfolioName}`);
+  console.log(`📊 Total surgeon entries found: ${surgeonKnowledgeData.filter(k => k.category === 'surgeon_info').length}`);
+
+  const portfolioLower = portfolioName.toLowerCase();
+  
+  const filteredEntries = surgeonKnowledgeData
+    .filter((k: any) => k.category === 'surgeon_info')
+    .filter((k: any) => {
+      const procedureFocus = k.metadata?.procedure_focus?.toLowerCase() || '';
+      const surgeonName = k.metadata?.name || k.title || '';
+      
+      console.log(`🔍 Evaluating: ${surgeonName} - ${k.metadata?.procedure_focus || 'No procedure_focus'}`);
+      
+      // ALWAYS include general surgeon information (for any portfolio)
+      if (procedureFocus === 'general' || procedureFocus === 'general practice' || procedureFocus === '') {
+        console.log(`✅ INCLUDED (General): ${surgeonName} - General Practice`);
+        return true;
+      }
+      
+      // Include procedure-specific info that matches the portfolio
+      let isMatch = false;
+      
+      // Knee/TKA procedures
+      if (portfolioLower.includes('knee') || portfolioLower.includes('tk')) {
+        isMatch = procedureFocus.includes('knee') || procedureFocus.includes('tka');
+      }
+      
+      // Hip/THA procedures  
+      if (portfolioLower.includes('hip') || portfolioLower.includes('th')) {
+        isMatch = isMatch || procedureFocus.includes('hip') || procedureFocus.includes('tha');
+      }
+      
+      // Spine procedures
+      if (portfolioLower.includes('spine') || portfolioLower.includes('spinal')) {
+        isMatch = isMatch || procedureFocus.includes('spine') || procedureFocus.includes('spinal');
+      }
+      
+      // Shoulder procedures
+      if (portfolioLower.includes('shoulder')) {
+        isMatch = isMatch || procedureFocus.includes('shoulder');
+      }
+      
+      // Eyes procedures (for testing)
+      if (portfolioLower.includes('eye')) {
+        isMatch = isMatch || procedureFocus.includes('eye');
+      }
+      
+      // Fields procedures (for testing) 
+      if (portfolioLower.includes('field')) {
+        isMatch = isMatch || procedureFocus.includes('field');
+      }
+      
+      // Exact match fallback - if portfolio name matches procedure focus exactly
+      if (portfolioLower === procedureFocus) {
+        isMatch = true;
+      }
+      
+      if (isMatch) {
+        console.log(`✅ INCLUDED (Procedure Match): ${surgeonName} - ${k.metadata?.procedure_focus}`);
+      } else {
+        console.log(`❌ EXCLUDED (No Match): ${surgeonName} - ${k.metadata?.procedure_focus} (Portfolio: ${portfolioName})`);
+      }
+      
+      return isMatch;
+    })
+    .map((k: any) => ({
+      title: k.metadata?.name ? 
+        `${k.metadata.name}${k.metadata.procedure_focus && k.metadata.procedure_focus !== 'General Practice' && k.metadata.procedure_focus !== '' ? ` - ${k.metadata.procedure_focus}` : ''}` :
+        k.title || '',
+      content: k.metadata?.notes || k.content || ''
+    }));
+
+  console.log(`📋 FINAL FILTERED ENTRIES: ${filteredEntries.length}`);
+  filteredEntries.forEach(entry => {
+    console.log(`  - ${entry.title}: ${entry.content.substring(0, 50)}...`);
+  });
+
+  return filteredEntries;
 } 
