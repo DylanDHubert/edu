@@ -151,12 +151,14 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Update team knowledge for this account (for each assigned portfolio)
-        for (const portfolioId of accountData.assignedPortfolios) {
-          await updateAccountKnowledge(supabase, teamId, accountData, portfolioId, imageFiles);
+        // Update portfolio-specific knowledge for each portfolio that has data
+        for (const [portfolioId, portfolioData] of Object.entries(accountData.portfolioData || {})) {
+          if (portfolioData && typeof portfolioData === 'object' && ((portfolioData as any).inventory?.length > 0 || (portfolioData as any).instruments?.length > 0 || (portfolioData as any).technicalInfo?.trim())) {
+            await updatePortfolioSpecificKnowledge(supabase, teamId, { ...accountData, portfolioData: { [portfolioId]: portfolioData } }, portfolioId, imageFiles);
+          }
         }
 
-        // Update account-level knowledge (instruments, technical, access) - only once per account
+        // Update account-level knowledge (access & misc only)
         await updateAccountLevelKnowledge(supabase, teamId, accountData, imageFiles);
 
       } else {
@@ -196,12 +198,12 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Create knowledge for new account (for each assigned portfolio)
+        // Create portfolio-specific knowledge for new account (for each assigned portfolio)
         for (const portfolioId of accountData.assignedPortfolios) {
-          await updateAccountKnowledge(supabase, teamId, { ...accountData, id: createdAccount.id }, portfolioId, imageFiles);
+          await updatePortfolioSpecificKnowledge(supabase, teamId, { ...accountData, id: createdAccount.id }, portfolioId, imageFiles);
         }
 
-        // Create account-level knowledge for new account (instruments, technical, access)
+        // Create account-level knowledge for new account (access & misc only)
         await updateAccountLevelKnowledge(supabase, teamId, { ...accountData, id: createdAccount.id }, imageFiles);
       }
     }
@@ -222,14 +224,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function updateAccountKnowledge(supabase: any, teamId: string, accountData: any, portfolioId: string, imageFiles: any) {
+async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, accountData: any, portfolioId: string, imageFiles: any) {
   try {
     console.log(`Updating portfolio-specific knowledge for account ${accountData.id}, portfolio ${portfolioId}`);
-    console.log('Account data:', JSON.stringify(accountData, null, 2));
+    
+    // Get portfolio-specific data for this portfolio
+    const portfolioData = accountData.portfolioData?.[portfolioId] || {};
     
     // Handle inventory knowledge - UPDATE or INSERT each item (portfolio-specific)
-    if (accountData.inventory && accountData.inventory.length > 0) {
-      for (const item of accountData.inventory) {
+    if (portfolioData.inventory && portfolioData.inventory.length > 0) {
+      for (const item of portfolioData.inventory) {
         if (item.name && item.name.trim()) {
           // Check if this inventory item already exists
           const { data: existingItem, error: checkError } = await supabase
@@ -274,51 +278,9 @@ async function updateAccountKnowledge(supabase: any, teamId: string, accountData
       }
     }
 
-    // Clean up any orphaned inventory records for this portfolio
-    const { data: allCurrentKnowledge } = await supabase
-      .from('team_knowledge')
-      .select('id, category, title')
-      .eq('team_id', teamId)
-      .eq('account_id', accountData.id)
-      .eq('portfolio_id', portfolioId)
-      .eq('category', 'inventory');
-
-    if (allCurrentKnowledge) {
-      // Build list of inventory titles that should exist
-      const shouldExist = new Set();
-      
-             // Add inventory items
-       if (accountData.inventory) {
-         accountData.inventory.forEach((item: any) => {
-           if (item.name?.trim()) shouldExist.add(`inventory:${item.name.trim()}`);
-         });
-       }
-
-      // Delete any inventory records that shouldn't exist anymore
-      for (const record of allCurrentKnowledge) {
-        const key = `${record.category}:${record.title}`;
-        if (!shouldExist.has(key)) {
-          await supabase
-            .from('team_knowledge')
-            .delete()
-            .eq('id', record.id);
-        }
-      }
-    }
-
-  } catch (error) {
-    console.error('Error updating portfolio-specific knowledge:', error);
-  }
-}
-
-async function updateAccountLevelKnowledge(supabase: any, teamId: string, accountData: any, imageFiles: any) {
-  try {
-    console.log(`Updating account-level knowledge for account ${accountData.id}`);
-    console.log('Account data:', JSON.stringify(accountData, null, 2));
-
-    // Handle instruments knowledge - UPDATE or INSERT each item
-    if (accountData.instruments && accountData.instruments.length > 0) {
-      for (const instrument of accountData.instruments) {
+    // Handle instruments knowledge - UPDATE or INSERT each item (portfolio-specific)
+    if (portfolioData.instruments && portfolioData.instruments.length > 0) {
+      for (const instrument of portfolioData.instruments) {
         if (instrument.name && instrument.name.trim()) {
           let imageUrl = instrument.imageUrl;
           let imageName = instrument.imageName;
@@ -349,7 +311,7 @@ async function updateAccountLevelKnowledge(supabase: any, teamId: string, accoun
             .select('id')
             .eq('team_id', teamId)
             .eq('account_id', accountData.id)
-            .eq('portfolio_id', null) // Account-level knowledge
+            .eq('portfolio_id', portfolioId)
             .eq('category', 'instruments')
             .eq('title', instrument.name.trim())
             .single();
@@ -380,7 +342,7 @@ async function updateAccountLevelKnowledge(supabase: any, teamId: string, accoun
               .insert({
                 team_id: teamId,
                 account_id: accountData.id,
-                portfolio_id: null, // Account-level knowledge
+                portfolio_id: portfolioId,
                 category: 'instruments',
                 ...knowledgeData
               });
@@ -389,24 +351,24 @@ async function updateAccountLevelKnowledge(supabase: any, teamId: string, accoun
       }
     }
 
-    // Handle technical knowledge - UPDATE or INSERT
-    if (accountData.technicalInfo && accountData.technicalInfo.trim()) {
+    // Handle technical knowledge - UPDATE or INSERT (portfolio-specific)
+    if (portfolioData.technicalInfo && portfolioData.technicalInfo.trim()) {
       // Check if technical info already exists
       const { data: existingTechnical, error: checkError } = await supabase
         .from('team_knowledge')
         .select('id')
         .eq('team_id', teamId)
         .eq('account_id', accountData.id)
-        .eq('portfolio_id', null) // Account-level knowledge
+        .eq('portfolio_id', portfolioId)
         .eq('category', 'technical')
         .eq('title', 'Technical Information')
         .single();
 
       const knowledgeData = {
         title: 'Technical Information',
-        content: accountData.technicalInfo.trim(),
+        content: portfolioData.technicalInfo.trim(),
         metadata: {
-          content: accountData.technicalInfo.trim()
+          content: portfolioData.technicalInfo.trim()
         },
         updated_at: new Date().toISOString()
       };
@@ -424,14 +386,66 @@ async function updateAccountLevelKnowledge(supabase: any, teamId: string, accoun
           .insert({
             team_id: teamId,
             account_id: accountData.id,
-            portfolio_id: null, // Account-level knowledge
+            portfolio_id: portfolioId,
             category: 'technical',
             ...knowledgeData
           });
       }
     }
 
-    // Handle access & misc knowledge - UPDATE or INSERT
+    // Clean up any orphaned records for this portfolio
+    const { data: allCurrentKnowledge } = await supabase
+      .from('team_knowledge')
+      .select('id, category, title')
+      .eq('team_id', teamId)
+      .eq('account_id', accountData.id)
+      .eq('portfolio_id', portfolioId);
+
+    if (allCurrentKnowledge) {
+      // Build list of titles that should exist
+      const shouldExist = new Set();
+      
+      // Add inventory items
+      if (portfolioData.inventory) {
+        portfolioData.inventory.forEach((item: any) => {
+          if (item.name?.trim()) shouldExist.add(`inventory:${item.name.trim()}`);
+        });
+      }
+
+      // Add instruments
+      if (portfolioData.instruments) {
+        portfolioData.instruments.forEach((instrument: any) => {
+          if (instrument.name?.trim()) shouldExist.add(`instruments:${instrument.name.trim()}`);
+        });
+      }
+      
+      // Add technical info
+      if (portfolioData.technicalInfo?.trim()) {
+        shouldExist.add('technical:Technical Information');
+      }
+
+      // Delete any records that shouldn't exist anymore
+      for (const record of allCurrentKnowledge) {
+        const key = `${record.category}:${record.title}`;
+        if (!shouldExist.has(key)) {
+          await supabase
+            .from('team_knowledge')
+            .delete()
+            .eq('id', record.id);
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('Error updating portfolio-specific knowledge:', error);
+  }
+}
+
+async function updateAccountLevelKnowledge(supabase: any, teamId: string, accountData: any, imageFiles: any) {
+  try {
+    console.log(`Updating account-level knowledge for account ${accountData.id}`);
+
+    // Handle access & misc knowledge - UPDATE or INSERT (account-level only)
     if (accountData.accessMisc && accountData.accessMisc.trim()) {
       // Check if access misc already exists
       const { data: existingAccess, error: checkError } = await supabase
@@ -473,8 +487,7 @@ async function updateAccountLevelKnowledge(supabase: any, teamId: string, accoun
       }
     }
 
-    // Clean up any orphaned records for removed items
-    // Get all current knowledge items for this account
+    // Clean up any orphaned account-level records
     const { data: allCurrentKnowledge } = await supabase
       .from('team_knowledge')
       .select('id, category, title')
@@ -485,19 +498,7 @@ async function updateAccountLevelKnowledge(supabase: any, teamId: string, accoun
     if (allCurrentKnowledge) {
       // Build list of titles that should exist
       const shouldExist = new Set();
-       
-       // Add instruments
-       if (accountData.instruments) {
-         accountData.instruments.forEach((instrument: any) => {
-           if (instrument.name?.trim()) shouldExist.add(`instruments:${instrument.name.trim()}`);
-         });
-       }
       
-      // Add technical info
-      if (accountData.technicalInfo?.trim()) {
-        shouldExist.add('technical:Technical Information');
-      }
-
       // Add access & misc
       if (accountData.accessMisc?.trim()) {
         shouldExist.add('access_misc:Access & Miscellaneous');

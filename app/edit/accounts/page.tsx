@@ -24,14 +24,18 @@ interface Instrument {
   imageName?: string;
 }
 
+interface PortfolioData {
+  inventory: Inventory[];
+  instruments: Instrument[];
+  technicalInfo: string;
+}
+
 interface Account {
   id?: string;
   name: string;
   description: string;
   assignedPortfolios: string[];
-  inventory: Inventory[];
-  instruments: Instrument[];
-  technicalInfo: string;
+  portfolioData: { [portfolioId: string]: PortfolioData };
   accessMisc: string;
 }
 
@@ -50,6 +54,8 @@ function EditAccountsContent() {
   const [userRole, setUserRole] = useState<string>('');
   // Add state for managing expanded accounts
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  // Add state for active portfolio per account
+  const [activePortfolios, setActivePortfolios] = useState<{ [accountIndex: number]: string }>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -125,48 +131,55 @@ function EditAccountsContent() {
 
       // Transform data for editing
       const transformedAccounts = accountsData?.map(account => {
-        // Get account-level knowledge (portfolio_id = null)
-        const accountKnowledge = account.team_knowledge?.filter((k: any) => k.portfolio_id === null) || [];
-        
-        // Extract inventory from any portfolio (we'll keep inventory portfolio-specific for now)
         const allKnowledge = account.team_knowledge || [];
+        const portfolioData: { [portfolioId: string]: PortfolioData } = {};
         
-        const inventory = allKnowledge
-          .filter((k: any) => k.category === 'inventory')
-          .map((k: any) => ({
-            id: k.id,
-            name: k.metadata?.name || k.title || '',
-            quantity: k.metadata?.quantity || 0
-          }));
-
-        // Extract instruments from account-level knowledge only
-        const instruments = accountKnowledge
-          .filter((k: any) => k.category === 'instruments')
-          .map((k: any) => ({
-            id: k.id,
-            name: k.metadata?.name || k.title || '',
-            description: k.metadata?.description || k.content || '',
-            imageUrl: k.metadata?.image_url || '',
-            imageName: k.metadata?.image_name || '',
-            quantity: k.metadata?.quantity ?? null
-          }));
-
-        // Extract technical info from account-level knowledge
-        const techKnowledge = accountKnowledge.find((k: any) => k.category === 'technical');
-        const technicalInfo = techKnowledge?.content || techKnowledge?.metadata?.content || '';
-
-        // Extract access misc info from account-level knowledge
-        const accessKnowledge = accountKnowledge.find((k: any) => k.category === 'access_misc');
+        // Get account-level access & misc
+        const accessKnowledge = allKnowledge.find((k: any) => k.portfolio_id === null && k.category === 'access_misc');
         const accessMisc = accessKnowledge?.content || accessKnowledge?.metadata?.content || '';
+
+        // Get assigned portfolios
+        const assignedPortfolios = account.account_portfolios?.map((ap: any) => ap.portfolio_id) || [];
+
+        // Process each assigned portfolio
+        assignedPortfolios.forEach((portfolioId: string) => {
+          const portfolioKnowledge = allKnowledge.filter((k: any) => k.portfolio_id === portfolioId);
+          
+          const inventory = portfolioKnowledge
+            .filter((k: any) => k.category === 'inventory')
+            .map((k: any) => ({
+              id: k.id,
+              name: k.metadata?.name || k.title || '',
+              quantity: k.metadata?.quantity || 0
+            }));
+
+          const instruments = portfolioKnowledge
+            .filter((k: any) => k.category === 'instruments')
+            .map((k: any) => ({
+              id: k.id,
+              name: k.metadata?.name || k.title || '',
+              description: k.metadata?.description || k.content || '',
+              imageUrl: k.metadata?.image_url || '',
+              imageName: k.metadata?.image_name || '',
+              quantity: k.metadata?.quantity ?? null
+            }));
+
+          const techKnowledge = portfolioKnowledge.find((k: any) => k.category === 'technical');
+          const technicalInfo = techKnowledge?.content || techKnowledge?.metadata?.content || '';
+
+          portfolioData[portfolioId] = {
+            inventory,
+            instruments,
+            technicalInfo
+          };
+        });
 
         return {
           id: account.id,
           name: account.name,
           description: account.description || '',
-          assignedPortfolios: account.account_portfolios?.map((ap: any) => ap.portfolio_id) || [],
-          inventory,
-          instruments,
-          technicalInfo,
+          assignedPortfolios,
+          portfolioData,
           accessMisc
         };
       }) || [];
@@ -178,14 +191,21 @@ function EditAccountsContent() {
           name: '',
           description: '',
           assignedPortfolios: [],
-          inventory: [],
-          instruments: [],
-          technicalInfo: '',
+          portfolioData: {},
           accessMisc: ''
         });
       }
 
       setAccounts(transformedAccounts);
+
+      // Set first portfolio as active for each account
+      const initialActivePortfolios: { [accountIndex: number]: string } = {};
+      transformedAccounts.forEach((account, index) => {
+        if (account.assignedPortfolios.length > 0) {
+          initialActivePortfolios[index] = account.assignedPortfolios[0];
+        }
+      });
+      setActivePortfolios(initialActivePortfolios);
 
     } catch (error) {
       console.error('Error loading existing data:', error);
@@ -199,9 +219,7 @@ function EditAccountsContent() {
       name: '',
       description: '',
       assignedPortfolios: [],
-      inventory: [],
-      instruments: [],
-      technicalInfo: '',
+      portfolioData: {},
       accessMisc: ''
     }]);
   };
@@ -240,11 +258,14 @@ function EditAccountsContent() {
       name: '',
       description: '',
       assignedPortfolios: [],
-      inventory: [],
-      instruments: [],
-      technicalInfo: '',
+      portfolioData: {},
       accessMisc: ''
     }]);
+
+    // Update active portfolios
+    const newActivePortfolios = { ...activePortfolios };
+    delete newActivePortfolios[index];
+    setActivePortfolios(newActivePortfolios);
   };
 
   const updateAccount = (index: number, field: keyof Account, value: any) => {
@@ -260,16 +281,77 @@ function EditAccountsContent() {
     
     if (isAssigned) {
       account.assignedPortfolios = account.assignedPortfolios.filter(id => id !== portfolioId);
+      // Remove portfolio data when unassigned
+      delete account.portfolioData[portfolioId];
+      
+      // If this was the active portfolio, switch to another one
+      if (activePortfolios[accountIndex] === portfolioId) {
+        const remainingPortfolios = account.assignedPortfolios;
+        if (remainingPortfolios.length > 0) {
+          setActivePortfolios({
+            ...activePortfolios,
+            [accountIndex]: remainingPortfolios[0]
+          });
+        } else {
+          // No portfolios left, remove active portfolio
+          const newActivePortfolios = { ...activePortfolios };
+          delete newActivePortfolios[accountIndex];
+          setActivePortfolios(newActivePortfolios);
+        }
+      }
     } else {
       account.assignedPortfolios = [...account.assignedPortfolios, portfolioId];
+      // Initialize empty portfolio data when assigned
+      account.portfolioData[portfolioId] = {
+        inventory: [],
+        instruments: [],
+        technicalInfo: ''
+      };
+      
+      // If this is the first portfolio, make it active
+      if (account.assignedPortfolios.length === 1) {
+        setActivePortfolios({
+          ...activePortfolios,
+          [accountIndex]: portfolioId
+        });
+      }
     }
     
     setAccounts(newAccounts);
   };
 
-  const addInventoryItem = (accountIndex: number) => {
+  const setActivePortfolio = (accountIndex: number, portfolioId: string) => {
+    setActivePortfolios({
+      ...activePortfolios,
+      [accountIndex]: portfolioId
+    });
+  };
+
+  const updatePortfolioData = (accountIndex: number, portfolioId: string, field: keyof PortfolioData, value: any) => {
     const newAccounts = [...accounts];
-    newAccounts[accountIndex].inventory.push({
+    const account = newAccounts[accountIndex];
+    if (!account.portfolioData[portfolioId]) {
+      account.portfolioData[portfolioId] = {
+        inventory: [],
+        instruments: [],
+        technicalInfo: ''
+      };
+    }
+    account.portfolioData[portfolioId] = { ...account.portfolioData[portfolioId], [field]: value };
+    setAccounts(newAccounts);
+  };
+
+  const addInventoryItem = (accountIndex: number, portfolioId: string) => {
+    const newAccounts = [...accounts];
+    const account = newAccounts[accountIndex];
+    if (!account.portfolioData[portfolioId]) {
+      account.portfolioData[portfolioId] = {
+        inventory: [],
+        instruments: [],
+        technicalInfo: ''
+      };
+    }
+    account.portfolioData[portfolioId].inventory.push({
       id: `temp-${Date.now()}`,
       name: '',
       quantity: 0
@@ -277,24 +359,34 @@ function EditAccountsContent() {
     setAccounts(newAccounts);
   };
 
-  const updateInventoryItem = (accountIndex: number, itemIndex: number, field: keyof Inventory, value: any) => {
+  const updateInventoryItem = (accountIndex: number, portfolioId: string, itemIndex: number, field: keyof Inventory, value: any) => {
     const newAccounts = [...accounts];
-    newAccounts[accountIndex].inventory[itemIndex] = {
-      ...newAccounts[accountIndex].inventory[itemIndex],
+    const account = newAccounts[accountIndex];
+    account.portfolioData[portfolioId].inventory[itemIndex] = {
+      ...account.portfolioData[portfolioId].inventory[itemIndex],
       [field]: value
     };
     setAccounts(newAccounts);
   };
 
-  const removeInventoryItem = (accountIndex: number, itemIndex: number) => {
+  const removeInventoryItem = (accountIndex: number, portfolioId: string, itemIndex: number) => {
     const newAccounts = [...accounts];
-    newAccounts[accountIndex].inventory = newAccounts[accountIndex].inventory.filter((_, i) => i !== itemIndex);
+    const account = newAccounts[accountIndex];
+    account.portfolioData[portfolioId].inventory = account.portfolioData[portfolioId].inventory.filter((_, i) => i !== itemIndex);
     setAccounts(newAccounts);
   };
 
-  const addInstrument = (accountIndex: number) => {
+  const addInstrument = (accountIndex: number, portfolioId: string) => {
     const newAccounts = [...accounts];
-    newAccounts[accountIndex].instruments.push({
+    const account = newAccounts[accountIndex];
+    if (!account.portfolioData[portfolioId]) {
+      account.portfolioData[portfolioId] = {
+        inventory: [],
+        instruments: [],
+        technicalInfo: ''
+      };
+    }
+    account.portfolioData[portfolioId].instruments.push({
       id: `temp-${Date.now()}`,
       name: '',
       description: '',
@@ -303,33 +395,37 @@ function EditAccountsContent() {
     setAccounts(newAccounts);
   };
 
-  const updateInstrument = (accountIndex: number, itemIndex: number, field: keyof Instrument, value: any) => {
+  const updateInstrument = (accountIndex: number, portfolioId: string, itemIndex: number, field: keyof Instrument, value: any) => {
     const newAccounts = [...accounts];
-    newAccounts[accountIndex].instruments[itemIndex] = {
-      ...newAccounts[accountIndex].instruments[itemIndex],
+    const account = newAccounts[accountIndex];
+    account.portfolioData[portfolioId].instruments[itemIndex] = {
+      ...account.portfolioData[portfolioId].instruments[itemIndex],
       [field]: value
     };
     setAccounts(newAccounts);
   };
 
-  const removeInstrument = (accountIndex: number, itemIndex: number) => {
+  const removeInstrument = (accountIndex: number, portfolioId: string, itemIndex: number) => {
     const newAccounts = [...accounts];
-    newAccounts[accountIndex].instruments = newAccounts[accountIndex].instruments.filter((_, i) => i !== itemIndex);
+    const account = newAccounts[accountIndex];
+    account.portfolioData[portfolioId].instruments = account.portfolioData[portfolioId].instruments.filter((_, i) => i !== itemIndex);
     setAccounts(newAccounts);
   };
 
-  const handleInstrumentImageSelect = (accountIndex: number, itemIndex: number, file: File) => {
+  const handleInstrumentImageSelect = (accountIndex: number, portfolioId: string, itemIndex: number, file: File) => {
     const newAccounts = [...accounts];
-    const instrument = newAccounts[accountIndex].instruments[itemIndex];
+    const account = newAccounts[accountIndex];
+    const instrument = account.portfolioData[portfolioId].instruments[itemIndex];
     instrument.imageFile = file;
     instrument.imageName = file.name;
     instrument.imageUrl = URL.createObjectURL(file);
     setAccounts(newAccounts);
   };
 
-  const handleInstrumentImageRemove = (accountIndex: number, itemIndex: number) => {
+  const handleInstrumentImageRemove = (accountIndex: number, portfolioId: string, itemIndex: number) => {
     const newAccounts = [...accounts];
-    const instrument = newAccounts[accountIndex].instruments[itemIndex];
+    const account = newAccounts[accountIndex];
+    const instrument = account.portfolioData[portfolioId].instruments[itemIndex];
     if (instrument.imageUrl && instrument.imageUrl.startsWith('blob:')) {
       URL.revokeObjectURL(instrument.imageUrl);
     }
@@ -395,31 +491,43 @@ function EditAccountsContent() {
         return;
       }
 
-             // Check if we have any images to upload
-       const hasImages = validAccounts.some((account: any) => 
-         account.instruments.some((instrument: any) => instrument.imageFile)
-       );
+      // Check if we have any images to upload
+      const hasImages = validAccounts.some((account: any) => 
+        Object.values(account.portfolioData).some((portfolioData: any) =>
+          portfolioData.instruments.some((instrument: any) => instrument.imageFile)
+        )
+      );
 
       if (hasImages) {
         // Use FormData for accounts with images
         const formData = new FormData();
         formData.append('teamId', teamId!);
         
-                 // Prepare accounts data for submission
-         const accountsForSubmission = validAccounts.map((account: any) => {
-          const instrumentsForSubmission = account.instruments.map((instrument: any, index: number) => {
-            if (instrument.imageFile) {
-              // Generate unique key for this image
-              const imageKey = `image_${account.id || 'new'}_${index}`;
-              formData.append(imageKey, instrument.imageFile);
-              return {
-                ...instrument,
-                imageFile: undefined, // Remove file object from JSON
-                hasNewImage: true,
-                imageKey: imageKey
-              };
-            }
-            return { ...instrument, hasNewImage: false };
+        // Prepare accounts data for submission
+        const accountsForSubmission = validAccounts.map((account: any) => {
+          const portfolioDataForSubmission: any = {};
+          
+          Object.entries(account.portfolioData).forEach(([portfolioId, portfolioData]: [string, any]) => {
+            const instrumentsForSubmission = portfolioData.instruments.map((instrument: any, index: number) => {
+              if (instrument.imageFile) {
+                // Generate unique key for this image
+                const imageKey = `image_${account.id || 'new'}_${portfolioId}_${index}`;
+                formData.append(imageKey, instrument.imageFile);
+                return {
+                  ...instrument,
+                  imageFile: undefined, // Remove file object from JSON
+                  hasNewImage: true,
+                  imageKey: imageKey
+                };
+              }
+              return { ...instrument, hasNewImage: false };
+            });
+
+            portfolioDataForSubmission[portfolioId] = {
+              inventory: portfolioData.inventory,
+              instruments: instrumentsForSubmission,
+              technicalInfo: portfolioData.technicalInfo
+            };
           });
 
           return {
@@ -427,20 +535,18 @@ function EditAccountsContent() {
             name: account.name.trim(),
             description: account.description?.trim() || '',
             assignedPortfolios: account.assignedPortfolios,
-            inventory: account.inventory,
-            instruments: instrumentsForSubmission,
-            technicalInfo: account.technicalInfo?.trim() || '',
+            portfolioData: portfolioDataForSubmission,
             accessMisc: account.accessMisc?.trim() || ''
           };
         });
 
         formData.append('accounts', JSON.stringify(accountsForSubmission));
 
-                 // Call API with FormData
-         const response = await fetch('/api/teams/accounts/update', {
-           method: 'POST',
-           body: formData,
-         });
+        // Call API with FormData
+        const response = await fetch('/api/teams/accounts/update', {
+          method: 'POST',
+          body: formData,
+        });
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -453,26 +559,21 @@ function EditAccountsContent() {
           name: account.name.trim(),
           description: account.description?.trim() || '',
           assignedPortfolios: account.assignedPortfolios,
-          inventory: account.inventory,
-          instruments: account.instruments.map((instrument: any) => ({
-            ...instrument,
-            imageFile: undefined // Remove file object
-          })),
-          technicalInfo: account.technicalInfo?.trim() || '',
+          portfolioData: account.portfolioData,
           accessMisc: account.accessMisc?.trim() || ''
         }));
 
-                 // Call API with JSON
-         const response = await fetch('/api/teams/accounts/update', {
-           method: 'POST',
-           headers: {
-             'Content-Type': 'application/json',
-           },
-           body: JSON.stringify({
-             teamId: teamId!,
-             accounts: accountsForSubmission
-           }),
-         });
+        // Call API with JSON
+        const response = await fetch('/api/teams/accounts/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            teamId: teamId!,
+            accounts: accountsForSubmission
+          }),
+        });
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -506,9 +607,11 @@ function EditAccountsContent() {
   // Helper function to count knowledge items for an account
   const getKnowledgeItemCount = (account: Account) => {
     let count = 0;
-    count += account.inventory.length;
-    count += account.instruments.length;
-    if (account.technicalInfo.trim()) count += 1;
+    Object.values(account.portfolioData).forEach(portfolioData => {
+      count += portfolioData.inventory.length;
+      count += portfolioData.instruments.length;
+      if (portfolioData.technicalInfo.trim()) count += 1;
+    });
     if (account.accessMisc.trim()) count += 1;
     return count;
   };
@@ -674,153 +777,199 @@ function EditAccountsContent() {
                 </div>
               </div>
 
-              {/* Inventory Section */}
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-md font-medium text-slate-100">Inventory</h4>
-                  <button
-                    onClick={() => addInventoryItem(accountIndex)}
-                    className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded text-sm"
-                  >
-                    + Add Item
-                  </button>
-                </div>
-                
-                {account.inventory.length === 0 ? (
-                  <p className="text-slate-400 text-sm italic">No inventory items yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {account.inventory.map((item, itemIndex) => (
-                      <div key={item.id} className="flex gap-3 items-center p-3 bg-slate-700 rounded">
-                        <input
-                          type="text"
-                          value={item.name}
-                          onChange={(e) => updateInventoryItem(accountIndex, itemIndex, 'name', e.target.value)}
-                          placeholder="Item name"
-                          className="flex-1 px-2 py-1 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateInventoryItem(accountIndex, itemIndex, 'quantity', parseInt(e.target.value) || 0)}
-                          placeholder="Qty"
-                          className="w-20 px-2 py-1 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
+              {/* Portfolio Tabs and Data */}
+              {account.assignedPortfolios.length > 0 && (
+                <div className="space-y-6">
+                  {/* Portfolio Tabs */}
+                  <div className="flex border-b border-slate-700">
+                    {account.assignedPortfolios.map(portfolioId => {
+                      const portfolio = portfolios.find(p => p.id === portfolioId);
+                      const isActive = activePortfolios[accountIndex] === portfolioId;
+                      
+                      return (
                         <button
-                          onClick={() => removeInventoryItem(accountIndex, itemIndex)}
-                          className="text-red-400 hover:text-red-300"
+                          key={portfolioId}
+                          onClick={() => setActivePortfolio(accountIndex, portfolioId)}
+                          className={`px-4 py-2 text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-slate-600 text-slate-100 border-b-2 border-slate-400'
+                              : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700'
+                          }`}
                         >
-                          ✕
+                          {portfolio?.name}
                         </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                )}
-              </div>
 
-              {/* Instruments Section */}
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-md font-medium text-slate-100">Instruments/Trays</h4>
-                  <button
-                    onClick={() => addInstrument(accountIndex)}
-                    className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded text-sm"
-                  >
-                    + Add Instrument
-                  </button>
+                  {/* Active Portfolio Data */}
+                  {activePortfolios[accountIndex] && (() => {
+                    const activePortfolioId = activePortfolios[accountIndex];
+                    const portfolio = portfolios.find(p => p.id === activePortfolioId);
+                    const portfolioData = account.portfolioData[activePortfolioId] || {
+                      inventory: [],
+                      instruments: [],
+                      technicalInfo: ''
+                    };
+
+                    return (
+                      <div className="border border-slate-600 rounded-lg p-4">
+                        <h4 className="text-lg font-semibold text-slate-100 mb-4">
+                          {portfolio?.name} Portfolio
+                        </h4>
+
+                        {/* Inventory Section */}
+                        <div className="mb-6">
+                          <div className="flex justify-between items-center mb-3">
+                            <h5 className="text-md font-medium text-slate-100">Inventory</h5>
+                            <button
+                              onClick={() => addInventoryItem(accountIndex, activePortfolioId)}
+                              className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded text-sm"
+                            >
+                              + Add Item
+                            </button>
+                          </div>
+                          
+                          {portfolioData.inventory.length === 0 ? (
+                            <p className="text-slate-400 text-sm italic">No inventory items yet</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {portfolioData.inventory.map((item, itemIndex) => (
+                                <div key={item.id} className="flex gap-3 items-center p-3 bg-slate-700 rounded">
+                                  <input
+                                    type="text"
+                                    value={item.name}
+                                    onChange={(e) => updateInventoryItem(accountIndex, activePortfolioId, itemIndex, 'name', e.target.value)}
+                                    placeholder="Item name"
+                                    className="flex-1 px-2 py-1 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                  <input
+                                    type="number"
+                                    value={item.quantity}
+                                    onChange={(e) => updateInventoryItem(accountIndex, activePortfolioId, itemIndex, 'quantity', parseInt(e.target.value) || 0)}
+                                    placeholder="Qty"
+                                    className="w-20 px-2 py-1 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                  <button
+                                    onClick={() => removeInventoryItem(accountIndex, activePortfolioId, itemIndex)}
+                                    className="text-red-400 hover:text-red-300"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Instruments Section */}
+                        <div className="mb-6">
+                          <div className="flex justify-between items-center mb-3">
+                            <h5 className="text-md font-medium text-slate-100">Instruments/Trays</h5>
+                            <button
+                              onClick={() => addInstrument(accountIndex, activePortfolioId)}
+                              className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded text-sm"
+                            >
+                              + Add Instrument
+                            </button>
+                          </div>
+                          
+                          {portfolioData.instruments.length === 0 ? (
+                            <p className="text-slate-400 text-sm italic">No instruments yet</p>
+                          ) : (
+                            <div className="space-y-4">
+                              {portfolioData.instruments.map((instrument, itemIndex) => (
+                                <div key={instrument.id} className="p-4 bg-slate-700 rounded border border-slate-600">
+                                  <div className="flex justify-between items-start mb-3">
+                                    <h6 className="text-slate-200 font-medium">Instrument {itemIndex + 1}</h6>
+                                    <button
+                                      onClick={() => removeInstrument(accountIndex, activePortfolioId, itemIndex)}
+                                      className="text-red-400 hover:text-red-300"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <input
+                                      type="text"
+                                      value={instrument.name}
+                                      onChange={(e) => updateInstrument(accountIndex, activePortfolioId, itemIndex, 'name', e.target.value)}
+                                      placeholder="Instrument/Tray name"
+                                      className="px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={instrument.description}
+                                      onChange={(e) => updateInstrument(accountIndex, activePortfolioId, itemIndex, 'description', e.target.value)}
+                                      placeholder="Description"
+                                      className="px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                      Quantity <span className="text-slate-500">(Optional)</span>
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={instrument.quantity !== null && instrument.quantity !== undefined ? instrument.quantity : ''}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value === '') {
+                                          updateInstrument(accountIndex, activePortfolioId, itemIndex, 'quantity', null);
+                                        } else {
+                                          const numValue = parseInt(value);
+                                          if (!isNaN(numValue) && numValue >= 0) {
+                                            updateInstrument(accountIndex, activePortfolioId, itemIndex, 'quantity', numValue);
+                                          }
+                                        }
+                                      }}
+                                      placeholder="e.g., 10"
+                                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                      Instrument Image <span className="text-slate-500">(Optional)</span>
+                                    </label>
+                                    <ImageUpload
+                                      onImageSelect={(file) => handleInstrumentImageSelect(accountIndex, activePortfolioId, itemIndex, file)}
+                                      onImageRemove={() => handleInstrumentImageRemove(accountIndex, activePortfolioId, itemIndex)}
+                                      currentImageUrl={instrument.imageUrl}
+                                      currentImageName={instrument.imageName}
+                                      placeholder="Upload instrument/tray image"
+                                      className="w-full"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Technical Information */}
+                        <div className="mb-6">
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Technical Information <span className="text-slate-500">(Optional)</span>
+                          </label>
+                          <textarea
+                            value={portfolioData.technicalInfo}
+                            onChange={(e) => updatePortfolioData(accountIndex, activePortfolioId, 'technicalInfo', e.target.value)}
+                            placeholder="Technical details, specifications, protocols, etc."
+                            rows={4}
+                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
-                
-                {account.instruments.length === 0 ? (
-                  <p className="text-slate-400 text-sm italic">No instruments yet</p>
-                ) : (
-                  <div className="space-y-4">
-                    {account.instruments.map((instrument, itemIndex) => (
-                      <div key={instrument.id} className="p-4 bg-slate-700 rounded border border-slate-600">
-                        <div className="flex justify-between items-start mb-3">
-                          <h5 className="text-slate-200 font-medium">Instrument {itemIndex + 1}</h5>
-                          <button
-                            onClick={() => removeInstrument(accountIndex, itemIndex)}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <input
-                            type="text"
-                            value={instrument.name}
-                            onChange={(e) => updateInstrument(accountIndex, itemIndex, 'name', e.target.value)}
-                            placeholder="Instrument/Tray name"
-                            className="px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <input
-                            type="text"
-                            value={instrument.description}
-                            onChange={(e) => updateInstrument(accountIndex, itemIndex, 'description', e.target.value)}
-                            placeholder="Description"
-                            className="px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
+              )}
 
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Quantity <span className="text-slate-500">(Optional)</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={instrument.quantity !== null && instrument.quantity !== undefined ? instrument.quantity : ''}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '') {
-                                updateInstrument(accountIndex, itemIndex, 'quantity', null);
-                              } else {
-                                const numValue = parseInt(value);
-                                if (!isNaN(numValue) && numValue >= 0) {
-                                  updateInstrument(accountIndex, itemIndex, 'quantity', numValue);
-                                }
-                              }
-                            }}
-                            placeholder="e.g., 10"
-                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Instrument Image <span className="text-slate-500">(Optional)</span>
-                          </label>
-                          <ImageUpload
-                            onImageSelect={(file) => handleInstrumentImageSelect(accountIndex, itemIndex, file)}
-                            onImageRemove={() => handleInstrumentImageRemove(accountIndex, itemIndex)}
-                            currentImageUrl={instrument.imageUrl}
-                            currentImageName={instrument.imageName}
-                            placeholder="Upload instrument/tray image"
-                            className="w-full"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Technical Information */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Technical Information <span className="text-slate-500">(Optional)</span>
-                </label>
-                <textarea
-                  value={account.technicalInfo}
-                  onChange={(e) => updateAccount(accountIndex, 'technicalInfo', e.target.value)}
-                  placeholder="Technical details, specifications, protocols, etc."
-                  rows={4}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Access & Miscellaneous */}
+              {/* Access & Miscellaneous (Account-level) */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Access & Miscellaneous <span className="text-slate-500">(Optional)</span>

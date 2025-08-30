@@ -26,22 +26,22 @@ async function getTeamKnowledgeForContext(
     ]);
 
     // Get all knowledge data
-    const [accountKnowledgeResult, portfolioKnowledgeResult, generalKnowledgeResult] = await Promise.all([
-      // Account-level knowledge (instruments, technical, access)
-      supabase
-        .from('team_knowledge')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('account_id', accountId)
-        .is('portfolio_id', null),
-      
-      // Portfolio-specific knowledge (inventory)
+    const [portfolioSpecificKnowledgeResult, accountLevelKnowledgeResult, generalKnowledgeResult] = await Promise.all([
+      // Portfolio-specific knowledge (inventory, instruments, technical)
       supabase
         .from('team_knowledge')
         .select('*')
         .eq('team_id', teamId)
         .eq('account_id', accountId)
         .eq('portfolio_id', portfolioId),
+      
+      // Account-level knowledge (access & misc only)
+      supabase
+        .from('team_knowledge')
+        .select('*')
+        .eq('team_id', teamId)
+        .eq('account_id', accountId)
+        .is('portfolio_id', null),
       
       // General team knowledge (surgeon info)
       supabase
@@ -53,8 +53,8 @@ async function getTeamKnowledgeForContext(
     ]);
 
     const allKnowledgeData = [
-      ...(accountKnowledgeResult.data || []), 
-      ...(portfolioKnowledgeResult.data || []),
+      ...(portfolioSpecificKnowledgeResult.data || []), 
+      ...(accountLevelKnowledgeResult.data || []),
       ...(generalKnowledgeResult.data || [])
     ];
 
