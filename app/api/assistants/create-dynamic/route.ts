@@ -117,18 +117,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate context for this specific account
-    const accountContext = await generateAccountContext(supabase, teamId, accountId, portfolioId, names);
-    const generalContext = await generateGeneralContext(supabase, teamId, names);
-
     // Create OpenAI assistant with portfolio vector store and account context
     const assistantName = `${names.teamName} - ${names.portfolioName} Assistant`;
+    
+    const instructions = generateAssistantInstructions(names);
+    
+    console.log('🤖 CREATING AI ASSISTANT:');
+    console.log('==========================');
+    console.log(`📝 Assistant Name: ${assistantName}`);
+    console.log(`🏢 Team: ${names.teamName}`);
+    console.log(`📂 Portfolio: ${names.portfolioName}`);
+    console.log(`📋 Full Assistant Instructions:`);
+    console.log(instructions);
+    console.log('==========================');
     
     try {
       const assistant = await client.beta.assistants.create({
         name: assistantName,
-        instructions: generateAssistantInstructions(names, accountContext, generalContext),
-        model: "gpt-4.1",
+        instructions: instructions,
+        model: "gpt-4o-mini",
         tools: [{ type: "file_search" }],
         tool_resources: {
           file_search: {
@@ -260,37 +267,48 @@ async function generateAccountContext(supabase: any, teamId: string, accountId: 
       .eq('id', accountId)
       .single();
 
-    // Get account knowledge for this portfolio
-    const { data: knowledgeData } = await supabase
+    // Get portfolio-specific knowledge (inventory)
+    const { data: portfolioKnowledgeData } = await supabase
       .from('team_knowledge')
       .select('*')
       .eq('team_id', teamId)
       .eq('account_id', accountId)
       .eq('portfolio_id', portfolioId);
 
-    if (!knowledgeData || knowledgeData.length === 0) {
+    // Get account-level knowledge (instruments, technical, access)
+    const { data: accountKnowledgeData } = await supabase
+      .from('team_knowledge')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('account_id', accountId)
+      .eq('portfolio_id', null);
+
+    const allKnowledgeData = [...(portfolioKnowledgeData || []), ...(accountKnowledgeData || [])];
+
+    if (!allKnowledgeData || allKnowledgeData.length === 0) {
       console.log('No account knowledge found');
       return '';
     }
 
     // Transform knowledge data for text generation
-    const inventory = knowledgeData
+    const inventory = allKnowledgeData
       .filter((k: any) => k.category === 'inventory')
       .map((k: any) => ({ item: k.metadata?.name || k.title || '', quantity: k.metadata?.quantity || 0, notes: '' }));
 
-    const instruments = knowledgeData
+    const instruments = allKnowledgeData
       .filter((k: any) => k.category === 'instruments')
       .map((k: any) => ({
         name: k.metadata?.name || k.title || '',
         description: k.metadata?.description || k.content || '',
+        quantity: k.metadata?.quantity ?? null,
         imageUrl: k.metadata?.image_url || ''
       }));
 
-    const technical = knowledgeData
+    const technical = allKnowledgeData
       .filter((k: any) => k.category === 'technical')
       .map((k: any) => ({ title: 'Technical Information', content: k.content || k.metadata?.content || '' }));
 
-    const accessMisc = knowledgeData
+    const accessMisc = allKnowledgeData
       .filter((k: any) => k.category === 'access_misc')
       .map((k: any) => ({ title: 'Access Information', content: k.content || k.metadata?.content || '' }));
 
@@ -299,15 +317,25 @@ async function generateAccountContext(supabase: any, teamId: string, accountId: 
       teamName: names.teamName,
       accountName: account?.name || 'Unknown Account',
       portfolioName: names.portfolioName,
-      knowledge: {
-        inventory,
-        instruments,
-        technical,
-        accessMisc
-      }
+      knowledge: { inventory, instruments, technical, accessMisc }
     });
 
-    console.log(`Generated account context for ${account?.name || 'Unknown Account'}`);
+    console.log('🔍 GENERATED ACCOUNT KNOWLEDGE TEXT:');
+    console.log('=====================================');
+    console.log(textContent);
+    console.log('=====================================');
+    console.log(`📊 Knowledge summary for ${account?.name}:`);
+    console.log(`  📦 Inventory items: ${inventory.length}`);
+    console.log(`  🔧 Instruments: ${instruments.length}`);
+    console.log(`  📋 Technical entries: ${technical.length}`);
+    console.log(`  🚪 Access entries: ${accessMisc.length}`);
+    if (instruments.length > 0) {
+      console.log('  🔧 Instrument details:');
+      instruments.forEach(inst => {
+        console.log(`    - ${inst.name} (Qty: ${inst.quantity ?? 'N/A'}): ${inst.description}`);
+      });
+    }
+
     return textContent;
 
   } catch (error) {
@@ -415,9 +443,7 @@ async function checkIfCacheIsStale(
 }
 
 function generateAssistantInstructions(
-  names: { teamName: string; portfolioName: string }, 
-  accountContext: string, 
-  generalContext: string
+  names: { teamName: string; portfolioName: string }
 ): string {
   let instructions = `YOU ARE A FRIENDLY AND KNOWLEDGEABLE MEDICAL ASSISTANT SPECIALIZING IN ${names.portfolioName.toUpperCase()}. THINK OF YOURSELF AS A HELPFUL COLLEAGUE WHO CAN HAVE NATURAL CONVERSATIONS ABOUT SURGICAL TECHNIQUES, PROTOCOLS, AND MEDICAL PROCEDURES.
 
@@ -478,16 +504,6 @@ More detailed information here.
 **Would you like me to:** [Ask follow-up questions or offer additional help]
 
 This markdown formatting is REQUIRED for all responses to ensure proper display in the user interface.`;
-
-  // Add account-specific context
-  if (accountContext) {
-    instructions += `\n\nACCOUNT-SPECIFIC KNOWLEDGE:\n${accountContext}`;
-  }
-
-  // Add general team context
-  if (generalContext) {
-    instructions += `\n\nGENERAL TEAM KNOWLEDGE:\n${generalContext}`;
-  }
 
   return instructions;
 }

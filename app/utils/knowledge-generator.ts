@@ -13,7 +13,7 @@ interface KnowledgeItem {
 
 interface KnowledgeData {
   inventory: Array<{ item: string; quantity: number; notes: string }>;
-  instruments: Array<{ name: string; description: string; imageUrl?: string }>;
+  instruments: Array<{ name: string; description: string; quantity?: number | null; imageUrl?: string }>;
   technical: Array<{ title: string; content: string }>;
   accessMisc: Array<{ title: string; content: string }>;
 }
@@ -51,6 +51,10 @@ export function createAccountPortfolioKnowledgeText(params: AccountPortfolioKnow
     for (const item of knowledge.instruments) {
       if (item.name && item.name.trim()) {
         text += `- ${item.name}`;
+        // Add quantity if available
+        if (item.quantity !== undefined && item.quantity !== null) {
+          text += ` (Qty: ${item.quantity})`;
+        }
         if (item.description && item.description.trim()) {
           text += `: ${item.description}`;
         }
@@ -152,7 +156,6 @@ export function createGeneralKnowledgeText(params: GeneralKnowledgeParams): stri
   
   // Add footer
   text += `\nThis is general knowledge for the ${teamName} team.\n`;
-  text += `For account-specific information, refer to individual account knowledge bases.\n`;
   
   return text;
 }
@@ -166,22 +169,15 @@ export function filterSurgeonInfoByPortfolio(
     return [];
   }
 
-  console.log(`🔍 FILTERING SURGEON INFO FOR PORTFOLIO: ${portfolioName}`);
-  console.log(`📊 Total surgeon entries found: ${surgeonKnowledgeData.filter(k => k.category === 'surgeon_info').length}`);
-
   const portfolioLower = portfolioName.toLowerCase();
   
   const filteredEntries = surgeonKnowledgeData
     .filter((k: any) => k.category === 'surgeon_info')
     .filter((k: any) => {
       const procedureFocus = k.metadata?.procedure_focus?.toLowerCase() || '';
-      const surgeonName = k.metadata?.name || k.title || '';
-      
-      console.log(`🔍 Evaluating: ${surgeonName} - ${k.metadata?.procedure_focus || 'No procedure_focus'}`);
       
       // ALWAYS include general surgeon information (for any portfolio)
       if (procedureFocus === 'general' || procedureFocus === 'general practice' || procedureFocus === '') {
-        console.log(`✅ INCLUDED (General): ${surgeonName} - General Practice`);
         return true;
       }
       
@@ -193,7 +189,7 @@ export function filterSurgeonInfoByPortfolio(
         isMatch = procedureFocus.includes('knee') || procedureFocus.includes('tka');
       }
       
-      // Hip/THA procedures  
+      // Hip/THA procedures
       if (portfolioLower.includes('hip') || portfolioLower.includes('th')) {
         isMatch = isMatch || procedureFocus.includes('hip') || procedureFocus.includes('tha');
       }
@@ -223,12 +219,6 @@ export function filterSurgeonInfoByPortfolio(
         isMatch = true;
       }
       
-      if (isMatch) {
-        console.log(`✅ INCLUDED (Procedure Match): ${surgeonName} - ${k.metadata?.procedure_focus}`);
-      } else {
-        console.log(`❌ EXCLUDED (No Match): ${surgeonName} - ${k.metadata?.procedure_focus} (Portfolio: ${portfolioName})`);
-      }
-      
       return isMatch;
     })
     .map((k: any) => ({
@@ -237,11 +227,6 @@ export function filterSurgeonInfoByPortfolio(
         k.title || '',
       content: k.metadata?.notes || k.content || ''
     }));
-
-  console.log(`📋 FINAL FILTERED ENTRIES: ${filteredEntries.length}`);
-  filteredEntries.forEach(entry => {
-    console.log(`  - ${entry.title}: ${entry.content.substring(0, 50)}...`);
-  });
 
   return filteredEntries;
 } 

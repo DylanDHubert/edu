@@ -300,6 +300,13 @@ export async function POST(request: NextRequest) {
               title: item.name,
               content: item.description,
               images: imageMetadata,
+              metadata: {
+                name: item.name,
+                description: item.description,
+                quantity: item.quantity,
+                image_url: imageMetadata?.[0]?.url,
+                image_name: imageMetadata?.[0]?.filename
+              },
               created_by: user.id
             });
           }

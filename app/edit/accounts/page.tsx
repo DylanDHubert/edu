@@ -18,6 +18,7 @@ interface Instrument {
   id: string;
   name: string;
   description: string;
+  quantity?: number | null;
   imageFile?: File;
   imageUrl?: string;
   imageName?: string;
@@ -111,7 +112,7 @@ function EditAccountsContent() {
         .select(`
           *,
           account_portfolios (portfolio_id),
-          team_knowledge (*)
+          team_knowledge!team_knowledge_account_id_fkey (*)
         `)
         .eq('team_id', teamId)
         .order('created_at');
@@ -124,10 +125,13 @@ function EditAccountsContent() {
 
       // Transform data for editing
       const transformedAccounts = accountsData?.map(account => {
-        const knowledgeData = account.team_knowledge || [];
+        // Get account-level knowledge (portfolio_id = null)
+        const accountKnowledge = account.team_knowledge?.filter((k: any) => k.portfolio_id === null) || [];
         
-        // Extract inventory
-        const inventory = knowledgeData
+        // Extract inventory from any portfolio (we'll keep inventory portfolio-specific for now)
+        const allKnowledge = account.team_knowledge || [];
+        
+        const inventory = allKnowledge
           .filter((k: any) => k.category === 'inventory')
           .map((k: any) => ({
             id: k.id,
@@ -135,23 +139,24 @@ function EditAccountsContent() {
             quantity: k.metadata?.quantity || 0
           }));
 
-        // Extract instruments
-        const instruments = knowledgeData
+        // Extract instruments from account-level knowledge only
+        const instruments = accountKnowledge
           .filter((k: any) => k.category === 'instruments')
           .map((k: any) => ({
             id: k.id,
             name: k.metadata?.name || k.title || '',
             description: k.metadata?.description || k.content || '',
             imageUrl: k.metadata?.image_url || '',
-            imageName: k.metadata?.image_name || ''
+            imageName: k.metadata?.image_name || '',
+            quantity: k.metadata?.quantity ?? null
           }));
 
-        // Extract technical info
-        const techKnowledge = knowledgeData.find((k: any) => k.category === 'technical');
+        // Extract technical info from account-level knowledge
+        const techKnowledge = accountKnowledge.find((k: any) => k.category === 'technical');
         const technicalInfo = techKnowledge?.content || techKnowledge?.metadata?.content || '';
 
-        // Extract access misc info
-        const accessKnowledge = knowledgeData.find((k: any) => k.category === 'access_misc');
+        // Extract access misc info from account-level knowledge
+        const accessKnowledge = accountKnowledge.find((k: any) => k.category === 'access_misc');
         const accessMisc = accessKnowledge?.content || accessKnowledge?.metadata?.content || '';
 
         return {
@@ -292,7 +297,8 @@ function EditAccountsContent() {
     newAccounts[accountIndex].instruments.push({
       id: `temp-${Date.now()}`,
       name: '',
-      description: ''
+      description: '',
+      quantity: null
     });
     setAccounts(newAccounts);
   };
@@ -577,11 +583,11 @@ function EditAccountsContent() {
             <div key={accountIndex} className="bg-slate-800 rounded-lg border border-slate-700">
               {/* Collapsible Header */}
               <div className="p-6 pb-4">
+                <div className="flex items-center justify-between mb-4">
                 <button
                   onClick={() => toggleAccountDetails(account.id, accountIndex)}
-                  className="flex items-center justify-between w-full text-left mb-4 hover:bg-slate-700/50 p-3 rounded-md transition-colors"
+                    className="flex items-center gap-3 flex-1 text-left hover:bg-slate-700/50 p-3 rounded-md transition-colors"
                 >
-                  <div className="flex items-center gap-3">
                     <h3 className="text-lg font-semibold text-slate-100">
                       {account.name || `New Account ${accountIndex + 1}`}
                     </h3>
@@ -595,24 +601,19 @@ function EditAccountsContent() {
                         {account.assignedPortfolios.length} portfolio{account.assignedPortfolios.length !== 1 ? 's' : ''}
                       </span>
                     )}
-                  </div>
-                  <div className="flex items-center gap-2">
+                    {expandedAccounts.has(account.id || `new-${accountIndex}`) ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400 ml-auto" />
+                    )}
+                  </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeAccount(accountIndex);
-                      }}
-                      className="text-red-400 hover:text-red-300 font-medium text-sm px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
+                    onClick={() => removeAccount(accountIndex)}
+                    className="text-red-400 hover:text-red-300 font-medium text-sm px-2 py-1 rounded hover:bg-red-900/20 transition-colors ml-2"
                     >
                       Delete
                     </button>
-                    {expandedAccounts.has(account.id || `new-${accountIndex}`) ? (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    )}
                   </div>
-                </button>
               </div>
 
               {/* Collapsible Content */}
@@ -759,6 +760,30 @@ function EditAccountsContent() {
                             onChange={(e) => updateInstrument(accountIndex, itemIndex, 'description', e.target.value)}
                             placeholder="Description"
                             className="px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Quantity <span className="text-slate-500">(Optional)</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={instrument.quantity !== null && instrument.quantity !== undefined ? instrument.quantity : ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '') {
+                                updateInstrument(accountIndex, itemIndex, 'quantity', null);
+                              } else {
+                                const numValue = parseInt(value);
+                                if (!isNaN(numValue) && numValue >= 0) {
+                                  updateInstrument(accountIndex, itemIndex, 'quantity', numValue);
+                                }
+                              }
+                            }}
+                            placeholder="e.g., 10"
+                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                         </div>
 
