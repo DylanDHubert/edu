@@ -54,6 +54,7 @@ export async function getNotesForTeamContext(teamId: string, accountId: string, 
     console.log('🔍 QUERYING NOTES WITH:', { teamId, accountId, portfolioId, userId });
     
     // GET NOTES FOR TEAM CONTEXT (INCLUDING PORTFOLIO-SHARED NOTES)
+    // NEW: Handle multiple accounts by including all possible account filters
     const { data: notes, error } = await supabase
       .from('notes')
       .select(`

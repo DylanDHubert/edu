@@ -263,7 +263,10 @@ function AccountPortfolioSelectContent() {
         portfolioName: selectedPortfolioData?.name,
         teamName: team?.name,
         teamLocation: team?.location,
-        userRole: userRole
+        userRole: userRole,
+        // NEW: Store all selected accounts for multi-account note support
+        selectedAccountIds: Array.from(selectedAccounts),
+        selectedAccounts: accounts.filter(a => selectedAccounts.has(a.id))
       };
       
       localStorage.setItem('activeAssistant', JSON.stringify(activeAssistant));
