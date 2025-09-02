@@ -434,9 +434,21 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         return msg;
       });
 
+      // FILTER OUT HIDDEN SYSTEM CONTEXT MESSAGES
+      const visibleMessages = cleanedMessages.filter((msg: any) => {
+        // Check if message has metadata indicating it's a hidden system context message
+        if (msg.metadata?.hidden === 'true' || 
+            msg.metadata?.messageType === 'team_knowledge_context' ||
+            msg.metadata?.isSystemContext === 'true') {
+          console.log('🔒 HIDING SYSTEM CONTEXT MESSAGE:', msg.id, msg.metadata);
+          return false;
+        }
+        return true;
+      });
+
       // REVERSE THE MESSAGES TO SHOW IN CHRONOLOGICAL ORDER (OLDEST FIRST)
       // REPLACE ALL MESSAGES WITH THE REAL ONES FROM SERVER
-      setMessages(cleanedMessages.reverse());
+      setMessages(visibleMessages.reverse());
       
       // LOAD RATINGS FOR THIS THREAD
       await loadMessageRatings();
