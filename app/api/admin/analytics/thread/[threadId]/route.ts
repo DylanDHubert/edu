@@ -3,7 +3,13 @@ import { createClient, createServiceClient } from '../../../../../utils/supabase
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
 
-const client = new OpenAI({
+// Default project client
+const defaultClient = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Specific project client for historical threads
+const projectClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   project: 'proj_lNxW2HsF47ntT5fS2ESTf1tW'
 });
@@ -70,18 +76,68 @@ export async function GET(
       ratingsMap[rating.message_id] = rating;
     });
 
-    // Fetch messages from OpenAI
+    // Fetch messages from OpenAI or archived data
     let messages;
+    let isArchived = false;
+    
+    // Try default project first
     try {
-      const response = await client.beta.threads.messages.list(threadId);
+      console.log(`🔍 Trying default project for thread: ${threadId}`);
+      const response = await defaultClient.beta.threads.messages.list(threadId);
       messages = response.data.reverse(); // Chronological order
-    } catch (openaiError: any) {
-      if (openaiError.status === 404) {
-        return NextResponse.json({ 
-          error: 'Thread not found in OpenAI (may have been deleted)' 
-        }, { status: 404 });
+      console.log(`✅ Found thread ${threadId} in default project`);
+    } catch (defaultError: any) {
+      if (defaultError.status === 404) {
+        console.log(`Thread ${threadId} not found in default project, trying specific project...`);
+        
+        // Try specific project
+        try {
+          const response = await projectClient.beta.threads.messages.list(threadId);
+          messages = response.data.reverse(); // Chronological order
+          console.log(`✅ Found thread ${threadId} in specific project`);
+        } catch (projectError: any) {
+          if (projectError.status === 404) {
+            console.log(`Thread ${threadId} not found in either OpenAI project, trying archived messages`);
+            
+            // Try archived messages
+            try {
+              const { data: archivedMessages, error: archiveError } = await serviceClient
+                .from('archived_messages')
+                .select('*')
+                .eq('thread_id', threadId)
+                .order('message_order', { ascending: true });
+
+              if (archiveError || !archivedMessages || archivedMessages.length === 0) {
+                return NextResponse.json({ 
+                  error: 'Thread not found in OpenAI projects or archive' 
+                }, { status: 404 });
+              }
+
+              // Convert archived messages to OpenAI-like format
+              messages = archivedMessages.map((msg: any) => ({
+                id: msg.message_id,
+                role: msg.role,
+                content: [{ type: 'text', text: { value: msg.content } }],
+                created_at: Math.floor(new Date(msg.created_at).getTime() / 1000),
+                metadata: { archived: true }
+              }));
+              
+              isArchived = true;
+              console.log(`✅ Using archived data: ${messages.length} messages for thread ${threadId}`);
+              
+            } catch (archiveError) {
+              console.error('Error fetching archived messages:', archiveError);
+              return NextResponse.json({ 
+                error: 'Thread not found in OpenAI projects or archive' 
+              }, { status: 404 });
+            }
+          } else {
+            throw projectError;
+          }
+        }
+      } else {
+        throw defaultError;
       }
-      throw openaiError;
     }
 
     // Process messages into conversation format
@@ -118,6 +174,7 @@ export async function GET(
       created_at: chatHistory.created_at,
       updated_at: chatHistory.updated_at,
       conversation: conversation,
+      is_archived: isArchived,
       stats: {
         total_messages: conversation.length,
         user_messages: userMessages,

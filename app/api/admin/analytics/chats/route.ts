@@ -3,7 +3,13 @@ import { createClient, createServiceClient } from '../../../../utils/supabase/se
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
 
-const client = new OpenAI({
+// Default project client
+const defaultClient = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Specific project client for historical threads
+const projectClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   project: 'proj_lNxW2HsF47ntT5fS2ESTf1tW'
 });
@@ -127,16 +133,10 @@ export async function GET(request: NextRequest) {
       portfolioMap[portfolio.id] = portfolio.name;
     });
 
-    // Get current assistants to filter valid threads
-    const { data: currentAssistants, error: assistantError } = await serviceClient
-      .from('team_assistants')
-      .select('assistant_id, team_id');
-
-    const validAssistantIds = new Set(currentAssistants?.map(a => a.assistant_id) || []);
-
-    // Filter chats by valid assistants
-    const validChats = chats?.filter(chat => validAssistantIds.has(chat.assistant_id)) || [];
-    console.log(`✅ ${validChats.length} chats have valid assistants`);
+    // Process ALL chats (including those with deleted assistants)
+    // We'll handle data source selection per thread
+    const allChats = chats || [];
+    console.log(`📊 Processing ${allChats.length} total chats (including historical)`);
 
     // Get all message ratings for feedback
     const { data: ratings, error: ratingsError } = await serviceClient
@@ -150,19 +150,31 @@ export async function GET(request: NextRequest) {
 
     console.log(`📝 Found ${ratings?.length || 0} message ratings`);
 
-    // Process each chat to get OpenAI messages
+    // Process each chat to get messages (from OpenAI or archived)
     const allPairs: any[] = [];
     let threadsWithErrors = 0;
 
-    for (const chat of validChats) {
+    for (const chat of allChats) {
       try {
         console.log(`🔄 Processing thread: ${chat.thread_id}`);
         
-        const messages = await getThreadMessages(chat.thread_id);
+        // Try OpenAI first, then fallback to archived messages
+        let messages = await getThreadMessages(chat.thread_id);
+        let isArchived = false;
+        
         if (!messages) {
+          // Try archived messages
+          messages = await getArchivedMessages(serviceClient, chat.thread_id);
+          isArchived = true;
+        }
+        
+        if (!messages) {
+          console.log(`❌ No messages found for thread ${chat.thread_id} in OpenAI or archive`);
           threadsWithErrors++;
           continue;
         }
+        
+        console.log(`📍 Using ${isArchived ? 'archived' : 'live'} data for thread ${chat.thread_id}`);
 
         const pairs = extractQueryResponsePairs(messages);
         
@@ -216,7 +228,7 @@ export async function GET(request: NextRequest) {
       data: allPairs,
       metadata: {
         total_chats: chats?.length || 0,
-        valid_chats: validChats.length,
+        processed_chats: allChats.length,
         total_pairs: allPairs.length,
         threads_with_errors: threadsWithErrors,
         processing_time_ms: processingTime,
@@ -239,15 +251,68 @@ export async function GET(request: NextRequest) {
 }
 
 async function getThreadMessages(threadId: string) {
+  // Try default project first
   try {
-    const messages = await client.beta.threads.messages.list(threadId);
+    console.log(`🔍 Trying default project for thread: ${threadId}`);
+    const messages = await defaultClient.beta.threads.messages.list(threadId);
+    console.log(`✅ Found thread ${threadId} in default project`);
     return messages.data.reverse(); // Chronological order
   } catch (error: any) {
     if (error.status === 404) {
-      console.log(`Thread ${threadId} not found - likely from deleted assistant`);
-      return null;
+      console.log(`Thread ${threadId} not found in default project, trying specific project...`);
+      
+      // Try specific project
+      try {
+        const messages = await projectClient.beta.threads.messages.list(threadId);
+        console.log(`✅ Found thread ${threadId} in specific project`);
+        return messages.data.reverse(); // Chronological order
+      } catch (projectError: any) {
+        if (projectError.status === 404) {
+          console.log(`Thread ${threadId} not found in either project - likely from deleted assistant`);
+          return null;
+        }
+        throw projectError;
+      }
     }
     throw error;
+  }
+}
+
+async function getArchivedMessages(serviceClient: any, threadId: string) {
+  try {
+    console.log(`🗄️ Fetching archived messages for thread: ${threadId}`);
+    
+    const { data: archivedMessages, error } = await serviceClient
+      .from('archived_messages')
+      .select('*')
+      .eq('thread_id', threadId)
+      .order('message_order', { ascending: true });
+
+    if (error) {
+      console.error(`❌ Error fetching archived messages for ${threadId}:`, error);
+      return null;
+    }
+
+    if (!archivedMessages || archivedMessages.length === 0) {
+      console.log(`ℹ️ No archived messages found for thread ${threadId}`);
+      return null;
+    }
+
+    // Convert archived messages to OpenAI-like format for compatibility
+    const convertedMessages = archivedMessages.map((msg: any) => ({
+      id: msg.message_id,
+      role: msg.role,
+      content: [{ type: 'text', text: { value: msg.content } }],
+      created_at: Math.floor(new Date(msg.created_at).getTime() / 1000), // Convert to Unix timestamp
+      metadata: { archived: true }
+    }));
+
+    console.log(`✅ Retrieved ${convertedMessages.length} archived messages for thread ${threadId}`);
+    return convertedMessages;
+
+  } catch (error) {
+    console.error(`❌ Error in getArchivedMessages for ${threadId}:`, error);
+    return null;
   }
 }
 

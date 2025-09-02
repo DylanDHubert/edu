@@ -8,6 +8,163 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Function to backup all threads for an assistant before deletion
+async function backupAssistantThreads(supabase: any, assistantId: string) {
+  try {
+    console.log(`🔄 Starting backup for assistant: ${assistantId}`);
+    
+    // Get all chat_history records for this assistant
+    const { data: chats, error: chatsError } = await supabase
+      .from('chat_history')
+      .select('thread_id, title, user_id, team_id, account_id, portfolio_id, created_at')
+      .eq('assistant_id', assistantId);
+
+    if (chatsError) {
+      console.error('❌ Error fetching chats for backup:', chatsError);
+      return;
+    }
+
+    if (!chats || chats.length === 0) {
+      console.log('ℹ️ No chats found for assistant, skipping backup');
+      return;
+    }
+
+    console.log(`📊 Found ${chats.length} chats to backup`);
+    let backedUpThreads = 0;
+    let failedThreads = 0;
+
+    // Process each thread
+    for (const chat of chats) {
+      try {
+        console.log(`🔄 Backing up thread: ${chat.thread_id}`);
+        
+        // Get messages from OpenAI
+        const messages = await getThreadMessages(chat.thread_id);
+        if (!messages) {
+          console.log(`⚠️ Thread ${chat.thread_id} not found in OpenAI, skipping`);
+          failedThreads++;
+          continue;
+        }
+
+        // Filter out hidden system messages and prepare for storage
+        const messagesToArchive = [];
+        let messageOrder = 0;
+
+        for (const message of messages) {
+          // Skip hidden system context messages
+          if (message.metadata?.hidden === 'true' || 
+              message.metadata?.messageType === 'team_knowledge_context' ||
+              message.metadata?.isSystemContext === 'true') {
+            continue;
+          }
+
+          const content = extractTextContent(message);
+          if (content.trim()) {
+            messagesToArchive.push({
+              thread_id: chat.thread_id,
+              assistant_id: assistantId,
+              message_id: message.id,
+              role: message.role,
+              content: content,
+              created_at: new Date(message.created_at * 1000).toISOString(),
+              message_order: messageOrder++
+            });
+          }
+        }
+
+        // Bulk insert messages for this thread
+        if (messagesToArchive.length > 0) {
+          const { error: insertError } = await supabase
+            .from('archived_messages')
+            .insert(messagesToArchive);
+
+          if (insertError) {
+            console.error(`❌ Error archiving messages for thread ${chat.thread_id}:`, insertError);
+            failedThreads++;
+          } else {
+            console.log(`✅ Archived ${messagesToArchive.length} messages for thread ${chat.thread_id}`);
+            backedUpThreads++;
+          }
+        } else {
+          console.log(`ℹ️ No messages to archive for thread ${chat.thread_id}`);
+          backedUpThreads++;
+        }
+
+      } catch (error) {
+        console.error(`❌ Error processing thread ${chat.thread_id}:`, error);
+        failedThreads++;
+      }
+    }
+
+    console.log(`✅ Backup complete: ${backedUpThreads} threads backed up, ${failedThreads} failed`);
+
+  } catch (error) {
+    console.error('❌ Error in backup process:', error);
+    // Don't throw - we want assistant recreation to continue even if backup fails
+  }
+}
+
+// Helper function to get thread messages (same as analytics)
+async function getThreadMessages(threadId: string) {
+  // Try default project first
+  try {
+    console.log(`🔍 Trying default project for thread: ${threadId}`);
+    const messages = await client.beta.threads.messages.list(threadId);
+    console.log(`✅ Found thread ${threadId} in default project`);
+    return messages.data.reverse(); // Chronological order
+  } catch (error: any) {
+    if (error.status === 404) {
+      console.log(`Thread ${threadId} not found in default project, trying specific project...`);
+      
+      // Try specific project  
+      const projectClient = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+        project: 'proj_lNxW2HsF47ntT5fS2ESTf1tW'
+      });
+      
+      try {
+        const messages = await projectClient.beta.threads.messages.list(threadId);
+        console.log(`✅ Found thread ${threadId} in specific project`);
+        return messages.data.reverse(); // Chronological order
+      } catch (projectError: any) {
+        if (projectError.status === 404) {
+          console.log(`Thread ${threadId} not found in either project - likely from deleted assistant`);
+          return null;
+        }
+        throw projectError;
+      }
+    }
+    throw error;
+  }
+}
+
+// Helper function to extract text content (same as analytics)
+function extractTextContent(message: any) {
+  if (!message.content || message.content.length === 0) return '';
+  
+  return message.content
+    .filter((content: any) => content.type === 'text')
+    .map((content: any) => {
+      let text = content.text.value;
+      
+      // Clean up the system prompts/notes that appear in user messages
+      text = text.replace(/ADDITIONAL NOTES FOR REFERENCE.*?USER MESSAGE: /g, '');
+      text = text.replace(/.*?USER MESSAGE: /g, '');
+      
+      // Process citations in assistant responses (just remove them for archival)
+      if (content.text.annotations) {
+        content.text.annotations.forEach((annotation: any, idx: number) => {
+          if (annotation.type === 'file_citation') {
+            text = text.replace(annotation.text, `[${idx + 1}]`);
+          }
+        });
+      }
+      
+      return text.trim();
+    })
+    .join('\n');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { teamId, accountId, portfolioId } = await request.json();
@@ -68,6 +225,9 @@ export async function POST(request: NextRequest) {
       
       if (isStale) {
         console.log('🔄 Cache is stale, deleting old assistant and creating new one...');
+        
+        // Backup all threads before deletion
+        await backupAssistantThreads(supabase, existingAssistant.assistant_id);
         
         // Delete old OpenAI assistant and vector store
         try {
