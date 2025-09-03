@@ -926,14 +926,12 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                   if (content.type === 'text') {
                     let text = content.text.value;
                     
-                    // HANDLE CITATIONS
+                    // HANDLE CITATIONS - REMOVE CITATION PLACEHOLDERS FROM DISPLAY
                     if (content.text.annotations) {
                       content.text.annotations.forEach((annotation, annIndex) => {
                         if (annotation.type === 'file_citation' && annotation.file_citation) {
-                          text = text.replace(
-                            annotation.text,
-                            `[${annIndex + 1}]`
-                          );
+                          // REMOVE CITATION PLACEHOLDERS COMPLETELY FROM DISPLAY
+                          text = text.replace(annotation.text, '');
                         }
                       });
                     }
@@ -988,18 +986,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             </ReactMarkdown>
                           </div>
                         )}
-                        {message.role === 'assistant' && content.text.annotations && content.text.annotations.length > 0 && (
-                          <div className="mt-2 text-xs text-slate-400 border-t border-slate-600 pt-2">
-                            <div className="font-semibold mb-1">SOURCES:</div>
-                            {content.text.annotations
-                              .filter(ann => ann.type === 'file_citation')
-                              .map((annotation, annIndex) => (
-                                <div key={annIndex} className="mb-1">
-                                  [{annIndex + 1}] {annotation.file_citation?.quote || annotation.text || 'Unknown source'}
-                                </div>
-                              ))}
-                          </div>
-                        )}
+                        {/* SOURCES SECTION REMOVED - CITATION FLOW STILL ACTIVE */}
                         
                         {/* RATING BUTTONS FOR ASSISTANT MESSAGES */}
                         {message.role === 'assistant' && (
