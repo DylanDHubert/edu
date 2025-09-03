@@ -561,6 +561,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             let citations: string[] = [];
             let currentStep = '';
             let assistantMessageObj: Message | null = null;
+            let jsonBuffer = ''; // BUFFER FOR INCOMPLETE JSON CHUNKS
             
             try {
               while (true) {
@@ -572,46 +573,67 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                 
                 for (const line of lines) {
                   if (line.startsWith('data: ')) {
-                    const data = JSON.parse(line.slice(6));
+                    const jsonStr = line.slice(6).trim();
                     
-                    if (data.type === 'update') {
-                      assistantMessage = data.content;
-                      citations = data.citations;
-                      currentStep = data.step || '';
+                    // SKIP EMPTY LINES
+                    if (!jsonStr) continue;
+                    
+                    // ADD TO BUFFER FOR POTENTIAL INCOMPLETE JSON
+                    jsonBuffer += jsonStr;
+                    
+                    try {
+                      const data = JSON.parse(jsonBuffer);
+                      // SUCCESS! CLEAR BUFFER AND PROCESS DATA
+                      jsonBuffer = '';
                       
-                      // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
-                      if (!assistantMessageObj && assistantMessage.trim()) {
-                        const messageId = `assistant-${Date.now()}`;
-                        assistantMessageObj = {
-                          id: messageId,
-                          role: 'assistant',
-                          content: [{ type: 'text', text: { value: assistantMessage } }],
-                          created_at: Date.now() / 1000
-                        };
-                        setMessages(prev => [...prev, assistantMessageObj!]);
-                        // RECORD START TIME FOR RESPONSE TIME CALCULATION
-                        setResponseStartTimes(prev => ({
-                          ...prev,
-                          [messageId]: Date.now()
-                        }));
-                      } else if (assistantMessageObj) {
-                        // UPDATE THE ASSISTANT MESSAGE
-                        setMessages(prev => prev.map(msg => 
-                          msg.id === assistantMessageObj!.id 
-                            ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
-                            : msg
-                        ));
+                      if (data.type === 'update') {
+                        assistantMessage = data.content;
+                        citations = data.citations || [];
+                        currentStep = data.step || '';
+                        
+                        // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
+                        if (!assistantMessageObj && assistantMessage.trim()) {
+                          const messageId = `assistant-${Date.now()}`;
+                          assistantMessageObj = {
+                            id: messageId,
+                            role: 'assistant',
+                            content: [{ type: 'text', text: { value: assistantMessage } }],
+                            created_at: Date.now() / 1000
+                          };
+                          setMessages(prev => [...prev, assistantMessageObj!]);
+                          // RECORD START TIME FOR RESPONSE TIME CALCULATION
+                          setResponseStartTimes(prev => ({
+                            ...prev,
+                            [messageId]: Date.now()
+                          }));
+                        } else if (assistantMessageObj) {
+                          // UPDATE THE ASSISTANT MESSAGE
+                          setMessages(prev => prev.map(msg => 
+                            msg.id === assistantMessageObj!.id 
+                              ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
+                              : msg
+                          ));
+                        }
+                        
+                        // UPDATE CURRENT STEP
+                        setCurrentStep(data.step || '');
+                      } else if (data.type === 'done') {
+                        // STREAMING COMPLETE
+                        setCurrentStep('');
+                        break;
+                      } else if (data.type === 'error') {
+                        setCurrentStep('');
+                        throw new Error(data.error);
                       }
-                      
-                      // UPDATE CURRENT STEP
-                      setCurrentStep(data.step || '');
-                    } else if (data.type === 'done') {
-                      // STREAMING COMPLETE
-                      setCurrentStep('');
-                      break;
-                    } else if (data.type === 'error') {
-                      setCurrentStep('');
-                      throw new Error(data.error);
+                    } catch (jsonError) {
+                      // JSON PARSING FAILED - CHECK IF WE SHOULD CONTINUE BUFFERING
+                      if (jsonBuffer.length > 10000) {
+                        // BUFFER TOO LARGE, LIKELY CORRUPTED - RESET AND CONTINUE
+                        console.warn('JSON buffer too large, resetting:', jsonError);
+                        jsonBuffer = '';
+                      }
+                      // OTHERWISE, CONTINUE BUFFERING FOR NEXT CHUNK
+                      continue;
                     }
                   }
                 }
@@ -735,6 +757,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         let citations: string[] = [];
         let currentStep = '';
         let assistantMessageObj: Message | null = null;
+        let jsonBuffer = ''; // BUFFER FOR INCOMPLETE JSON CHUNKS
         
         try {
           while (true) {
@@ -746,84 +769,105 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             
             for (const line of lines) {
               if (line.startsWith('data: ')) {
-                const data = JSON.parse(line.slice(6));
+                const jsonStr = line.slice(6).trim();
                 
-                if (data.type === 'update') {
-                  assistantMessage = data.content;
-                  citations = data.citations;
-                  currentStep = data.step || '';
+                // SKIP EMPTY LINES
+                if (!jsonStr) continue;
+                
+                // ADD TO BUFFER FOR POTENTIAL INCOMPLETE JSON
+                jsonBuffer += jsonStr;
+                
+                try {
+                  const data = JSON.parse(jsonBuffer);
+                  // SUCCESS! CLEAR BUFFER AND PROCESS DATA
+                  jsonBuffer = '';
                   
-                  // DEBUG: LOG WHAT THE FRONTEND IS RECEIVING
-                  console.log('🔍 FRONTEND RECEIVED:', {
-                    content: assistantMessage,
-                    citations: citations,
-                    step: currentStep
-                  });
-                  
-                  // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
-                  if (!assistantMessageObj && assistantMessage.trim()) {
-                    const messageId = `assistant-${Date.now()}`;
-                    assistantMessageObj = {
-                      id: messageId,
-                      role: 'assistant',
-                      content: [{ 
-                        type: 'text', 
-                        text: { 
-                          value: assistantMessage,
-                          // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
-                          annotations: citations.length > 0 ? citations.map((citation, index) => ({
-                            type: 'file_citation',
-                            text: `[${index + 1}]`,
-                            file_citation: {
-                              file_id: `citation-${index}`,
-                              quote: citation.replace(`[${index + 1}] `, '')
+                  if (data.type === 'update') {
+                    assistantMessage = data.content;
+                    citations = data.citations || [];
+                    currentStep = data.step || '';
+                    
+                    // DEBUG: LOG WHAT THE FRONTEND IS RECEIVING
+                    console.log('🔍 FRONTEND RECEIVED:', {
+                      content: assistantMessage,
+                      citations: citations,
+                      step: currentStep
+                    });
+                    
+                    // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
+                    if (!assistantMessageObj && assistantMessage.trim()) {
+                      const messageId = `assistant-${Date.now()}`;
+                      assistantMessageObj = {
+                        id: messageId,
+                        role: 'assistant',
+                        content: [{ 
+                          type: 'text', 
+                          text: { 
+                            value: assistantMessage,
+                            // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
+                            annotations: citations.length > 0 ? citations.map((citation, index) => ({
+                              type: 'file_citation',
+                              text: `[${index + 1}]`,
+                              file_citation: {
+                                file_id: `citation-${index}`,
+                                quote: citation.replace(`[${index + 1}] `, '')
+                              }
+                            })) : undefined
+                          } 
+                        }],
+                        created_at: Date.now() / 1000
+                      };
+                      setMessages(prev => [...prev, assistantMessageObj!]);
+                      // RECORD START TIME FOR RESPONSE TIME CALCULATION
+                      setResponseStartTimes(prev => ({
+                        ...prev,
+                        [messageId]: Date.now()
+                      }));
+                    } else if (assistantMessageObj) {
+                      // UPDATE THE ASSISTANT MESSAGE
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageObj!.id 
+                          ? { 
+                              ...msg, 
+                              content: [{ 
+                                type: 'text', 
+                                text: { 
+                                  value: assistantMessage,
+                                  // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
+                                  annotations: citations.length > 0 ? citations.map((citation, index) => ({
+                                    type: 'file_citation',
+                                    text: `[${index + 1}]`,
+                                    file_citation: {
+                                      file_id: `citation-${index}`,
+                                      quote: citation.replace(`[${index + 1}] `, '')
+                                    }
+                                  })) : undefined
+                                } 
+                              }] 
                             }
-                          })) : undefined
-                        } 
-                      }],
-                      created_at: Date.now() / 1000
-                    };
-                    setMessages(prev => [...prev, assistantMessageObj!]);
-                    // RECORD START TIME FOR RESPONSE TIME CALCULATION
-                    setResponseStartTimes(prev => ({
-                      ...prev,
-                      [messageId]: Date.now()
-                    }));
-                  } else if (assistantMessageObj) {
-                    // UPDATE THE ASSISTANT MESSAGE
-                    setMessages(prev => prev.map(msg => 
-                      msg.id === assistantMessageObj!.id 
-                        ? { 
-                            ...msg, 
-                            content: [{ 
-                              type: 'text', 
-                              text: { 
-                                value: assistantMessage,
-                                // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
-                                annotations: citations.length > 0 ? citations.map((citation, index) => ({
-                                  type: 'file_citation',
-                                  text: `[${index + 1}]`,
-                                  file_citation: {
-                                    file_id: `citation-${index}`,
-                                    quote: citation.replace(`[${index + 1}] `, '')
-                                  }
-                                })) : undefined
-                              } 
-                            }] 
-                          }
-                        : msg
-                    ));
+                          : msg
+                      ));
+                    }
+                    
+                    // UPDATE CURRENT STEP
+                    setCurrentStep(data.step || '');
+                  } else if (data.type === 'done') {
+                    // STREAMING COMPLETE
+                    setCurrentStep('');
+                    break;
+                  } else if (data.type === 'error') {
+                    setCurrentStep('');
+                    throw new Error(data.error);
                   }
-                  
-                  // UPDATE CURRENT STEP
-                  setCurrentStep(data.step || '');
-                } else if (data.type === 'done') {
-                  // STREAMING COMPLETE
-                  setCurrentStep('');
-                  break;
-                } else if (data.type === 'error') {
-                  setCurrentStep('');
-                  throw new Error(data.error);
+                } catch (jsonError) {
+                  // JSON PARSING FAILED - CHECK IF WE SHOULD CONTINUE BUFFERING
+                  if (jsonBuffer.length > 10000) {
+                    // BUFFER TOO LARGE, LIKELY CORRUPTED - RESET AND CONTINUE
+                    console.warn('JSON buffer too large, resetting:', jsonError);
+                    jsonBuffer = '';
+                  }
+                  // OTHERWISE, CONTINUE BUFFERING FOR NEXT CHUNK
+                  continue;
                 }
               }
             }

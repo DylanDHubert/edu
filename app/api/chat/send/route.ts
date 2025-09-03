@@ -85,14 +85,26 @@ export async function POST(request: NextRequest) {
               (content: string, citations: string[], step?: string) => {
                 finalContent = content; // CAPTURE FINAL CONTENT
                 
-                // SEND STREAMING UPDATE
-                const data = JSON.stringify({
-                  type: 'update',
-                  content,
-                  citations,
-                  step
-                });
-                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+                try {
+                  // SEND STREAMING UPDATE WITH SAFE JSON HANDLING
+                  const data = JSON.stringify({
+                    type: 'update',
+                    content,
+                    citations,
+                    step
+                  });
+                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+                } catch (jsonError) {
+                  console.error('JSON stringify error:', jsonError);
+                  // FALLBACK: SEND A SAFE VERSION
+                  const safeData = JSON.stringify({
+                    type: 'update',
+                    content: content.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''), // REMOVE CONTROL CHARACTERS
+                    citations: citations || [],
+                    step: step || ''
+                  });
+                  controller.enqueue(encoder.encode(`data: ${safeData}\n\n`));
+                }
               }
             );
             
