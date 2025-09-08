@@ -239,10 +239,6 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
                   accountName: activeAssistant.accountName || 'Account',
                   portfolioId: activeAssistant.portfolioId,
                   portfolioName: activeAssistant.portfolioName || 'Portfolio',
-                  // NEW: Add multi-account support for notes
-                  selectedAccountIds: activeAssistant.selectedAccountIds || [],
-                  selectedAccounts: activeAssistant.selectedAccounts || [],
-                  hasMultipleAccounts: (activeAssistant.selectedAccountIds || []).length > 1
                 } : null}
               />
             </div>

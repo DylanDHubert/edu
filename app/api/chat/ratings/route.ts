@@ -1,82 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { verifyUserAuth } from '../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
+import { ChatService } from '../../../services/chat-service';
+import { GetRatingsRequest } from '../../../types/chat';
 
 export async function POST(request: NextRequest) {
   try {
     const { threadId } = await request.json();
     
     if (!threadId) {
-      return NextResponse.json(
-        { error: 'THREAD ID IS REQUIRED' },
-        { status: 400 }
-      );
+      return handleValidationError('Thread ID is required');
     }
 
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
+    const { user } = await verifyUserAuth(cookieStore);
+
+    // CREATE GET RATINGS REQUEST
+    const getRatingsRequest: GetRatingsRequest = {
+      threadId
+    };
+
+    // GET RATINGS
+    const chatService = new ChatService();
+    const result = await chatService.getRatings(getRatingsRequest, user.id);
+
+    if (result.success) {
+      return NextResponse.json({ 
+        ratings: result.ratings 
+      });
+    } else {
+      return handleDatabaseError(new Error(result.error), 'load ratings');
     }
 
-    // VERIFY USER OWNS THIS THREAD
-    const { data: chatHistory, error: ownershipError } = await supabase
-      .from('chat_history')
-      .select('*')
-      .eq('thread_id', threadId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (ownershipError || !chatHistory) {
-      return NextResponse.json(
-        { error: 'THREAD NOT FOUND OR ACCESS DENIED' },
-        { status: 404 }
-      );
-    }
-
-    // GET RATINGS FOR THIS THREAD
-    const { data: ratings, error: ratingsError } = await supabase
-      .from('message_ratings')
-      .select('message_id, rating, team_id, account_id, portfolio_id, response_time_ms, citations, feedback_text')
-      .eq('thread_id', threadId)
-      .eq('user_id', user.id);
-
-    if (ratingsError) {
-      console.error('ERROR LOADING RATINGS:', ratingsError);
-      return NextResponse.json(
-        { error: 'FAILED TO LOAD RATINGS' },
-        { status: 500 }
-      );
-    }
-
-    // CONVERT TO OBJECT FOR EASY LOOKUP
-    const ratingsMap = (ratings || []).reduce((acc, rating) => {
-      acc[rating.message_id] = {
-        rating: rating.rating,
-        teamId: rating.team_id,
-        accountId: rating.account_id,
-        portfolioId: rating.portfolio_id,
-        responseTimeMs: rating.response_time_ms,
-        citations: rating.citations || [],
-        feedbackText: rating.feedback_text || null
-      };
-      return acc;
-    }, {} as Record<string, any>);
-
-    return NextResponse.json({ 
-      ratings: ratingsMap 
-    });
   } catch (error) {
-    console.error('ERROR LOADING RATINGS:', error);
-    return NextResponse.json(
-      { error: 'INTERNAL SERVER ERROR' },
-      { status: 500 }
-    );
+    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+      return handleAuthError(error);
+    }
+    console.error('Error loading ratings:', error);
+    return handleDatabaseError(error, 'load ratings');
   }
-} 
+}

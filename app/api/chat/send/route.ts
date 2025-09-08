@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '../../../utils/supabase/server';
-import { sendMessage, sendMessageStreaming } from '../../../utils/openai';
 import { cookies } from 'next/headers';
-import { getNotesForTeamContext, formatNotesForContext } from '../../../utils/notes-server';
-import { verifyUserAuth, verifyTeamAccess } from '../../../utils/auth-helpers';
+import { verifyUserAuth } from '../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
-import OpenAI from 'openai';
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { ChatService } from '../../../services/chat-service';
+import { SendMessageRequest } from '../../../types/chat';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,87 +23,26 @@ export async function POST(request: NextRequest) {
 
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
-    const { user, supabase } = await verifyUserAuth(cookieStore);
+    const { user } = await verifyUserAuth(cookieStore);
 
-    // VERIFY USER OWNS THIS THREAD
-    const { data: chatHistory, error: ownershipError } = await supabase
-      .from('chat_history')
-      .select('*')
-      .eq('thread_id', threadId)
-      .eq('user_id', user.id)
-      .single();
+    // CREATE SEND MESSAGE REQUEST
+    const sendRequest: SendMessageRequest = {
+      threadId,
+      message,
+      assistantId,
+      teamId,
+      accountId,
+      portfolioId,
+      streaming
+    };
 
-    if (ownershipError || !chatHistory) {
-      return handleDatabaseError(ownershipError, 'verify thread ownership');
-    }
+    // CREATE CHAT SERVICE
+    const chatService = new ChatService();
 
-    // GET NOTES FOR TEAM CONTEXT
-    let notes = [];
-    notes = await getNotesForTeamContext(teamId, accountId, portfolioId, user.id);
-    
-    const notesContext = formatNotesForContext(notes);
-    
-    // COMBINE NOTES AND MESSAGE (team knowledge is already in thread from creation)
-    let fullContext = '';
-    if (notesContext) {
-      fullContext += notesContext;
-    }
-    
-    const messageWithContext = fullContext ? `${fullContext}USER MESSAGE: ${message}` : message;
-    
     // IF STREAMING IS REQUESTED, RETURN STREAMING RESPONSE
     if (streaming) {
-      const encoder = new TextEncoder();
+      const stream = await chatService.sendMessageStreaming(sendRequest, user.id);
       
-      const stream = new ReadableStream({
-        async start(controller) {
-          try {
-            let finalContent = '';
-            
-            await sendMessageStreaming(
-              threadId, 
-              messageWithContext, 
-              assistantId,
-              (content: string, citations: string[], step?: string) => {
-                finalContent = content; // CAPTURE FINAL CONTENT
-                
-                try {
-                  // SEND STREAMING UPDATE WITH SAFE JSON HANDLING
-                  const data = JSON.stringify({
-                    type: 'update',
-                    content,
-                    citations,
-                    step
-                  });
-                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-                } catch (jsonError) {
-                  console.error('JSON stringify error:', jsonError);
-                  // FALLBACK: SEND A SAFE VERSION
-                  const safeData = JSON.stringify({
-                    type: 'update',
-                    content: content.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''), // REMOVE CONTROL CHARACTERS
-                    citations: citations || [],
-                    step: step || ''
-                  });
-                  controller.enqueue(encoder.encode(`data: ${safeData}\n\n`));
-                }
-              }
-            );
-            
-            // SEND COMPLETION SIGNAL
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-            controller.close();
-          } catch (error) {
-            const errorData = JSON.stringify({
-              type: 'error',
-              error: error instanceof Error ? error.message : 'UNKNOWN ERROR'
-            });
-            controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
-            controller.close();
-          }
-        }
-      });
-
       return new Response(stream, {
         headers: {
           'Content-Type': 'text/event-stream',
@@ -120,9 +53,14 @@ export async function POST(request: NextRequest) {
     }
 
     // NON-STREAMING RESPONSE
-    const messages = await sendMessage(threadId, messageWithContext, assistantId);
+    const result = await chatService.sendMessage(sendRequest, user.id);
     
-    return NextResponse.json({ messages });
+    if (result.success) {
+      return NextResponse.json({ messages: result.messages });
+    } else {
+      return handleDatabaseError(new Error(result.error), 'process chat message');
+    }
+
   } catch (error) {
     if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
@@ -130,4 +68,4 @@ export async function POST(request: NextRequest) {
     console.error('Error in chat send route:', error);
     return handleDatabaseError(error, 'process chat message');
   }
-} 
+}

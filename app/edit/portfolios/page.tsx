@@ -114,16 +114,21 @@ function EditPortfoliosContent() {
       }
 
       try {
-        // Delete from database
-        const { error: deleteError } = await supabase
-          .from('team_portfolios')
-          .delete()
-          .eq('id', portfolio.id);
+        // DELETE VIA API ROUTE
+        const response = await fetch('/api/teams/portfolios/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            portfolioId: portfolio.id,
+            teamId: teamId
+          }),
+        });
 
-        if (deleteError) {
-          console.error('Error deleting portfolio:', deleteError);
-          setError('Failed to delete portfolio');
-          return;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete portfolio');
         }
       } catch (error) {
         console.error('Error deleting portfolio:', error);
@@ -163,16 +168,21 @@ function EditPortfoliosContent() {
     }
 
     try {
-      // Delete from database
-      const { error: deleteError } = await supabase
-        .from('team_documents')
-        .delete()
-        .eq('id', documentId);
+      // DELETE VIA API ROUTE
+      const response = await fetch('/api/teams/documents/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          documentId: documentId,
+          teamId: teamId
+        }),
+      });
 
-      if (deleteError) {
-        console.error('Error deleting document:', deleteError);
-        setError('Failed to delete document');
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete document');
       }
 
       // Remove from state
@@ -232,38 +242,50 @@ function EditPortfoliosContent() {
       // Update/create portfolios
       for (const portfolio of portfolios) {
         if (portfolio.id) {
-          // Update existing portfolio
-          const { error: updateError } = await supabase
-            .from('team_portfolios')
-            .update({
+          // UPDATE EXISTING PORTFOLIO VIA API ROUTE
+          const updateResponse = await fetch('/api/teams/portfolios/update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              portfolioId: portfolio.id,
+              teamId: teamId,
               name: portfolio.name.trim(),
               description: portfolio.description?.trim() || null
-            })
-            .eq('id', portfolio.id);
+            }),
+          });
 
-          if (updateError) {
-            console.error('Error updating portfolio:', updateError);
-            throw new Error(`Failed to update portfolio: ${portfolio.name}`);
+          if (!updateResponse.ok) {
+            const errorData = await updateResponse.json();
+            throw new Error(`Failed to update portfolio: ${portfolio.name} - ${errorData.error}`);
           }
         } else if (portfolio.name.trim()) {
-          // Create new portfolio
-          const { data: newPortfolio, error: createError } = await supabase
-            .from('team_portfolios')
-            .insert({
-              team_id: teamId,
-              name: portfolio.name.trim(),
-              description: portfolio.description?.trim() || null
-            })
-            .select()
-            .single();
+          // CREATE NEW PORTFOLIO VIA API ROUTE
+          const createResponse = await fetch('/api/teams/portfolios/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              teamId: teamId,
+              portfolios: [{
+                name: portfolio.name.trim(),
+                description: portfolio.description?.trim() || null
+              }]
+            }),
+          });
 
-          if (createError) {
-            console.error('Error creating portfolio:', createError);
-            throw new Error(`Failed to create portfolio: ${portfolio.name}`);
+          if (!createResponse.ok) {
+            const errorData = await createResponse.json();
+            throw new Error(`Failed to create portfolio: ${portfolio.name} - ${errorData.error}`);
           }
 
-          // Update local state with new ID for file uploads
-          portfolio.id = newPortfolio.id;
+          const createResult = await createResponse.json();
+          if (createResult.success && createResult.portfolios && createResult.portfolios.length > 0) {
+            // Update local state with new ID for file uploads
+            portfolio.id = createResult.portfolios[0].id;
+          }
         }
 
         // Handle new file uploads using new client-side upload flow

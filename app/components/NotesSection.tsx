@@ -13,10 +13,6 @@ interface NotesSectionProps {
     accountName: string;
     portfolioId: string;
     portfolioName: string;
-    // NEW: Multi-account support
-    selectedAccountIds: string[];
-    selectedAccounts: Array<{id: string, name: string, description?: string}>;
-    hasMultipleAccounts: boolean;
   } | null;
 }
 

@@ -485,7 +485,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             },
             body: JSON.stringify({
               teamId: activeAssistant.teamId,
-              accountId: activeAssistant.accountId,
+              accountId: activeAssistant.accountId, // Keep for backward compatibility
               portfolioId: activeAssistant.portfolioId,
               assistantId: activeAssistant.assistantId,
               title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,

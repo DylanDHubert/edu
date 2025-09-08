@@ -180,6 +180,7 @@ export async function POST(request: NextRequest) {
     }
     
     // SAVE TO DATABASE - Using team-based schema
+    // Store the primary account ID (first one) for backward compatibility
     const { data: chatHistory, error: dbError } = await supabase
       .from('chat_history')
       .insert({

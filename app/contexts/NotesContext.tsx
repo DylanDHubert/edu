@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./AuthContext";
-import { createClient } from "../utils/supabase/client";
 
 interface Note {
   id: string;
@@ -40,56 +39,35 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
 
   const refreshNotes = useCallback(async () => {
     if (!user) return;
 
-    console.log('🔄 REFRESHING NOTES...');
+    console.log('🔄 REFRESHING NOTES VIA API...');
     setLoading(true);
     try {
-      // GET USER'S OWN NOTES
-      const { data: userNotes, error: userError } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('user_id', user.id);
+      // USE API ROUTE INSTEAD OF DIRECT SUPABASE CALLS
+      const response = await fetch('/api/notes/list', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (userError) {
-        console.error('ERROR LOADING USER NOTES:', userError);
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to load notes');
       }
 
-      console.log('📝 USER NOTES LOADED:', userNotes?.length || 0, 'notes');
-
-      // GET SHARED NOTES
-      const { data: sharedNotes, error: sharedError } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('is_shared', true);
-
-      if (sharedError) {
-        console.error('ERROR LOADING SHARED NOTES:', sharedError);
-        return;
-      }
-
-      console.log('📝 SHARED NOTES LOADED:', sharedNotes?.length || 0, 'notes');
-
-      // COMBINE USER NOTES AND SHARED NOTES
-      const allNotes = [...(userNotes || []), ...(sharedNotes || [])];
-      
-      // REMOVE DUPLICATES (IN CASE USER'S OWN NOTES ARE ALSO SHARED)
-      const uniqueNotes = allNotes.filter((note, index, self) => 
-        index === self.findIndex(n => n.id === note.id)
-      );
-
-      console.log('📝 TOTAL UNIQUE NOTES:', uniqueNotes.length);
-      setNotes(uniqueNotes);
+      const { notes: loadedNotes } = await response.json();
+      console.log('📝 NOTES LOADED VIA API:', loadedNotes?.length || 0, 'notes');
+      setNotes(loadedNotes || []);
     } catch (error) {
       console.error('ERROR LOADING NOTES:', error);
     } finally {
       setLoading(false);
     }
-  }, [user, supabase]);
+  }, [user]);
 
   // LOAD NOTES WHEN USER CHANGES
   useEffect(() => {
@@ -97,47 +75,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       refreshNotes();
     }
   }, [user, refreshNotes]);
-
-  // SET UP REAL-TIME SUBSCRIPTION FOR NOTES
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('notes-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          // REFRESH NOTES WHEN ANY CHANGE OCCURS
-          console.log('🔄 REAL-TIME UPDATE: User notes changed, refreshing...');
-          refreshNotes();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-          filter: 'is_shared=eq.true'
-        },
-        () => {
-          // REFRESH NOTES WHEN SHARED NOTES CHANGE
-          console.log('🔄 REAL-TIME UPDATE: Shared notes changed, refreshing...');
-          refreshNotes();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase, refreshNotes]);
 
   const createNote = async (formData: FormData) => {
     try {
@@ -151,6 +88,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         throw new Error(errorData.error || 'FAILED TO CREATE NOTE');
       }
 
+      // REFRESH NOTES AFTER CREATION
       await refreshNotes();
     } catch (error) {
       console.error('ERROR CREATING NOTE:', error);
@@ -170,6 +108,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         throw new Error(errorData.error || 'FAILED TO UPDATE NOTE');
       }
 
+      // REFRESH NOTES AFTER UPDATE
       await refreshNotes();
     } catch (error) {
       console.error('ERROR UPDATING NOTE:', error);
@@ -192,6 +131,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         throw new Error(errorData.error || 'FAILED TO DELETE NOTE');
       }
 
+      // REFRESH NOTES AFTER DELETION
       await refreshNotes();
     } catch (error) {
       console.error('ERROR DELETING NOTE:', error);
@@ -204,36 +144,33 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     accountId: string;
     portfolioId: string;
   }) => {
-    console.log('🔍 GETTING NOTES FOR PORTFOLIO:', { portfolioType, teamContext });
-    
-    const filteredNotes = notes.filter(note => {
-      console.log('🔍 CHECKING NOTE:', {
-        noteId: note.id,
-        notePortfolio: note.portfolio_type,
-        expectedPortfolio: portfolioType,
-        noteTeamId: note.team_id,
-        noteAccountId: note.account_id,
-        notePortfolioId: note.portfolio_id,
-        teamContext
-      });
+    if (!teamContext) {
+      // RETURN ALL NOTES IF NO TEAM CONTEXT
+      return notes;
+    }
 
-      // INCLUDE PORTFOLIO-SPECIFIC NOTES (CASE-INSENSITIVE)
-      const portfolioMatch = note.portfolio_type.toLowerCase() === portfolioType.toLowerCase();
-      console.log('✅ NOTE INCLUDED: Portfolio match', { portfolioMatch, notePortfolio: note.portfolio_type, expectedPortfolio: portfolioType });
-      return portfolioMatch;
+    // FILTER NOTES BASED ON PORTFOLIO AND TEAM CONTEXT
+    return notes.filter(note => {
+      // USER'S OWN NOTES FOR THIS PORTFOLIO
+      if (note.user_id === user?.id && note.portfolio_type === portfolioType) {
+        return true;
+      }
+
+      // SHARED NOTES FOR THIS PORTFOLIO
+      if (note.is_shared && note.portfolio_type === portfolioType) {
+        return true;
+      }
+
+      // PORTFOLIO-SHARED NOTES FOR THIS SPECIFIC PORTFOLIO
+      if (note.is_portfolio_shared && note.portfolio_id === teamContext.portfolioId) {
+        return true;
+      }
+
+      return false;
     });
-
-    console.log('🔍 FILTERED NOTES RESULT:', {
-      totalNotes: notes.length,
-      filteredNotes: filteredNotes.length,
-      portfolioType,
-      teamContext
-    });
-
-    return filteredNotes;
   };
 
-  const value = {
+  const value: NotesContextType = {
     notes,
     loading,
     createNote,
@@ -243,7 +180,11 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     getNotesForPortfolio,
   };
 
-  return <NotesContext.Provider value={value}>{children}</NotesContext.Provider>;
+  return (
+    <NotesContext.Provider value={value}>
+      {children}
+    </NotesContext.Provider>
+  );
 }
 
 export function useNotes() {
@@ -252,4 +193,4 @@ export function useNotes() {
     throw new Error('useNotes must be used within a NotesProvider');
   }
   return context;
-} 
+}

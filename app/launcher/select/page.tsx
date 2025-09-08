@@ -39,7 +39,7 @@ function AccountPortfolioSelectContent() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('');
-  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [creatingAssistant, setCreatingAssistant] = useState(false);
@@ -109,7 +109,7 @@ function AccountPortfolioSelectContent() {
       loadAccountsForPortfolio();
     } else {
       setAccounts([]);
-      setSelectedAccounts(new Set());
+      setSelectedAccount('');
     }
   }, [selectedPortfolio]);
 
@@ -148,8 +148,10 @@ function AccountPortfolioSelectContent() {
 
       setAccounts(transformedAccounts);
 
-      // Select all accounts by default
-      setSelectedAccounts(new Set(transformedAccounts.map((a: any) => a.id)));
+      // Select first account by default
+      if (transformedAccounts.length > 0) {
+        setSelectedAccount(transformedAccounts[0].id);
+      }
 
     } catch (error) {
       console.error('Error loading accounts for portfolio:', error);
@@ -161,14 +163,8 @@ function AccountPortfolioSelectContent() {
     setSelectedPortfolio(portfolioId);
   };
 
-  const handleAccountToggle = (accountId: string) => {
-    const newSelected = new Set(selectedAccounts);
-    if (newSelected.has(accountId)) {
-      newSelected.delete(accountId);
-    } else {
-      newSelected.add(accountId);
-    }
-    setSelectedAccounts(newSelected);
+  const handleAccountSelect = (accountId: string) => {
+    setSelectedAccount(accountId);
   };
 
   const handleStartChat = async () => {
@@ -177,8 +173,8 @@ function AccountPortfolioSelectContent() {
       return;
     }
 
-    if (selectedAccounts.size === 0) {
-      setError('Please select at least one account');
+    if (!selectedAccount) {
+      setError('Please select an account');
       return;
     }
 
@@ -186,9 +182,6 @@ function AccountPortfolioSelectContent() {
     setError(null);
 
     try {
-      // For now, use the first selected account (we'll modify the API later to handle multiple)
-      const firstAccountId = Array.from(selectedAccounts)[0];
-      
       // Call API to create/get dynamic assistant for this team+account+portfolio combination
       const response = await fetch('/api/assistants/create-dynamic', {
         method: 'POST',
@@ -197,7 +190,7 @@ function AccountPortfolioSelectContent() {
         },
         body: JSON.stringify({
           teamId,
-          accountId: firstAccountId,
+          accountId: selectedAccount,
           portfolioId: selectedPortfolio
         }),
       });
@@ -217,16 +210,13 @@ function AccountPortfolioSelectContent() {
         assistantId,
         assistantName,
         teamId,
-        accountId: firstAccountId, // For now, just use first account
+        accountId: selectedAccount,
         portfolioId: selectedPortfolio,
-        accountName: accounts.find(a => a.id === firstAccountId)?.name,
+        accountName: accounts.find(a => a.id === selectedAccount)?.name,
         portfolioName: selectedPortfolioData?.name,
         teamName: team?.name,
         teamLocation: team?.location,
-        userRole: userRole,
-        // NEW: Store all selected accounts for multi-account note support
-        selectedAccountIds: Array.from(selectedAccounts),
-        selectedAccounts: accounts.filter(a => selectedAccounts.has(a.id))
+        userRole: userRole
       };
       
       localStorage.setItem('activeAssistant', JSON.stringify(activeAssistant));
@@ -317,47 +307,21 @@ function AccountPortfolioSelectContent() {
               Choose the type of procedure or specialty you're working with.
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
               {portfolios.map((portfolio) => (
-                <label
-                  key={portfolio.id}
-                  className={`cursor-pointer p-4 rounded-lg border transition-colors ${
-                    selectedPortfolio === portfolio.id
-                      ? 'border-purple-500 bg-purple-900/20'
-                      : 'border-slate-600 hover:border-slate-500'
-                  }`}
-                >
+                <label key={portfolio.id} className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="radio"
                     name="portfolio"
                     value={portfolio.id}
                     checked={selectedPortfolio === portfolio.id}
                     onChange={(e) => handlePortfolioChange(e.target.value)}
-                    className="sr-only"
+                    className="w-4 h-4 text-purple-600"
                   />
                   <div>
-                    <h3 className="text-slate-100 font-medium">{portfolio.name}</h3>
+                    <span className="text-slate-100 font-medium">{portfolio.name}</span>
                     {portfolio.description && (
-                      <p className="text-slate-400 text-sm mt-1">{portfolio.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <FileText className="w-4 h-4 text-slate-500" />
-                      <p className="text-slate-500 text-xs">
-                        {portfolio.documentCount} document{portfolio.documentCount !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    {portfolio.documents.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-slate-500 text-xs font-medium">Documents:</p>
-                        <ul className="text-slate-500 text-xs mt-1 space-y-1">
-                          {portfolio.documents.slice(0, 3).map((doc, index) => (
-                            <li key={index} className="truncate">• {doc.original_name}</li>
-                          ))}
-                          {portfolio.documents.length > 3 && (
-                            <li className="text-slate-400">• +{portfolio.documents.length - 3} more</li>
-                          )}
-                        </ul>
-                      </div>
+                      <span className="text-slate-400 text-sm ml-2">- {portfolio.description}</span>
                     )}
                   </div>
                 </label>
@@ -368,28 +332,27 @@ function AccountPortfolioSelectContent() {
           {/* Account Selection */}
           {selectedPortfolio && (
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <h2 className="text-xl font-semibold text-slate-100 mb-4">Select Accounts</h2>
+              <h2 className="text-xl font-semibold text-slate-100 mb-4">Select Account</h2>
               <p className="text-slate-400 text-sm mb-6">
-                Choose which hospitals or locations to include in your chat context. All accounts are selected by default.
+                Choose which hospital or location to include in your chat context.
               </p>
               
               {accounts.length > 0 ? (
                 <div className="space-y-3">
                   {accounts.map((account) => (
-                    <label
-                      key={account.id}
-                      className="flex items-center p-3 rounded-lg border border-slate-600 hover:border-slate-500 cursor-pointer transition-colors"
-                    >
+                    <label key={account.id} className="flex items-center gap-3 cursor-pointer">
                       <input
-                        type="checkbox"
-                        checked={selectedAccounts.has(account.id)}
-                        onChange={() => handleAccountToggle(account.id)}
-                        className="w-4 h-4 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500 focus:ring-2"
+                        type="radio"
+                        name="account"
+                        value={account.id}
+                        checked={selectedAccount === account.id}
+                        onChange={(e) => handleAccountSelect(e.target.value)}
+                        className="w-4 h-4 text-purple-600"
                       />
-                      <div className="ml-3">
-                        <h3 className="text-slate-100 font-medium">{account.name}</h3>
+                      <div>
+                        <span className="text-slate-100 font-medium">{account.name}</span>
                         {account.description && (
-                          <p className="text-slate-400 text-sm mt-1">{account.description}</p>
+                          <span className="text-slate-400 text-sm ml-2">- {account.description}</span>
                         )}
                       </div>
                     </label>
@@ -416,7 +379,7 @@ function AccountPortfolioSelectContent() {
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
             <button
               onClick={handleStartChat}
-              disabled={!selectedPortfolio || selectedAccounts.size === 0 || creatingAssistant}
+              disabled={!selectedPortfolio || !selectedAccount || creatingAssistant}
               className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
               <BrainCog className="w-5 h-5 flex-shrink-0" />

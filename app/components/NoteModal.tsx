@@ -26,9 +26,6 @@ interface NoteModalProps {
     accountName: string;
     portfolioId: string;
     portfolioName: string;
-    hasMultipleAccounts: boolean;
-    selectedAccountIds: string[];
-    selectedAccounts: Array<{ id: string; name: string; description?: string }>;
   } | null;
 }
 
@@ -68,10 +65,8 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
         setContent("");
         setSharingLevel('private');
         setExistingImages([]);
-        // NEW: Smart default for new notes with multiple accounts
-        if (teamContext?.hasMultipleAccounts) {
-          setSelectedAccountForNote(teamContext.selectedAccountIds[0] || '');
-        } else if (teamContext?.accountId) {
+        // SET ACCOUNT FOR NEW NOTES
+        if (teamContext?.accountId) {
           setSelectedAccountForNote(teamContext.accountId);
         } else {
           setSelectedAccountForNote('');
@@ -89,8 +84,8 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
       return;
     }
 
-    // NEW: Validate account selection for multi-account context
-    if (teamContext?.hasMultipleAccounts && sharingLevel === 'account' && !selectedAccountForNote) {
+    // VALIDATE ACCOUNT SELECTION FOR ACCOUNT-LEVEL SHARING
+    if (sharingLevel === 'account' && !selectedAccountForNote) {
       setError("PLEASE SELECT WHICH ACCOUNT THIS NOTE BELONGS TO");
       return;
     }
@@ -201,23 +196,11 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
                   // Portfolio-wide sharing
                   `${teamContext.teamName} → All Accounts → ${teamContext.portfolioName}`
                 ) : (
-                  // Private or Account-specific - NEW: Show selected account when multiple available
-                  teamContext.hasMultipleAccounts ? (
-                    `${teamContext.teamName} → ${teamContext.selectedAccounts.find(a => a.id === selectedAccountForNote)?.name || 'Select Account'} → ${teamContext.portfolioName}`
-                  ) : (
-                    `${teamContext.teamName} → ${teamContext.accountName} → ${teamContext.portfolioName}`
-                  )
+                  // Private or Account-specific
+                  `${teamContext.teamName} → ${teamContext.accountName} → ${teamContext.portfolioName}`
                 )}
               </p>
               
-              {/* NEW: Show available accounts when multiple accounts are selected */}
-              {teamContext.hasMultipleAccounts && (
-                <div className="mt-2 pt-2 border-t border-blue-700">
-                  <p className="text-blue-300 text-xs">
-                    Available accounts: {teamContext.selectedAccounts.map(a => a.name).join(', ')}
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
@@ -325,33 +308,6 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
               )}
             </div>
 
-            {/* NEW: Account Selection for Multi-Account Context */}
-            {teamContext?.hasMultipleAccounts && sharingLevel === 'account' && (
-              <div className="space-y-3">
-                <div className="text-sm text-slate-400 mb-2">
-                  SELECT ACCOUNT FOR THIS NOTE:
-                </div>
-                
-                {teamContext.selectedAccounts.map((account) => (
-                  <label key={account.id} className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      name="noteAccount"
-                      value={account.id}
-                      checked={selectedAccountForNote === account.id}
-                      onChange={(e) => setSelectedAccountForNote(e.target.value)}
-                      className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
-                    />
-                    <span className="text-sm text-slate-300">
-                      <span className="font-medium">{account.name}</span>
-                      {account.description && (
-                        <span className="text-slate-400 ml-2">({account.description})</span>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
 
             {/* EXISTING IMAGES */}
             {existingImages.length > 0 && (
