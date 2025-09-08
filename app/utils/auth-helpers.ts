@@ -13,6 +13,7 @@ export interface TeamMembership {
   user_id: string;
   role: 'manager' | 'member';
   status: 'active' | 'inactive';
+  is_original_manager?: boolean;
   created_at: string;
   updated_at: string;
 }

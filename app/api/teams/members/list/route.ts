@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateWithTeamAccess } from '../../../../utils/auth-helpers';
+import { authenticateWithTeamAccess, TeamMembership } from '../../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../../utils/error-responses';
 
 export async function GET(request: NextRequest) {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = serviceClient;
 
     // Fetch real user data for each team member
-    const membersWithUserData = await Promise.all((members || []).map(async (member) => {
+    const membersWithUserData = await Promise.all((members || []).map(async (member: TeamMembership) => {
       try {
         // Get user data from Supabase auth using admin client
         const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(member.user_id);
