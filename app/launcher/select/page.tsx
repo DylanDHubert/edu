@@ -58,63 +58,35 @@ function AccountPortfolioSelectContent() {
     try {
       setLoading(true);
       
-      // Verify user is a member of this team
-      const { data: membership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('role')
-        .eq('team_id', teamId)
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .single();
+      // Use the secure team data API endpoint
+      const response = await fetch(`/api/teams/${teamId}/data`);
+      const result = await response.json();
 
-      if (membershipError || !membership) {
-        setError('You do not have access to this team');
+      if (!response.ok) {
+        setError(result.error || 'Failed to load team data');
         return;
       }
 
-      setUserRole(membership.role);
-
-      // Load team data
-      const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('id, name, location')
-        .eq('id', teamId)
-        .single();
-
-      if (teamError || !teamData) {
-        setError('Failed to load team information');
+      if (!result.success) {
+        setError('Failed to load team data');
         return;
       }
 
-      setTeam(teamData);
+      setUserRole(result.data.userRole);
+      setTeam({
+        id: result.data.team.id,
+        name: result.data.team.name,
+        location: result.data.team.location
+      });
 
-      // Load portfolios with document counts
-      const { data: portfoliosData, error: portfoliosError } = await supabase
-        .from('team_portfolios')
-        .select(`
-          id,
-          name,
-          description,
-          team_documents (
-            original_name
-          )
-        `)
-        .eq('team_id', teamId)
-        .order('name');
-
-      if (portfoliosError) {
-        console.error('Error loading portfolios:', portfoliosError);
-        setError('Failed to load portfolios');
-        return;
-      }
-
-      const transformedPortfolios = portfoliosData?.map(portfolio => ({
+      // Transform portfolios data for the select interface
+      const transformedPortfolios = (result.data.portfolios || []).map((portfolio: any) => ({
         id: portfolio.id,
         name: portfolio.name,
         description: portfolio.description || '',
         documentCount: portfolio.team_documents?.length || 0,
         documents: portfolio.team_documents || []
-      })) || [];
+      }));
 
       setPortfolios(transformedPortfolios);
 
@@ -143,53 +115,41 @@ function AccountPortfolioSelectContent() {
 
   const loadAccountsForPortfolio = async () => {
     try {
-      // Load accounts assigned to this portfolio
-      const { data: accountPortfolios, error: portfolioError } = await supabase
-        .from('account_portfolios')
-        .select('account_id')
-        .eq('portfolio_id', selectedPortfolio);
+      // Use the secure accounts list API endpoint
+      const response = await fetch(`/api/teams/accounts/list?teamId=${teamId}`);
+      const result = await response.json();
 
-      if (portfolioError) {
-        console.error('Error loading account portfolios:', portfolioError);
+      if (!response.ok) {
+        console.error('Error loading accounts:', result.error);
         setError('Failed to load accounts for this portfolio');
         return;
       }
 
-      const accountIds = accountPortfolios?.map(ap => ap.account_id) || [];
-
-      if (accountIds.length === 0) {
-        setAccounts([]);
-        setSelectedAccounts(new Set());
-        return;
-      }
-
-      const { data: accountsData, error: accountsError } = await supabase
-        .from('team_accounts')
-        .select(`
-          id,
-          name,
-          description
-        `)
-        .eq('team_id', teamId)
-        .in('id', accountIds)
-        .order('name');
-
-      if (accountsError) {
-        console.error('Error loading accounts:', accountsError);
+      if (!result.success) {
+        console.error('Failed to load accounts');
         setError('Failed to load accounts for this portfolio');
         return;
       }
 
-      const transformedAccounts = accountsData?.map(account => ({
+      const allAccounts = result.accounts || [];
+
+      // Filter accounts that are assigned to the selected portfolio
+      const portfolioAccounts = allAccounts.filter((account: any) => {
+        // Check if this account has account_portfolios relationship with the selected portfolio
+        const accountPortfolios = account.account_portfolios || [];
+        return accountPortfolios.some((ap: any) => ap.portfolio_id === selectedPortfolio);
+      });
+
+      const transformedAccounts = portfolioAccounts.map((account: any) => ({
         id: account.id,
         name: account.name,
         description: account.description || ''
-      })) || [];
+      }));
 
       setAccounts(transformedAccounts);
 
       // Select all accounts by default
-      setSelectedAccounts(new Set(transformedAccounts.map(a => a.id)));
+      setSelectedAccounts(new Set(transformedAccounts.map((a: any) => a.id)));
 
     } catch (error) {
       console.error('Error loading accounts for portfolio:', error);

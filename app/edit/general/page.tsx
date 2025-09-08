@@ -139,53 +139,45 @@ function EditGeneralContent() {
 
   const loadExistingData = async () => {
     try {
-      // Verify user is a manager of this team
-      const { data: membership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('role')
-        .eq('team_id', teamId)
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .single();
+      // Use the secure team data API endpoint
+      const response = await fetch(`/api/teams/${teamId}/data`);
+      const result = await response.json();
 
-      if (membershipError || !membership || membership.role !== 'manager') {
+      if (!response.ok) {
+        setError(result.error || 'Failed to load team data');
+        return;
+      }
+
+      if (!result.success) {
+        setError('Failed to load team data');
+        return;
+      }
+
+      // Check if user is a manager
+      if (result.data.userRole !== 'manager') {
         setError('Manager access required');
         return;
       }
-      
-      setUserRole(membership.role);
 
-      // Load team info
-      const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', teamId)
-        .single();
+      setUserRole(result.data.userRole);
+      setTeam(result.data.team);
 
-      if (teamError || !teamData) {
-        setError('Failed to load team information');
-        return;
-      }
-      setTeam(teamData);
+      // Load existing general knowledge using service role via API
+      const knowledgeResponse = await fetch(`/api/teams/knowledge/list?teamId=${teamId}&type=general`);
+      const knowledgeResult = await knowledgeResponse.json();
 
-      // Load existing general knowledge
-      const { data: knowledgeData, error: knowledgeError } = await supabase
-        .from('team_knowledge')
-        .select('*')
-        .eq('team_id', teamId)
-        .is('account_id', null)
-        .is('portfolio_id', null);
-
-      if (knowledgeError) {
-        console.error('Error loading general knowledge:', knowledgeError);
+      if (!knowledgeResponse.ok) {
+        console.error('Error loading general knowledge:', knowledgeResult.error);
         setError('Failed to load existing knowledge');
         return;
       }
 
+      const knowledgeData = knowledgeResult.knowledge || [];
+
       // Transform data for editing
       const surgeonsData = knowledgeData
-        ?.filter(k => k.category === 'surgeon_info')
-        .map(k => ({
+        ?.filter((k: any) => k.category === 'surgeon_info')
+        .map((k: any) => ({
           id: k.id,
           name: k.metadata?.name || k.title || '',
           specialty: k.metadata?.specialty || '',

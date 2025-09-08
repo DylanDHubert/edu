@@ -42,62 +42,34 @@ export default function AdminDashboard() {
     try {
       console.log('Checking admin access for user:', user?.email);
       
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('email', user?.email)
-        .single();
+      // Use the secure admin dashboard API
+      const response = await fetch('/api/admin/dashboard');
+      const result = await response.json();
 
-      console.log('Admin query result:', { data, error });
-
-      if (error || !data) {
-        console.log('Admin access denied - no data or error:', error);
+      if (!response.ok) {
+        console.log('Admin access denied:', result.error);
         router.push("/");
         return;
       }
 
-      console.log('Admin access granted for:', data);
+      if (!result.success) {
+        console.log('Admin access denied - API returned failure');
+        router.push("/");
+        return;
+      }
+
+      console.log('Admin access granted, loading dashboard data');
       setIsAdmin(true);
-      await loadDashboardData();
+      
+      // Set data from the secure API response
+      setTeams(result.data.teams || []);
+      setStats(result.data.stats || { totalTeams: 0, totalMembers: 0, activeTeams: 0 });
+
     } catch (error) {
       console.error('Error checking admin access:', error);
       router.push("/");
     } finally {
       setIsAdminLoading(false);
-    }
-  };
-
-  const loadDashboardData = async () => {
-    try {
-      // Load teams with member counts
-      const { data: teamsData, error: teamsError } = await supabase
-        .from('teams')
-        .select(`
-          *,
-          team_members(count)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (teamsError) throw teamsError;
-
-      // Format teams data
-      const formattedTeams = teamsData?.map(team => ({
-        ...team,
-        member_count: team.team_members?.[0]?.count || 0,
-        status: team.team_members?.[0]?.count > 0 ? 'Active' : 'Pending'
-      })) || [];
-
-      setTeams(formattedTeams);
-
-      // Calculate stats
-      const totalTeams = formattedTeams.length;
-      const totalMembers = formattedTeams.reduce((sum, team) => sum + team.member_count, 0);
-      const activeTeams = formattedTeams.filter(team => team.member_count > 0).length;
-
-      setStats({ totalTeams, totalMembers, activeTeams });
-
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
     }
   };
 

@@ -69,68 +69,44 @@ function EditAccountsContent() {
 
   const loadExistingData = async () => {
     try {
-      // Verify user is a manager of this team
-      const { data: membership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('role')
-        .eq('team_id', teamId)
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .single();
+      // Use the secure team data API endpoint
+      const response = await fetch(`/api/teams/${teamId}/data`);
+      const result = await response.json();
 
-      if (membershipError || !membership || membership.role !== 'manager') {
+      if (!response.ok) {
+        setError(result.error || 'Failed to load team data');
+        return;
+      }
+
+      if (!result.success) {
+        setError('Failed to load team data');
+        return;
+      }
+
+      // Check if user is a manager
+      if (result.data.userRole !== 'manager') {
         setError('Manager access required');
         return;
       }
-      
-      setUserRole(membership.role);
 
-      // Load team info
-      const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', teamId)
-        .single();
+      setUserRole(result.data.userRole);
+      setTeam(result.data.team);
+      setPortfolios(result.data.portfolios || []);
 
-      if (teamError || !teamData) {
-        setError('Failed to load team information');
-        return;
-      }
-      setTeam(teamData);
+      // Load existing accounts and their knowledge using service role via API
+      const accountsResponse = await fetch(`/api/teams/accounts/list?teamId=${teamId}`);
+      const accountsResult = await accountsResponse.json();
 
-      // Load portfolios
-      const { data: portfoliosData, error: portfoliosError } = await supabase
-        .from('team_portfolios')
-        .select('*')
-        .eq('team_id', teamId)
-        .order('created_at');
-
-      if (portfoliosError) {
-        console.error('Error loading portfolios:', portfoliosError);
-        setError('Failed to load portfolios');
-        return;
-      }
-      setPortfolios(portfoliosData || []);
-
-      // Load existing accounts and their knowledge
-      const { data: accountsData, error: accountsError } = await supabase
-        .from('team_accounts')
-        .select(`
-          *,
-          account_portfolios (portfolio_id),
-          team_knowledge!team_knowledge_account_id_fkey (*)
-        `)
-        .eq('team_id', teamId)
-        .order('created_at');
-
-      if (accountsError) {
-        console.error('Error loading accounts:', accountsError);
+      if (!accountsResponse.ok) {
+        console.error('Error loading accounts:', accountsResult.error);
         setError('Failed to load existing accounts');
         return;
       }
 
+      const accountsData = accountsResult.accounts || [];
+
       // Transform data for editing
-      const transformedAccounts = accountsData?.map(account => {
+      const transformedAccounts = accountsData?.map((account: any) => {
         const allKnowledge = account.team_knowledge || [];
         const portfolioData: { [portfolioId: string]: PortfolioData } = {};
         
@@ -200,7 +176,7 @@ function EditAccountsContent() {
 
       // Set first portfolio as active for each account
       const initialActivePortfolios: { [accountIndex: number]: string } = {};
-      transformedAccounts.forEach((account, index) => {
+      transformedAccounts.forEach((account: any, index: number) => {
         if (account.assignedPortfolios.length > 0) {
           initialActivePortfolios[index] = account.assignedPortfolios[0];
         }

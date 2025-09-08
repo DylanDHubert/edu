@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
@@ -64,8 +64,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user is already a member of this team
-    const { data: existingMember } = await supabase
+    // Create service client for team membership operations - AVOID RLS CIRCULAR REFERENCE
+    const serviceClient = createServiceClient();
+
+    // Check if user is already a member of this team - USE SERVICE CLIENT
+    const { data: existingMember } = await serviceClient
       .from('team_members')
       .select('*')
       .eq('team_id', invitation.team_id)
@@ -84,8 +87,8 @@ export async function POST(request: NextRequest) {
     // 1. Create team member record
     // 2. Update invitation status to 'accepted'
     
-    // Create team member record
-    const { data: newMember, error: memberError } = await supabase
+    // Create team member record - USE SERVICE CLIENT
+    const { data: newMember, error: memberError } = await serviceClient
       .from('team_members')
       .insert({
         team_id: invitation.team_id,

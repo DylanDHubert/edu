@@ -16,40 +16,40 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // CHECK FOR ADMIN STATUS FIRST - ADMINS GET AUTOMATIC ACCESS
+    // Create service client for team data access
     const serviceClient = createServiceClient();
-    const { data: adminUser, error: adminError } = await serviceClient
-      .from('admin_users')
-      .select('id')
-      .eq('email', user.email)
-      .single();
 
-    const isAdmin = !adminError && !!adminUser;
-
-    // Check if user has any team memberships - USE SERVICE CLIENT TO AVOID RLS CIRCULAR REFERENCE
+    // Load user's team memberships with team data using service client
     const { data: memberships, error: membershipError } = await serviceClient
       .from('team_members')
-      .select('id')
+      .select(`
+        *,
+        teams (
+          id,
+          name,
+          description,
+          location
+        )
+      `)
       .eq('user_id', user.id)
       .eq('status', 'active')
-      .limit(1);
+      .order('created_at', { ascending: false });
 
-    const hasTeamMemberships = !membershipError && memberships && memberships.length > 0;
-
-    // Determine if user has access
-    // ANY AUTHENTICATED USER CAN ACCESS THE APP AND CREATE TEAMS
-    const hasAccess = true; // All authenticated users have access
+    if (membershipError) {
+      console.error('Error loading team memberships:', membershipError);
+      return NextResponse.json(
+        { error: 'Failed to load team memberships' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      hasAccess,
-      hasTeamMemberships,
-      isAdmin,
-      userEmail: user.email
+      memberships: memberships || []
     });
 
   } catch (error) {
-    console.error('Error checking user access:', error);
+    console.error('Error in user teams API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

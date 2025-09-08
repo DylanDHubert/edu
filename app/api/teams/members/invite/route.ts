@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
@@ -26,8 +26,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user is a manager of this team
-    const { data: teamMember, error: memberError } = await supabase
+    // Verify user is a manager of this team - USE SERVICE CLIENT TO AVOID RLS CIRCULAR REFERENCE
+    const serviceClient = createServiceClient();
+    const { data: teamMember, error: memberError } = await serviceClient
       .from('team_members')
       .select('role')
       .eq('team_id', teamId)

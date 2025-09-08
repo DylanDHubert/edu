@@ -59,70 +59,41 @@ function EditMembersContent() {
 
   const loadExistingData = async () => {
     try {
-      // Verify user is a manager of this team
-      const { data: membership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('role')
-        .eq('team_id', teamId)
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .single();
+      // Use the secure team data API endpoint
+      const response = await fetch(`/api/teams/${teamId}/data`);
+      const result = await response.json();
 
-      if (membershipError || !membership || membership.role !== 'manager') {
+      if (!response.ok) {
+        setError(result.error || 'Failed to load team data');
+        return;
+      }
+
+      if (!result.success) {
+        setError('Failed to load team data');
+        return;
+      }
+
+      // Check if user is a manager
+      if (result.data.userRole !== 'manager') {
         setError('Manager access required');
         return;
       }
-      
-      setUserRole(membership.role);
 
-      // Load team info
-      const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', teamId)
-        .single();
+      setUserRole(result.data.userRole);
+      setTeam(result.data.team);
 
-      if (teamError || !teamData) {
-        setError('Failed to load team information');
-        return;
-      }
-      setTeam(teamData);
+      // Transform members data to match expected format
+      const membersWithProfiles = (result.data.members || []).map((member: any) => ({
+        ...member,
+        profiles: {
+          email: member.email,
+          full_name: member.full_name
+        }
+      }));
+      setExistingMembers(membersWithProfiles);
 
-      // Load existing team members with real user data via API
-      const membersResponse = await fetch(`/api/teams/members/list?teamId=${teamId}`);
-      
-      if (membersResponse.ok) {
-        const { members: membersData } = await membersResponse.json();
-        console.log('Members data from API:', membersData);
-        
-        // Transform data to match expected format
-        const membersWithProfiles = (membersData || []).map((member: any) => ({
-          ...member,
-          profiles: {
-            email: member.email,
-            full_name: member.full_name
-          }
-        }));
-        setExistingMembers(membersWithProfiles);
-      } else {
-        console.warn('Could not load team members from API');
-        setExistingMembers([]);
-      }
-
-      // Load pending invitations (exclude accepted, declined, and expired)
-      const { data: invitesData, error: invitesError } = await supabase
-        .from('team_member_invitations')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('status', 'pending')
-        .order('created_at');
-
-      if (invitesError) {
-        console.error('Error loading pending invites:', invitesError);
-        // Don't set error, just log it
-      } else {
-        setPendingInvites(invitesData || []);
-      }
+      // Set pending invitations from the team data
+      setPendingInvites(result.data.invitations || []);
 
     } catch (error) {
       console.error('Error loading existing data:', error);

@@ -101,18 +101,23 @@ function TeamMemberInviteContent() {
       return;
     }
 
-    // Check if user is already a member of this team
-    const { data: existingMember } = await supabase
-      .from('team_members')
-      .select('*')
-      .eq('team_id', invitation.team_id)
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .single();
+    // Check if user is already a member of this team via secure API
+    try {
+      const response = await fetch(`/api/user/check-membership?teamId=${invitation.team_id}`);
+      const result = await response.json();
 
-    if (existingMember) {
-      setError('You are already a member of this team');
-      return;
+      if (response.ok && result.success) {
+        if (result.isMember) {
+          setError('You are already a member of this team');
+          return;
+        }
+      } else {
+        console.error('Failed to check membership:', result.error);
+        // Continue anyway - better to allow the user to proceed
+      }
+    } catch (error) {
+      console.error('Error checking membership:', error);
+      // Continue anyway - better to allow the user to proceed
     }
 
     // All good - user can accept the invitation

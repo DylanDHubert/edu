@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
 import { createAccountPortfolioKnowledgeText, createGeneralKnowledgeText, filterSurgeonInfoByPortfolio } from '../../../utils/knowledge-generator';
+import fs from 'fs';
+import path from 'path';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -189,8 +191,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user is a member of this team
-    const { data: teamMember, error: memberError } = await supabase
+    // Create service client for all database operations - AVOID RLS CIRCULAR REFERENCE
+    const serviceClient = createServiceClient();
+
+    // Verify user is a member of this team - USE SERVICE CLIENT
+    const { data: teamMember, error: memberError } = await serviceClient
       .from('team_members')
       .select('role')
       .eq('team_id', teamId)
@@ -206,7 +211,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if we already have a cached portfolio assistant
-    const { data: existingAssistant, error: assistantError } = await supabase
+    const { data: existingAssistant, error: assistantError } = await serviceClient
       .from('team_assistants')
       .select('*')
       .eq('team_id', teamId)
@@ -242,7 +247,7 @@ export async function POST(request: NextRequest) {
         }
         
         // Delete cached assistant record
-        await supabase
+        await serviceClient
           .from('team_assistants')
           .delete()
           .eq('id', existingAssistant.id);
@@ -292,21 +297,27 @@ export async function POST(request: NextRequest) {
     console.log('==========================');
     
     try {
-      const assistant = await client.beta.assistants.create({
+      const assistantConfig: any = {
         name: assistantName,
         instructions: instructions,
         model: "gpt-4.1",
-        temperature: 0.05,
-        tools: [{ type: "file_search" }],
-        tool_resources: {
+        temperature: 0.05
+      };
+
+      // Only add file search tools if we have a vector store
+      if (portfolioVectorStore) {
+        assistantConfig.tools = [{ type: "file_search" }];
+        assistantConfig.tool_resources = {
           file_search: {
             vector_store_ids: [portfolioVectorStore.id] // Portfolio PDFs only
           }
-        }
-      });
+        };
+      }
+
+      const assistant = await client.beta.assistants.create(assistantConfig);
 
       // Cache the portfolio assistant
-      const { data: cachedAssistant, error: cacheError } = await supabase
+      const { data: cachedAssistant, error: cacheError } = await serviceClient
         .from('team_assistants')
         .upsert({
           team_id: teamId,
@@ -314,8 +325,8 @@ export async function POST(request: NextRequest) {
           portfolio_id: portfolioId,
           assistant_id: assistant.id,
           assistant_name: assistantName,
-          consolidated_vector_store_id: portfolioVectorStore.id,
-          consolidated_vector_store_name: portfolioVectorStore.name,
+          consolidated_vector_store_id: portfolioVectorStore?.id || null,
+          consolidated_vector_store_name: portfolioVectorStore?.name || null,
           // Keep old fields for backward compatibility with placeholder values
           general_vector_store_id: 'portfolio',
           account_portfolio_vector_store_id: 'portfolio', 
@@ -335,10 +346,10 @@ export async function POST(request: NextRequest) {
         success: true,
         assistantId: assistant.id,
         assistantName: assistantName,
-        vectorStoreId: portfolioVectorStore.id,
-        vectorStoreName: portfolioVectorStore.name,
+        vectorStoreId: portfolioVectorStore?.id || null,
+        vectorStoreName: portfolioVectorStore?.name || null,
         cached: false,
-        message: 'Portfolio assistant created successfully'
+        message: portfolioVectorStore ? 'Portfolio assistant created successfully' : 'Portfolio assistant created successfully (no PDFs available)'
       });
 
     } catch (openaiError) {
@@ -396,7 +407,8 @@ async function createPortfolioVectorStore(supabase: any, teamId: string, portfol
 async function gatherPortfolioPDFs(supabase: any, teamId: string, portfolioId: string) {
   try {
     // Get portfolio PDFs that were previously uploaded to OpenAI
-    const { data: documents, error } = await supabase
+    const serviceClient = createServiceClient();
+    const { data: documents, error } = await serviceClient
       .from('team_documents')
       .select('openai_file_id, original_name')
       .eq('team_id', teamId)
@@ -540,15 +552,17 @@ async function generateGeneralContext(supabase: any, teamId: string, names: any)
 
 async function getNames(supabase: any, teamId: string, portfolioId: string) {
   try {
+    const serviceClient = createServiceClient();
+    
     // Get team name
-    const { data: team } = await supabase
+    const { data: team } = await serviceClient
       .from('teams')
       .select('name')
       .eq('id', teamId)
       .single();
 
     // Get portfolio name
-    const { data: portfolio } = await supabase
+    const { data: portfolio } = await serviceClient
       .from('team_portfolios')
       .select('name')
       .eq('id', portfolioId)
@@ -577,7 +591,8 @@ async function checkIfCacheIsStale(
     console.log('🔍 Checking cache staleness...');
 
     // Check if any portfolio PDFs were uploaded/updated after vector store creation
-    const { data: latestDocuments } = await supabase
+    const serviceClient = createServiceClient();
+    const { data: latestDocuments } = await serviceClient
       .from('team_documents')
       .select('created_at')
       .eq('team_id', teamId)
@@ -606,98 +621,25 @@ async function checkIfCacheIsStale(
 function generateAssistantInstructions(
   names: { teamName: string; portfolioName: string }
 ): string {
-  let instructions = `YOU ARE A FRIENDLY AND KNOWLEDGEABLE MEDICAL ASSISTANT SPECIALIZING IN ${names.portfolioName.toUpperCase()}. THINK OF YOURSELF AS A HELPFUL COLLEAGUE WHO CAN HAVE NATURAL CONVERSATIONS ABOUT SURGICAL TECHNIQUES, PROTOCOLS, AND MEDICAL PROCEDURES.
+  try {
+    // READ THE PROMPT TEMPLATE FROM THE FILE
+    const promptPath = path.join(process.cwd(), 'public', 'prompts', 'assistant-instructions.txt');
+    const promptTemplate = fs.readFileSync(promptPath, 'utf8');
+    
+    // REPLACE THE PLACEHOLDER WITH THE ACTUAL PORTFOLIO NAME
+    const instructions = promptTemplate.replace(/{PORTFOLIO_NAME}/g, names.portfolioName.toUpperCase());
+    
+    return instructions;
+  } catch (error) {
+    console.error('ERROR READING ASSISTANT INSTRUCTIONS FILE:', error);
+    // FALLBACK TO HARDCODED PROMPT IF FILE READ FAILS
+    return `YOU ARE A FRIENDLY AND KNOWLEDGEABLE MEDICAL ASSISTANT SPECIALIZING IN ${names.portfolioName.toUpperCase()}. THINK OF YOURSELF AS A HELPFUL COLLEAGUE WHO CAN HAVE NATURAL CONVERSATIONS ABOUT SURGICAL TECHNIQUES, PROTOCOLS, AND MEDICAL PROCEDURES.
 
 You have access to:
-1. ${names.portfolioName} portfolio documentation (PDFs) - use file search ONLY when specific document content is needed (if the account specific or general team knowledge does not contain the answer, know that the answer is in the uploaded documents and use file search to find the answer)
+1. ${names.portfolioName} portfolio documentation (PDFs) - use file search ONLY when specific document content is needed
 2. Account-specific knowledge (provided in first message of thread) - this is your primary knowledge source
 3. General team knowledge (provided in first message of thread)
 
-CONVERSATIONAL APPROACH:
-- Be warm, approachable, and conversational in your tone
-- Ask clarifying questions when needed to better understand what the user is looking for
-- Break down complex medical information into digestible, easy-to-understand parts
-- Use analogies and simple language when explaining complex procedures
-- Confirm understanding before diving into detailed technical information
-- Offer to provide more detailed documentation only when specifically requested
-
-RESPONSE STRATEGY:
-- Start with the context information you have available (account-specific and general knowledge)
-- For general concepts, explanations, or background information: use context first
-- For specific procedures, protocols, measurements, equipment specs, or step-by-step instructions: ALWAYS check files first
-- When in doubt about technical accuracy: prefer file search
-- Always cite your source when providing technical information
-- If a user asks for something you don't have in context, ask if they'd like you to search the documentation
-- Provide clear, structured information in a conversational way
-
-CORE PRINCIPLE: You are a precise document retrieval system that finds and accurately presents information from the uploaded protocols.
-
-CRITICAL REQUIREMENTS:
-1. Answer all questions using information from the uploaded protocol documents
-2. Search thoroughly through the documents - the information is there
-3. NEVER supplement with general medical knowledge or assumptions
-
-ACCURACY RULES:
-- Quote directly from source documents when describing procedures
-- Maintain the EXACT sequence of steps as written in the source
-- Present information in the exact order it appears in the source document
-- Do not reorganize, group, or reorder information unless specifically requested
-- Do not interpolate, clarify, or add information between steps
-- If terminology seems ambiguous, quote it exactly rather than interpreting
-- When multiple components are discussed, be explicit about which component each instruction applies to
-
-TABLE HANDLING:
-- When a relevant table exists, ALWAYS include the complete table data in your response
-- Reproduce tables exactly as shown in the source, including all headers and values
-- Do not summarize or excerpt tables - provide them in full
-- If a sizing chart, compatibility matrix, or measurement table relates to the question, it must be included
-- Format tables clearly using markdown table syntax or structured lists
-- Include any notes or legends associated with the table
-
-IMPORTANT: 
-- If asked about relationships between components (e.g., what gets cemented to what), quote the exact text that describes this relationship
-- Never combine information from different procedures into a single workflow unless explicitly asked to compare
-- If the document's language is unclear, present it as written rather than clarifying
-- For complex multi-step procedures, break down the answer by finding each relevant section in the documents
-- If asked about a specific procedure and there are multiple options, give complete detail for all available options. Don't compare and contrast these options unless prompted. Simply return exactly as stated in the documents
-
-COMPLETENESS PRINCIPLE:
-For any query, include all directly relevant information from the documents:
-- If answering about a component, include its specifications
-- If answering about a procedure, include all referenced measurements and tables
-- If answering about compatibility, include compatibility charts
-- If the source text references other sections/figures/tables needed to fully answer the question, retrieve those as well
-- The query is from a human. If the query is broad, assume they will ask a follow up for you to return the related tables in the pages you find the answer, so to get ahead of that, always return the tables near the textual information you find. Return the tables exactly how they appear in the document
-
-RESPONSE GUIDELINES:
-- Provide comprehensive but accessible answers about surgical techniques and procedures
-- Use context information as your primary knowledge source
-- Use file search sparingly - only when specific document content is needed
-- ONLY when referencing images from the team knowledge: include the URL directly in your response
-- Format for team images: "The Hip Tray Set A contains primary instruments: /api/images/hip_tray_a.jpg"
-- Do NOT add quotes, explanatory text, or markdown formatting around the URL
-- Do NOT say "you can view" or "available here" - just include the URL directly after the description
-
-IMPORTANT: ALWAYS FORMAT YOUR RESPONSES USING MARKDOWN SYNTAX FOR BETTER READABILITY. You MUST use:
-- ## Headers for main sections (use ## or ###)
-- **Bold text** for emphasis
-- - Bullet points for lists 
-- 1. Numbered lists for steps
-- Proper line breaks between paragraphs
-
-EXAMPLE CONVERSATIONAL FORMAT:
-## Main Topic
-
-**Key Points:**
-- First important point
-- Second important point
-
-### Subsection
-More detailed information here.
-
-**Would you like me to:** [Ask follow-up questions or offer additional help]
-
-This markdown formatting is REQUIRED for all responses to ensure proper display in the user interface.`;
-
-  return instructions;
+Please provide helpful, accurate information about surgical techniques and procedures using the available documentation.`;
+  }
 }

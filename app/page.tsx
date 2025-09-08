@@ -105,26 +105,20 @@ export default function HomePage() {
         setIsAdmin(adminResult);
       }
 
-      // THEN LOAD TEAM MEMBERSHIPS
-      const { data: memberships, error: membershipError } = await supabase
-        .from('team_members')
-        .select(`
-          *,
-          teams (
-            id,
-            name,
-            description,
-            location
-          )
-        `)
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+      // THEN LOAD TEAM MEMBERSHIPS VIA SECURE API
+      const teamsResponse = await fetch('/api/user/teams');
+      let memberships: any[] = [];
 
-      console.log('Team memberships query result:', { memberships, membershipError });
-
-      if (membershipError) {
-        console.error('Error loading teams:', membershipError);
+      if (teamsResponse.ok) {
+        const teamsResult = await teamsResponse.json();
+        if (teamsResult.success) {
+          memberships = teamsResult.memberships || [];
+          console.log('Team memberships loaded via API:', memberships);
+        } else {
+          console.error('Failed to load teams via API:', teamsResult.error);
+        }
+      } else {
+        console.error('Error loading teams via API:', teamsResponse.status);
         // Just continue with empty teams list - user can still create teams
         console.log('Error loading teams, continuing with empty list');
       }

@@ -43,57 +43,43 @@ function EditPortfoliosContent() {
 
   const loadExistingData = async () => {
     try {
-      // Verify user is a manager of this team
-      const { data: membership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('role')
-        .eq('team_id', teamId)
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .single();
+      // Use the secure team data API endpoint
+      const response = await fetch(`/api/teams/${teamId}/data`);
+      const result = await response.json();
 
-      if (membershipError || !membership || membership.role !== 'manager') {
+      if (!response.ok) {
+        setError(result.error || 'Failed to load team data');
+        return;
+      }
+
+      if (!result.success) {
+        setError('Failed to load team data');
+        return;
+      }
+
+      // Check if user is a manager
+      if (result.data.userRole !== 'manager') {
         setError('Manager access required');
         return;
       }
-      
-      setUserRole(membership.role);
 
-      // Load team info
-      const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', teamId)
-        .single();
+      setUserRole(result.data.userRole);
+      setTeam(result.data.team);
 
-      if (teamError || !teamData) {
-        setError('Failed to load team information');
-        return;
-      }
-      setTeam(teamData);
+      // Load existing portfolios and their documents using service role via API
+      const portfoliosResponse = await fetch(`/api/teams/portfolios/list?teamId=${teamId}`);
+      const portfoliosResult = await portfoliosResponse.json();
 
-      // Load existing portfolios and their documents
-      const { data: portfoliosData, error: portfoliosError } = await supabase
-        .from('team_portfolios')
-        .select(`
-          *,
-          team_documents (
-            id,
-            filename,
-            original_name
-          )
-        `)
-        .eq('team_id', teamId)
-        .order('created_at');
-
-      if (portfoliosError) {
-        console.error('Error loading portfolios:', portfoliosError);
+      if (!portfoliosResponse.ok) {
+        console.error('Error loading portfolios:', portfoliosResult.error);
         setError('Failed to load existing portfolios');
         return;
       }
 
+      const portfoliosData = portfoliosResult.portfolios || [];
+
       // Transform data for editing
-      const transformedPortfolios = portfoliosData?.map(portfolio => ({
+      const transformedPortfolios = portfoliosData?.map((portfolio: any) => ({
         id: portfolio.id,
         name: portfolio.name,
         description: portfolio.description || '',

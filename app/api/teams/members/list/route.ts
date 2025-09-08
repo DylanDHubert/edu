@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../../utils/supabase/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -27,8 +26,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify user is a manager of this team
-    const { data: membership, error: membershipError } = await supabase
+    // Create service client for team membership checks - AVOID RLS CIRCULAR REFERENCE
+    const serviceClient = createServiceClient();
+
+    // Verify user is a manager of this team - USE SERVICE CLIENT
+    const { data: membership, error: membershipError } = await serviceClient
       .from('team_members')
       .select('role')
       .eq('team_id', teamId)
@@ -43,13 +45,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get team members first
-    const { data: members, error: membersError } = await supabase
+    // Get team members first - USE SERVICE CLIENT
+    const { data: members, error: membersError } = await serviceClient
       .from('team_members')
       .select('*')
       .eq('team_id', teamId)
       .eq('status', 'active')
-      .order('created_at');
+      .order('created_at', { ascending: false });
 
     if (membersError) {
       console.error('Error loading team members:', membersError);
@@ -59,11 +61,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Create service client with admin privileges for user lookups
-    const supabaseAdmin = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    // Use the same service client for user lookups
+    const supabaseAdmin = serviceClient;
 
     // Fetch real user data for each team member
     const membersWithUserData = await Promise.all((members || []).map(async (member) => {

@@ -51,38 +51,24 @@ function TeamDashboardContent() {
     try {
       setLoading(true);
       
-      // Verify user is a member of this team
-      const { data: membership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('role')
-        .eq('team_id', teamId)
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .single();
+      // Use the new team data API endpoint that handles all team data securely
+      const response = await fetch(`/api/teams/${teamId}/data`);
+      const result = await response.json();
 
-      if (membershipError || !membership) {
-        setError('You do not have access to this team');
+      if (!response.ok) {
+        setError(result.error || 'Failed to load team data');
         return;
       }
 
-      setUserRole(membership.role);
-
-      // Load team data
-      const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', teamId)
-        .single();
-
-      if (teamError || !teamData) {
-        setError('Failed to load team information');
+      if (!result.success) {
+        setError('Failed to load team data');
         return;
       }
 
-      setTeam(teamData);
-
-      // Load team statistics
-      await loadTeamStats();
+      // Set team data and user role
+      setTeam(result.data.team);
+      setUserRole(result.data.userRole);
+      setStats(result.data.stats);
 
     } catch (error) {
       console.error('Error loading team dashboard:', error);
@@ -92,59 +78,7 @@ function TeamDashboardContent() {
     }
   };
 
-  const loadTeamStats = async () => {
-    try {
-      // Count portfolios
-      const { count: portfoliosCount } = await supabase
-        .from('team_portfolios')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId);
-
-      // Count accounts
-      const { count: accountsCount } = await supabase
-        .from('team_accounts')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId);
-
-      // Count documents
-      const { count: documentsCount } = await supabase
-        .from('team_documents')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId);
-
-      // Count knowledge items
-      const { count: knowledgeCount } = await supabase
-        .from('team_knowledge')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId);
-
-      // Count team members
-      const { count: membersCount } = await supabase
-        .from('team_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId)
-        .eq('status', 'active');
-
-      // Count pending invitations
-      const { count: pendingCount } = await supabase
-        .from('team_member_invitations')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId)
-        .eq('status', 'pending');
-
-      setStats({
-        portfolios: portfoliosCount || 0,
-        accounts: accountsCount || 0,
-        documents: documentsCount || 0,
-        knowledgeItems: knowledgeCount || 0,
-        teamMembers: membersCount || 0,
-        pendingInvitations: pendingCount || 0
-      });
-
-    } catch (error) {
-      console.error('Error loading team stats:', error);
-    }
-  };
+  // loadTeamStats function removed - now handled by the team data API endpoint
 
   const handleStartChat = () => {
     // Go to account/portfolio selection for chat
