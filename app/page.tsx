@@ -85,12 +85,8 @@ export default function HomePage() {
   const loadUserTeams = async () => {
     try {
       setLoadingTeams(true);
-      console.log('=== HOME PAGE DEBUG ===');
-      console.log('User email:', user?.email);
-      console.log('User ID:', user?.id);
       
       // CHECK ACCESS VIA API (INCLUDES MANAGER PRIVILEGES AND ADMIN STATUS)
-      console.log('Checking access via API...');
       
       const response = await fetch('/api/auth/check-access');
       let hasManagerPrivileges = false;

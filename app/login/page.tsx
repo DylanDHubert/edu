@@ -27,11 +27,6 @@ function LoginPageContent() {
       const type = urlParams.get('type');
       const email = urlParams.get('email');
       
-      console.log('=== LOGIN PAGE DEBUG ===');
-      console.log('URL search:', window.location.search);
-      console.log('Token from URL:', token);
-      console.log('Type from URL:', type);
-      console.log('Email from URL:', email);
       
       setInvitationToken(token);
       setInvitationType(type);

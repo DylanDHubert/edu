@@ -78,39 +78,27 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
   // MARKDOWN STYLING COMPONENTS WITH MINIMAL SPACING
   const markdownComponents = {
     h1: ({children}: any) => <h1 className="text-2xl font-bold text-slate-100 mt-2 mb-1">{children}</h1>,
-    h2: ({children}: any) => {
-      console.log('🔍 H2 DEBUG - Content:', children);
-      return <h2 className="text-xl font-semibold text-slate-100 mt-2 mb-1">{children}</h2>;
-    },
+    h2: ({children}: any) => <h2 className="text-xl font-semibold text-slate-100 mt-2 mb-1">{children}</h2>,
     h3: ({children}: any) => <h3 className="text-lg font-semibold text-slate-100 mt-1 mb-0.5">{children}</h3>,
     p: ({children}: any) => {
-      console.log('🔍 PARAGRAPH DEBUG - Content:', children);
-      console.log('🔍 PARAGRAPH DEBUG - Is empty:', !children || (typeof children === 'string' && children.trim() === ''));
-      
-      // Don't render empty paragraphs
+      // DON'T RENDER EMPTY PARAGRAPHS
       if (!children || (typeof children === 'string' && children.trim() === '')) {
         return null;
       }
       
       return <p className="mb-1 text-slate-100">{children}</p>;
     },
-    ul: ({children}: any) => {
-      console.log('🔍 UL DEBUG - Content:', children);
-      return <ul className="mb-1 ml-4 space-y-0">{children}</ul>;
-    },
+    ul: ({children}: any) => <ul className="mb-1 ml-4 space-y-0">{children}</ul>,
     ol: ({children}: any) => <ol className="mb-1 ml-4 space-y-0 list-decimal list-inside">{children}</ol>,
     li: ({children}: any) => <li className="text-slate-100">{children}</li>,
     strong: ({children}: any) => <strong className="font-semibold text-slate-100">{children}</strong>,
     em: ({children}: any) => <em className="italic text-slate-100">{children}</em>,
     // TABLE COMPONENTS
-    table: ({children}: any) => {
-      console.log('🔍 TABLE DEBUG - Table component rendered');
-      return (
-        <div className="overflow-x-auto mb-2">
-          <table className="min-w-full border border-slate-600 bg-slate-800 rounded-lg border-collapse">{children}</table>
-        </div>
-      );
-    },
+    table: ({children}: any) => (
+      <div className="overflow-x-auto mb-2">
+        <table className="min-w-full border border-slate-600 bg-slate-800 rounded-lg border-collapse">{children}</table>
+      </div>
+    ),
     thead: ({children}: any) => <thead className="bg-slate-700">{children}</thead>,
     tbody: ({children}: any) => <tbody>{children}</tbody>,
     tr: ({children}: any) => <tr className="border-b border-slate-600">{children}</tr>,
@@ -168,9 +156,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
 
   // RENDER TEXT WITHOUT IMAGE URLS (CLEAN TEXT)
   const renderTextWithImageUrlsAsText = (text: string) => {
-    console.log('🔍 MARKDOWN DEBUG - Original text:', text);
-    console.log('🔍 MARKDOWN DEBUG - Original text (escaped):', JSON.stringify(text));
-    
     // REMOVE [IMAGE URL: ...] FORMAT COMPLETELY
     let processedText = text.replace(/\[IMAGE URL:\s*\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp)\]/gi, '');
     
@@ -187,10 +172,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     processedText = processedText.replace(/\n[ \t]+/g, '\n'); // REMOVE SPACES AFTER NEWLINES
     processedText = processedText.replace(/[ \t]+\n/g, '\n'); // REMOVE SPACES BEFORE NEWLINES
     processedText = processedText.trim(); // REMOVE LEADING/TRAILING SPACES
-    
-    console.log('🔍 MARKDOWN DEBUG - Processed text:', processedText);
-    console.log('🔍 MARKDOWN DEBUG - Processed text (escaped):', JSON.stringify(processedText));
-    console.log('🔍 MARKDOWN DEBUG - Has table syntax:', /\|.*\|/.test(processedText));
     
     return (
       <div className="markdown-content">
@@ -792,12 +773,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     citations = data.citations || [];
                     currentStep = data.step || '';
                     
-                    // DEBUG: LOG WHAT THE FRONTEND IS RECEIVING
-                    console.log('🔍 FRONTEND RECEIVED:', {
-                      content: assistantMessage,
-                      citations: citations,
-                      step: currentStep
-                    });
                     
                     // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                     if (!assistantMessageObj && assistantMessage.trim()) {

@@ -1,37 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { verifyUserAuth, verifyTeamAccess } from '../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
 
 export async function POST(request: NextRequest) {
   try {
     const { threadId, messageId, rating, teamId, accountId, portfolioId, responseTimeMs, citations, feedbackText } = await request.json();
     
     if (!threadId || !messageId || !teamId || !accountId || !portfolioId) {
-      return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE ID, TEAM ID, ACCOUNT ID, AND PORTFOLIO ID ARE REQUIRED' },
-        { status: 400 }
-      );
+      return handleValidationError('Thread ID, message ID, team ID, account ID, and portfolio ID are required');
     }
 
     // VALIDATE RATING VALUE (ALLOW NULL/UNDEFINED FOR FEEDBACK-ONLY UPDATES)
     if (rating !== undefined && rating !== null && rating !== 1 && rating !== -1) {
-      return NextResponse.json(
-        { error: 'RATING MUST BE 1 (THUMBS UP) OR -1 (THUMBS DOWN)' },
-        { status: 400 }
-      );
+      return handleValidationError('Rating must be 1 (thumbs up) or -1 (thumbs down)');
     }
 
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
+    const { user, supabase } = await verifyUserAuth(cookieStore);
 
     // VERIFY USER OWNS THIS THREAD
     const { data: chatHistory, error: ownershipError } = await supabase
@@ -42,27 +30,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (ownershipError || !chatHistory) {
-      return NextResponse.json(
-        { error: 'THREAD NOT FOUND OR ACCESS DENIED' },
-        { status: 404 }
-      );
+      return handleDatabaseError(ownershipError, 'verify thread ownership');
     }
 
     // VERIFY USER HAS ACCESS TO THIS TEAM
-    const { data: teamMember, error: teamMemberError } = await supabase
-      .from('team_members')
-      .select('role')
-      .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .single();
-
-    if (teamMemberError || !teamMember) {
-      return NextResponse.json(
-        { error: 'ACCESS DENIED TO THIS TEAM' },
-        { status: 403 }
-      );
-    }
+    await verifyTeamAccess(teamId, user.id);
 
     // UPSERT RATING (INSERT OR UPDATE IF EXISTS)
     const upsertData: any = {
@@ -103,10 +75,10 @@ export async function POST(request: NextRequest) {
       rating: ratingData 
     });
   } catch (error) {
-    console.error('ERROR RATING MESSAGE:', error);
-    return NextResponse.json(
-      { error: 'INTERNAL SERVER ERROR' },
-      { status: 500 }
-    );
+    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+      return handleAuthError(error);
+    }
+    console.error('Error rating message:', error);
+    return handleDatabaseError(error, 'save message rating');
   }
 } 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '../../../../utils/supabase/server';
-import { cookies } from 'next/headers';
+import { authenticateWithTeamAccess } from '../../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError } from '../../../../utils/error-responses';
 
 export async function GET(
   request: NextRequest,
@@ -9,36 +9,8 @@ export async function GET(
   try {
     const { teamId } = await params;
 
-    // Verify user authentication
-    const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Create service client for team data access
-    const serviceClient = createServiceClient();
-
-    // Verify user is a member of this team - USE SERVICE CLIENT
-    const { data: membership, error: membershipError } = await serviceClient
-      .from('team_members')
-      .select('role')
-      .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .single();
-
-    if (membershipError || !membership) {
-      return NextResponse.json(
-        { error: 'You do not have access to this team' },
-        { status: 403 }
-      );
-    }
+    // AUTHENTICATE USER AND VERIFY TEAM ACCESS
+    const { user, membership, serviceClient } = await authenticateWithTeamAccess(teamId);
 
     // Fetch all team data using service client
     const [
@@ -109,13 +81,9 @@ export async function GET(
         .order('created_at', { ascending: false })
     ]);
 
-    // Check for errors
+    // CHECK FOR ERRORS
     if (teamData.error) {
-      console.error('Error fetching team data:', teamData.error);
-      return NextResponse.json(
-        { error: 'Failed to load team information' },
-        { status: 500 }
-      );
+      return handleDatabaseError(teamData.error, 'load team information');
     }
 
     // Calculate statistics
@@ -144,10 +112,10 @@ export async function GET(
     });
 
   } catch (error) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+      return handleAuthError(error);
+    }
     console.error('Error in team data API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleDatabaseError(error, 'fetch team data');
   }
 }

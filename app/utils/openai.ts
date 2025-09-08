@@ -45,8 +45,6 @@ export class StreamingEventHandler {
     // MESSAGE IS COMPLETE
     const messageContent = message.content[0].text;
     
-    // LOG BACKEND CITATION DATA FOR DEBUGGING
-    console.log('🔍 STREAMING HANDLER ANNOTATIONS:', JSON.stringify(messageContent.annotations, null, 2));
     
     // EXTRACT CITATION DATA AND BUILD CITATIONS ARRAY
     let processedContent = messageContent.value;
@@ -147,8 +145,6 @@ export async function sendMessageStreaming(
           const textContent = message.content[0] as any;
           const annotations = textContent.text.annotations;
           
-          // LOG BACKEND CITATION DATA FOR DEBUGGING
-          console.log('🔍 BACKEND MESSAGE ANNOTATIONS:', JSON.stringify(annotations, null, 2));
           
           // EXTRACT CITATION DATA AND BUILD CITATIONS ARRAY
           const extractedCitations: string[] = [];

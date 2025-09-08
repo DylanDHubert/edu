@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '../../../../utils/supabase/server';
-import { cookies } from 'next/headers';
+import { authenticateWithTeamAccess } from '../../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../../utils/error-responses';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,42 +8,11 @@ export async function GET(request: NextRequest) {
     const teamId = searchParams.get('teamId');
 
     if (!teamId) {
-      return NextResponse.json(
-        { error: 'Team ID is required' },
-        { status: 400 }
-      );
+      return handleValidationError('Team ID is required');
     }
 
-    // Verify user authentication
-    const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Create service client for team membership checks - AVOID RLS CIRCULAR REFERENCE
-    const serviceClient = createServiceClient();
-
-    // Verify user is a manager of this team - USE SERVICE CLIENT
-    const { data: membership, error: membershipError } = await serviceClient
-      .from('team_members')
-      .select('role')
-      .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .single();
-
-    if (membershipError || !membership || membership.role !== 'manager') {
-      return NextResponse.json(
-        { error: 'Manager access required' },
-        { status: 403 }
-      );
-    }
+    // AUTHENTICATE USER AND VERIFY MANAGER ACCESS
+    const { user, membership, serviceClient } = await authenticateWithTeamAccess(teamId, 'manager');
 
     // Get team members first - USE SERVICE CLIENT
     const { data: members, error: membersError } = await serviceClient
@@ -54,11 +23,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (membersError) {
-      console.error('Error loading team members:', membersError);
-      return NextResponse.json(
-        { error: 'Failed to load team members' },
-        { status: 500 }
-      );
+      return handleDatabaseError(membersError, 'load team members');
     }
 
     // Use the same service client for user lookups
@@ -133,10 +98,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+      return handleAuthError(error);
+    }
     console.error('Error in team members list:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleDatabaseError(error, 'fetch team members');
   }
 }

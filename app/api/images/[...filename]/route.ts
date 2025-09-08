@@ -6,34 +6,15 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ filename: string[] }> }
 ) {
-  console.log('🚨🚨🚨 IMAGE ENDPOINT CALLED - NEW VERSION 🚨🚨🚨');
   try {
     const { filename } = await params;
-    console.log('🔥 UPDATED IMAGE ENDPOINT CALLED!');
-    console.log('🖼️ FILENAME ARRAY REQUESTED:', filename);
     
-    // Join the filename array to get the full path
+    // JOIN THE FILENAME ARRAY TO GET THE FULL PATH
     const fullPath = filename.join('/');
-    console.log('🖼️ FULL PATH:', fullPath);
-    
-    console.log('🖼️ PROXY API CALLED:', {
-      filename: filename,
-      fullPath: fullPath,
-      url: request.url,
-      method: request.method
-    });
-    
-    console.log('🔍 DEBUGGING IMAGE REQUEST:');
-    console.log('  📥 Raw filename array:', JSON.stringify(filename));
-    console.log('  📄 Joined full path:', fullPath);
-    console.log('  🌐 Full request URL:', request.url);
-    console.log('  📏 Path segments count:', filename.length);
-    console.log('  🔤 Path segments:', filename.map((segment, i) => `[${i}]: ${segment}`));
     
     if (!filename || filename.length === 0) {
-      console.log('❌ NO FILENAME PROVIDED');
       return NextResponse.json(
-        { error: 'FILENAME IS REQUIRED' },
+        { error: 'Filename is required' },
         { status: 400 }
       );
     }
@@ -44,18 +25,14 @@ export async function GET(
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      console.log('❌ AUTH ERROR:', authError);
       return NextResponse.json(
-        { error: 'UNAUTHORIZED' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    console.log('✅ USER AUTHENTICATED:', user.id);
-
     // DECODE THE FILENAME (IT'S URL ENCODED)
     const decodedFilename = decodeURIComponent(fullPath);
-    console.log('🖼️ FETCHING IMAGE:', decodedFilename);
     
     // DETERMINE IMAGE TYPE AND CONSTRUCT PROPER STORAGE PATH
     let imageType = 'UNKNOWN';
@@ -73,11 +50,6 @@ export async function GET(
       const actualFilename = filename[2];
       filePath = `${teamId}/instruments/${actualFilename}`;
       
-      console.log('🏢 DETECTED TEAM IMAGE:');
-      console.log('  🆔 Team ID:', teamId);
-      console.log('  📁 Filename:', actualFilename);
-      console.log('  🎯 Constructed path:', filePath);
-      
     } else if (filename.length === 2) {
       // NOTE IMAGE: /api/images/{userId}/{filename}
       // This matches the storage path: userId/filename
@@ -86,24 +58,13 @@ export async function GET(
       const actualFilename = filename[1];
       filePath = `${userId}/${actualFilename}`;
       
-      console.log('📝 DETECTED NOTE IMAGE:');
-      console.log('  👤 User ID:', userId);
-      console.log('  📁 Filename:', actualFilename);
-      console.log('  🎯 Constructed path:', filePath);
-      
     } else {
       // INVALID PATH - return error
-      console.log('❌ INVALID IMAGE PATH FORMAT');
       return NextResponse.json(
-        { error: 'INVALID IMAGE PATH FORMAT. EXPECTED: /api/images/{userId}/{filename} OR /api/images/{teamId}/instruments/{filename}' },
+        { error: 'Invalid image path format. Expected: /api/images/{userId}/{filename} or /api/images/{teamId}/instruments/{filename}' },
         { status: 400 }
       );
     }
-    
-    console.log('🖼️ FINAL IMAGE PROCESSING:');
-    console.log('  📂 Image type:', imageType);
-    console.log('  🪣 Bucket:', bucketName);
-    console.log('  📍 Storage path:', filePath);
     
     // FETCH THE IMAGE FROM SUPABASE STORAGE
     const { data, error } = await supabase.storage
@@ -111,22 +72,18 @@ export async function GET(
       .download(filePath);
 
     if (error) {
-      console.log('❌ SUPABASE STORAGE ERROR:', error);
       return NextResponse.json(
-        { error: 'IMAGE NOT FOUND', details: error.message },
+        { error: 'Image not found', details: error.message },
         { status: 404 }
       );
     }
 
     if (!data) {
-      console.log('❌ NO DATA RETURNED FROM SUPABASE');
       return NextResponse.json(
         { error: 'IMAGE DATA NOT AVAILABLE' },
         { status: 404 }
       );
     }
-
-    console.log('✅ IMAGE FOUND AND RETURNED');
 
     // GET THE CONTENT TYPE BASED ON FILE EXTENSION
     const extension = filePath.split('.').pop()?.toLowerCase() || '';
@@ -151,9 +108,9 @@ export async function GET(
     });
 
   } catch (error) {
-    console.log('❌ UNEXPECTED ERROR:', error);
+    console.error('Error in image endpoint:', error);
     return NextResponse.json(
-      { error: 'INTERNAL SERVER ERROR' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

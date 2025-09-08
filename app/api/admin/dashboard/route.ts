@@ -1,37 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '../../../utils/supabase/server';
-import { cookies } from 'next/headers';
+import { authenticateAsAdmin } from '../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError } from '../../../utils/error-responses';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify user authentication
-    const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Create service client for admin operations
-    const serviceClient = createServiceClient();
-
-    // Check admin access using service client
-    const { data: adminData, error: adminError } = await serviceClient
-      .from('admin_users')
-      .select('*')
-      .eq('email', user.email)
-      .single();
-
-    if (adminError || !adminData) {
-      return NextResponse.json(
-        { error: 'Admin access denied' },
-        { status: 403 }
-      );
-    }
+    // AUTHENTICATE USER AS ADMIN
+    const { user, serviceClient } = await authenticateAsAdmin();
 
     // Load teams with member counts using service client
     const { data: teamsData, error: teamsError } = await serviceClient
@@ -43,11 +17,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (teamsError) {
-      console.error('Error loading teams:', teamsError);
-      return NextResponse.json(
-        { error: 'Failed to load teams data' },
-        { status: 500 }
-      );
+      return handleDatabaseError(teamsError, 'load teams data');
     }
 
     // Format teams data
@@ -75,10 +45,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'ADMIN_ACCESS_REQUIRED'].includes(error.message)) {
+      return handleAuthError(error);
+    }
     console.error('Error in admin dashboard API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleDatabaseError(error, 'fetch admin dashboard data');
   }
 }

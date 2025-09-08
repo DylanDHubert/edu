@@ -27,9 +27,6 @@ export async function POST(request: NextRequest) {
     }
 
     // ANY AUTHENTICATED USER CAN CREATE TEAMS NOW
-    console.log('=== TEAM CREATION DEBUG ===');
-    console.log('User email:', user.email);
-    console.log('Creating team for authenticated user...');
     
     const serviceClient = createServiceClient();
 

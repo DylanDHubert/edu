@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { sendMessage, sendMessageStreaming } from '../../../utils/openai';
 import { cookies } from 'next/headers';
 import { getNotesForTeamContext, formatNotesForContext } from '../../../utils/notes-server';
+import { verifyUserAuth, verifyTeamAccess } from '../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
 import OpenAI from 'openai';
 
 const client = new OpenAI({
@@ -22,23 +24,12 @@ export async function POST(request: NextRequest) {
     } = await request.json();
     
     if (!threadId || !message || !assistantId || !teamId || !accountId || !portfolioId) {
-      return NextResponse.json(
-        { error: 'THREAD ID, MESSAGE, ASSISTANT ID, TEAM ID, ACCOUNT ID, AND PORTFOLIO ID ARE REQUIRED' },
-        { status: 400 }
-      );
+      return handleValidationError('Thread ID, message, assistant ID, team ID, account ID, and portfolio ID are required');
     }
 
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
+    const { user, supabase } = await verifyUserAuth(cookieStore);
 
     // VERIFY USER OWNS THIS THREAD
     const { data: chatHistory, error: ownershipError } = await supabase
@@ -49,10 +40,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (ownershipError || !chatHistory) {
-      return NextResponse.json(
-        { error: 'THREAD NOT FOUND OR ACCESS DENIED' },
-        { status: 404 }
-      );
+      return handleDatabaseError(ownershipError, 'verify thread ownership');
     }
 
     // GET NOTES FOR TEAM CONTEXT
@@ -136,10 +124,10 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ messages });
   } catch (error) {
-    console.error('ERROR IN SEND ROUTE:', error);
-    return NextResponse.json(
-      { error: 'INTERNAL SERVER ERROR' },
-      { status: 500 }
-    );
+    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+      return handleAuthError(error);
+    }
+    console.error('Error in chat send route:', error);
+    return handleDatabaseError(error, 'process chat message');
   }
 } 

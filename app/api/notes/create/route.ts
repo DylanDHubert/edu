@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { verifyUserAuth, verifyTeamAccess } from '../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,22 +48,16 @@ export async function POST(request: NextRequest) {
 
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
+    const { user, supabase } = await verifyUserAuth(cookieStore);
 
     // VALIDATE REQUIRED FIELDS
     if (!title || !content) {
-      return NextResponse.json(
-        { error: 'TITLE AND CONTENT ARE REQUIRED' },
-        { status: 400 }
-      );
+      return handleValidationError('Title and content are required');
+    }
+
+    // VERIFY TEAM ACCESS IF TEAM CONTEXT IS PROVIDED
+    if (team_id) {
+      await verifyTeamAccess(team_id, user.id);
     }
 
     // HANDLE IMAGE UPLOADS
@@ -166,10 +162,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('ERROR IN CREATE NOTE ROUTE:', error);
-    return NextResponse.json(
-      { error: 'INTERNAL SERVER ERROR' },
-      { status: 500 }
-    );
+    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+      return handleAuthError(error);
+    }
+    console.error('Error in create note route:', error);
+    return handleDatabaseError(error, 'create note');
   }
 } 
