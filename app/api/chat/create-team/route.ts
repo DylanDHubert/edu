@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { createThread } from '../../../utils/openai';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
@@ -17,17 +17,20 @@ async function getTeamKnowledgeForContext(
   portfolioId: string
 ): Promise<string> {
   try {
+    // USE SERVICE CLIENT TO BYPASS RLS FOR KNOWLEDGE QUERIES
+    const serviceClient = createServiceClient();
+    
     // Get team and portfolio names
     const [teamResult, portfolioResult, accountResult] = await Promise.all([
-      supabase.from('teams').select('name').eq('id', teamId).single(),
-      supabase.from('team_portfolios').select('name').eq('id', portfolioId).single(),
-      supabase.from('team_accounts').select('name').eq('id', accountId).single()
+      serviceClient.from('teams').select('name').eq('id', teamId).single(),
+      serviceClient.from('team_portfolios').select('name').eq('id', portfolioId).single(),
+      serviceClient.from('team_accounts').select('name').eq('id', accountId).single()
     ]);
 
     // Get all knowledge data
     const [portfolioSpecificKnowledgeResult, accountLevelKnowledgeResult, generalKnowledgeResult] = await Promise.all([
       // Portfolio-specific knowledge (inventory, instruments, technical) - these have portfolio_id set
-      supabase
+      serviceClient
         .from('team_knowledge')
         .select('*')
         .eq('team_id', teamId)
@@ -35,7 +38,7 @@ async function getTeamKnowledgeForContext(
         .eq('portfolio_id', portfolioId),
       
       // Account-level knowledge (access & misc only) - these have portfolio_id = null
-      supabase
+      serviceClient
         .from('team_knowledge')
         .select('*')
         .eq('team_id', teamId)
@@ -43,7 +46,7 @@ async function getTeamKnowledgeForContext(
         .is('portfolio_id', null),
       
       // General team knowledge (surgeon info) - these have both account_id and portfolio_id = null
-      supabase
+      serviceClient
         .from('team_knowledge')
         .select('*')
         .eq('team_id', teamId)
@@ -56,6 +59,8 @@ async function getTeamKnowledgeForContext(
       ...(accountLevelKnowledgeResult.data || []),
       ...(generalKnowledgeResult.data || [])
     ];
+
+    // Knowledge data processed
 
     // Transform knowledge data for text generation
     const inventory = allKnowledgeData
@@ -159,28 +164,20 @@ export async function POST(request: NextRequest) {
     const teamKnowledgeContext = await getTeamKnowledgeForContext(supabase, teamId, accountId, portfolioId);
     
     if (teamKnowledgeContext) {
-      console.log('🔍 INJECTING TEAM KNOWLEDGE CONTEXT INTO NEW THREAD');
-      console.log('📝 Knowledge length:', teamKnowledgeContext.length, 'characters');
-      
-      // Send team knowledge as a "hidden" system message
+      // Send team knowledge as a HIDDEN system message
       // This establishes the context for the entire conversation
       await client.beta.threads.messages.create(thread.id, {
         role: 'user',
         content: teamKnowledgeContext,
         metadata: {
           isSystemContext: 'true',
-          hidden: 'true',
+          hidden: 'true', // HIDDEN FROM USER
           messageType: 'team_knowledge_context'
         }
       });
-      
-      console.log('✅ Team knowledge context injected successfully');
-    } else {
-      console.log('ℹ️ No team knowledge context to inject');
     }
     
     // SAVE TO DATABASE - Using team-based schema
-    // Store the primary account ID (first one) for backward compatibility
     const { data: chatHistory, error: dbError } = await supabase
       .from('chat_history')
       .insert({

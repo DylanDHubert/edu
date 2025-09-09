@@ -44,13 +44,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         try {
           const assistant = JSON.parse(storedAssistant);
           setActiveAssistant(assistant);
-          console.log('ACTIVE ASSISTANT UPDATED IN CHAT CONTEXT:', assistant);
+          // Active assistant updated in chat context
         } catch (error) {
           console.error('Error parsing activeAssistant from localStorage:', error);
         }
       } else {
         setActiveAssistant(null);
-        console.log('NO ACTIVE ASSISTANT FOUND IN LOCALSTORAGE');
+        // No active assistant found in localStorage
       }
     };
 
@@ -159,19 +159,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           return true;
         });
         
-        console.log('FILTERED TEAM CHATS:', {
-          totalChats: data?.length || 0,
-          filteredChats: filteredData.length,
-          activeAssistant: {
-            teamId: activeAssistant.teamId,
-            accountId: activeAssistant.accountId,
-            portfolioId: activeAssistant.portfolioId
-          }
-        });
+        // Filtered team chats
       } else {
         // NO ACTIVE ASSISTANT - SHOW NO CHATS
         filteredData = [];
-        console.log('NO ACTIVE ASSISTANT - SHOWING NO CHATS');
+        // No active assistant - showing no chats
       }
 
       setChatHistory(filteredData);

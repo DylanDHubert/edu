@@ -48,7 +48,7 @@ export default function ChatPage() {
         try {
           const assistant = JSON.parse(activeAssistant);
           // TODO: Could add additional validation here if needed
-          console.log('Active assistant validated:', assistant);
+          // Active assistant validated
         } catch (error) {
           console.error('Invalid activeAssistant in localStorage:', error);
           localStorage.removeItem('activeAssistant');

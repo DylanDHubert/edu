@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Coda } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -15,14 +15,6 @@ export const metadata: Metadata = {
   title: "HHB Stryker Assistant",
   description: "AI-powered RAG application with Supabase authentication",
   manifest: "/manifest.json",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: "cover",
-    minimumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -35,6 +27,15 @@ export const metadata: Metadata = {
     "mobile-web-app-capable": "yes",
     "theme-color": "#0f172a",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  minimumScale: 1,
 };
 
 export default function RootLayout({

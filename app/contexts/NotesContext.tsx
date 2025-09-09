@@ -43,7 +43,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const refreshNotes = useCallback(async () => {
     if (!user) return;
 
-    console.log('🔄 REFRESHING NOTES VIA API...');
+    // Refreshing notes via API
     setLoading(true);
     try {
       // USE API ROUTE INSTEAD OF DIRECT SUPABASE CALLS
@@ -60,7 +60,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       }
 
       const { notes: loadedNotes } = await response.json();
-      console.log('📝 NOTES LOADED VIA API:', loadedNotes?.length || 0, 'notes');
+      // Notes loaded via API
       setNotes(loadedNotes || []);
     } catch (error) {
       console.error('ERROR LOADING NOTES:', error);

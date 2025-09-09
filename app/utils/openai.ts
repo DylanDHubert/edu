@@ -160,12 +160,10 @@ export async function sendMessageStreaming(
                 // USE THE ANNOTATION TEXT WHICH CONTAINS THE ACTUAL CITATION INFO
                 const citationInfo = annotation.text || annotation.file_citation.quote || 'Unknown source';
                 extractedCitations.push(`[${index + 1}] ${citationInfo}`);
-                console.log(`📚 EXTRACTED CITATION [${index + 1}]:`, citationInfo);
               }
             }
           }
           
-          console.log('📚 FINAL EXTRACTED CITATIONS:', extractedCitations);
           onUpdate(messageContent, extractedCitations, currentStep);
         }
       });

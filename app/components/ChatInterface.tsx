@@ -68,7 +68,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       try {
         const assistant = JSON.parse(storedAssistant);
         setActiveAssistant(assistant);
-        console.log('Team assistant loaded:', assistant);
+        // Team assistant loaded
       } catch (error) {
         console.error('Error parsing activeAssistant from localStorage:', error);
       }
@@ -116,8 +116,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
 
   // EXTRACT IMAGE URLS FROM TEXT
   const extractImageUrls = (text: string) => {
-    console.log('🔥 extractImageUrls CALLED WITH TEXT:', text);
-    
     const imageUrlFormatRegex = /\[IMAGE URL:\s*(\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp))\]/gi;
     const markdownImageRegex = /\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi;
     const plainUrlRegex = /\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi;
@@ -127,7 +125,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     // EXTRACT FROM [IMAGE URL: ...] FORMAT
     let match;
     while ((match = imageUrlFormatRegex.exec(text)) !== null) {
-      console.log('🖼️ FOUND [IMAGE URL: ...] FORMAT:', match[1]);
       imageUrls.push(match[1]);
     }
     
@@ -135,21 +132,17 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     while ((match = markdownImageRegex.exec(text)) !== null) {
       const urlMatch = match[0].match(/\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)/i);
       if (urlMatch) {
-        console.log('🖼️ FOUND MARKDOWN LINK FORMAT:', urlMatch[0]);
         imageUrls.push(urlMatch[0]);
       }
     }
     
     // EXTRACT FROM PLAIN URLS
     while ((match = plainUrlRegex.exec(text)) !== null) {
-      console.log('🖼️ FOUND PLAIN URL FORMAT:', match[0]);
       imageUrls.push(match[0]);
     }
     
     // REMOVE DUPLICATES
     const uniqueUrls = [...new Set(imageUrls)];
-    console.log('🖼️ EXTRACTED IMAGE URLS (WITH DUPLICATES):', imageUrls);
-    console.log('🖼️ UNIQUE IMAGE URLS:', uniqueUrls);
     
     return uniqueUrls;
   };
@@ -422,15 +415,19 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
 
       // FILTER OUT HIDDEN SYSTEM CONTEXT MESSAGES
       const visibleMessages = cleanedMessages.filter((msg: any) => {
+        // Check message metadata
+        
         // Check if message has metadata indicating it's a hidden system context message
         if (msg.metadata?.hidden === 'true' || 
             msg.metadata?.messageType === 'team_knowledge_context' ||
             msg.metadata?.isSystemContext === 'true') {
-          console.log('🔒 HIDING SYSTEM CONTEXT MESSAGE:', msg.id, msg.metadata);
+          // Filtering out system message
           return false;
         }
         return true;
       });
+      
+      // Messages filtered and ready for display
 
       // REVERSE THE MESSAGES TO SHOW IN CHRONOLOGICAL ORDER (OLDEST FIRST)
       // REPLACE ALL MESSAGES WITH THE REAL ONES FROM SERVER
@@ -485,7 +482,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             },
             body: JSON.stringify({
               teamId: activeAssistant.teamId,
-              accountId: activeAssistant.accountId, // Keep for backward compatibility
+              accountId: activeAssistant.accountId,
               portfolioId: activeAssistant.portfolioId,
               assistantId: activeAssistant.assistantId,
               title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
@@ -512,6 +509,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             content: [{ type: 'text', text: { value: messageToSend } }],
             created_at: Date.now() / 1000
           };
+          // Setting temporary user message
           setMessages([tempUserMessage]);
         
         // NOW SEND THE MESSAGE TO GET ASSISTANT RESPONSE
@@ -989,7 +987,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                                             e.currentTarget.parentNode?.appendChild(linkElement);
                                           }}
                                           onLoad={() => {
-                                            console.log('✅ IMAGE LOADED SUCCESSFULLY IN CHAT:', imageUrl);
+                                            // Image loaded successfully in chat
                                           }}
                                         />
                                       </div>

@@ -73,7 +73,7 @@ export default function HomePage() {
       // Clear any existing active assistant when visiting home page
       const existingAssistant = localStorage.getItem('activeAssistant');
       if (existingAssistant) {
-        console.log('CLEARING ACTIVE ASSISTANT ON HOME PAGE VISIT');
+        // Clearing active assistant on home page visit
         localStorage.removeItem('activeAssistant');
         // Dispatch event to notify ChatContext
         window.dispatchEvent(new CustomEvent('activeAssistantChanged'));
@@ -96,7 +96,7 @@ export default function HomePage() {
         console.error('Failed to check access:', response.status);
       } else {
         const { isAdmin: adminResult, userEmail } = await response.json();
-        console.log('Access check result:', { isAdmin: adminResult, userEmail });
+        // Access check result
         adminStatus = adminResult;
         setIsAdmin(adminResult);
       }
@@ -109,7 +109,7 @@ export default function HomePage() {
         const teamsResult = await teamsResponse.json();
         if (teamsResult.success) {
           memberships = teamsResult.memberships || [];
-          console.log('Team memberships loaded via API:', memberships);
+          // Team memberships loaded via API
         } else {
           console.error('Failed to load teams via API:', teamsResult.error);
         }

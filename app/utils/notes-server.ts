@@ -51,8 +51,6 @@ export async function getNotesForTeamContext(teamId: string, accountId: string, 
   const supabase = await createClient(cookieStore);
 
   try {
-    console.log('🔍 QUERYING NOTES WITH:', { teamId, accountId, portfolioId, userId });
-    
     // GET NOTES FOR TEAM CONTEXT (INCLUDING PORTFOLIO-SHARED NOTES)
     // NEW: Handle multiple accounts by including all possible account filters
     const { data: notes, error } = await supabase
@@ -74,21 +72,7 @@ export async function getNotesForTeamContext(teamId: string, accountId: string, 
       return [];
     }
 
-    console.log('✅ RAW NOTES FROM DB:', notes?.length || 0, 'notes found');
-    if (notes && notes.length > 0) {
-      notes.forEach((note, index) => {
-        console.log(`📝 NOTE ${index + 1}:`, {
-          id: note.id,
-          title: note.title,
-          content: note.content?.substring(0, 50) + '...',
-          user_id: note.user_id,
-          is_shared: note.is_shared,
-          team_id: note.team_id,
-          account_id: note.account_id,
-          portfolio_id: note.portfolio_id
-        });
-      });
-    }
+    // Notes processed silently
 
     return notes || [];
   } catch (error) {
@@ -129,14 +113,8 @@ export function formatNotesForContext(notes: any[]): string {
     // HANDLE IMAGES
     let imageInfo = '';
     if (note.images && Array.isArray(note.images) && note.images.length > 0) {
-      console.log('🔍 NOTES FORMATTER - Processing note with images:');
-      console.log('  📝 Note title:', note.title);
-      console.log('  🖼️ Number of images:', note.images.length);
-      
       const imageUrls = note.images.map((image: any, index: number) => {
         if (image.url) {
-          console.log(`  🔗 Image ${index + 1} URL:`, image.url);
-          
           // USE THE URL DIRECTLY (ALREADY IN CORRECT FORMAT)
           const description = image.description ? ` (${image.description})` : '';
           return `[IMAGE URL: ${image.url}${description}]`;

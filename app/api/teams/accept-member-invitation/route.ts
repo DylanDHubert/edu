@@ -25,8 +25,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the invitation
-    const { data: invitation, error: inviteError } = await supabase
+    // Find the invitation - USE SERVICE CLIENT
+    const serviceClient = createServiceClient();
+    const { data: invitation, error: inviteError } = await serviceClient
       .from('team_member_invitations')
       .select(`
         *,
