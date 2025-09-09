@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
 import InviteModal from "../../components/InviteModal";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 interface TeamMember {
   id: string;
@@ -46,6 +47,15 @@ function EditMembersContent() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    type: 'remove' | 'cancel';
+    data: { memberId?: string; memberEmail?: string; inviteId?: string; email?: string; role?: string };
+  }>({
+    isOpen: false,
+    type: 'remove',
+    data: {}
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -109,6 +119,20 @@ function EditMembersContent() {
   };
 
   const removeMember = async (memberId: string, memberEmail: string) => {
+    // First, get member info to show in confirmation
+    const member = existingMembers.find(m => m.id === memberId);
+    const role = member?.role || 'member';
+    
+    setConfirmationModal({
+      isOpen: true,
+      type: 'remove',
+      data: { memberId, memberEmail, role }
+    });
+  };
+
+  const handleRemoveMemberConfirm = async () => {
+    const { memberId, memberEmail } = confirmationModal.data;
+    
     try {
       // Call API route to remove member
       const response = await fetch('/api/teams/members/remove', {
@@ -125,6 +149,7 @@ function EditMembersContent() {
       if (!response.ok) {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to remove team member');
+        setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
         return;
       }
 
@@ -133,18 +158,12 @@ function EditMembersContent() {
       // Check if it's an original manager error
       if (result.error && result.error.includes('original team manager')) {
         setError(result.error);
+        setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
         return;
       }
 
-      const displayName = memberEmail.includes('@unknown.com') ? 'this team member' : memberEmail;
-      const roleText = result.memberRole === 'manager' ? 'manager' : 'member';
-      
-      if (!confirm(`Are you sure you want to remove ${displayName} (${roleText}) from the team? This action cannot be undone.`)) {
-        return;
-      }
-
-      // If user confirmed, the member was already removed by the API
-      // Refresh the data
+      // Member was removed successfully
+      setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
       loadExistingData();
       setSuccessMessage('Team member removed successfully');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -152,14 +171,21 @@ function EditMembersContent() {
     } catch (error) {
       console.error('Error removing member:', error);
       setError('Failed to remove team member');
+      setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
     }
   };
 
   const cancelInvite = async (inviteId: string, email: string) => {
-    if (!confirm(`Are you sure you want to cancel the invitation for ${email}?`)) {
-      return;
-    }
+    setConfirmationModal({
+      isOpen: true,
+      type: 'cancel',
+      data: { inviteId, email }
+    });
+  };
 
+  const handleCancelInviteConfirm = async () => {
+    const { inviteId } = confirmationModal.data;
+    
     try {
       const { error } = await supabase
         .from('team_member_invitations')
@@ -169,10 +195,12 @@ function EditMembersContent() {
       if (error) {
         console.error('Error cancelling invite:', error);
         setError('Failed to cancel invitation');
+        setConfirmationModal({ isOpen: false, type: 'cancel', data: {} });
         return;
       }
 
       // Refresh the data
+      setConfirmationModal({ isOpen: false, type: 'cancel', data: {} });
       loadExistingData();
       setSuccessMessage('Invitation cancelled successfully');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -180,6 +208,7 @@ function EditMembersContent() {
     } catch (error) {
       console.error('Error cancelling invite:', error);
       setError('Failed to cancel invitation');
+      setConfirmationModal({ isOpen: false, type: 'cancel', data: {} });
     }
   };
 
@@ -366,6 +395,22 @@ function EditMembersContent() {
           onInviteSent={handleInviteSent}
         />
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={() => setConfirmationModal({ isOpen: false, type: 'remove', data: {} })}
+        onConfirm={confirmationModal.type === 'remove' ? handleRemoveMemberConfirm : handleCancelInviteConfirm}
+        title={confirmationModal.type === 'remove' ? 'REMOVE TEAM MEMBER' : 'CANCEL INVITATION'}
+        message={
+          confirmationModal.type === 'remove' 
+            ? `Are you sure you want to remove ${confirmationModal.data.memberEmail?.includes('@unknown.com') ? 'this team member' : confirmationModal.data.memberEmail} (${confirmationModal.data.role}) from the team? This action cannot be undone.`
+            : `Are you sure you want to cancel the invitation for ${confirmationModal.data.email}?`
+        }
+        confirmText={confirmationModal.type === 'remove' ? 'REMOVE MEMBER' : 'CANCEL INVITATION'}
+        cancelText="CANCEL"
+        variant="danger"
+      />
     </div>
   );
 }
