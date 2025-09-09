@@ -49,10 +49,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Remove the member by updating status to 'removed'
+    // Remove the member by updating status to 'inactive'
     const { error: removeError } = await serviceClient
       .from('team_members')
-      .update({ status: 'removed' })
+      .update({ status: 'inactive' })
       .eq('id', memberId)
       .eq('team_id', teamId);
 
