@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
@@ -76,11 +76,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create portfolios in database
+    // Create portfolios in database using service client
+    const serviceClient = createServiceClient();
     const createdPortfolios = [];
     
     for (const portfolio of portfolios) {
-      const { data: createdPortfolio, error: portfolioError } = await supabase
+      const { data: createdPortfolio, error: portfolioError } = await serviceClient
         .from('team_portfolios')
         .insert({
           team_id: teamId,

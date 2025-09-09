@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
@@ -50,8 +50,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify portfolio exists
-    const { data: portfolio, error: portfolioError } = await supabase
+    // Verify portfolio exists using service client
+    const serviceClient = createServiceClient();
+    const { data: portfolio, error: portfolioError } = await serviceClient
       .from('team_portfolios')
       .select('id')
       .eq('id', portfolioId)

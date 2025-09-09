@@ -1,4 +1,4 @@
-import { createClient } from '../utils/supabase/server';
+import { createClient, createServiceClient } from '../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export interface CreatePortfolioRequest {
@@ -29,10 +29,14 @@ export class PortfolioService {
     return await createClient(cookies());
   }
 
+  private getServiceClient() {
+    return createServiceClient();
+  }
+
   async createPortfolio(request: CreatePortfolioRequest) {
-    const supabase = await this.getSupabase();
+    const serviceClient = this.getServiceClient();
     
-    const { data, error } = await supabase
+    const { data, error } = await serviceClient
       .from('team_portfolios')
       .insert({
         team_id: request.teamId,
@@ -46,17 +50,22 @@ export class PortfolioService {
       return { success: false, error: error.message };
     }
 
+    if (!data) {
+      return { success: false, error: 'Portfolio creation failed' };
+    }
+
     return { success: true, portfolio: data };
   }
 
   async updatePortfolio(request: UpdatePortfolioRequest) {
-    const supabase = await this.getSupabase();
+    const serviceClient = this.getServiceClient();
     
-    const { data, error } = await supabase
+    const { data, error } = await serviceClient
       .from('team_portfolios')
       .update({
         name: request.name.trim(),
-        description: request.description?.trim() || null
+        description: request.description?.trim() || null,
+        updated_at: new Date().toISOString()
       })
       .eq('id', request.portfolioId)
       .eq('team_id', request.teamId)
@@ -67,13 +76,17 @@ export class PortfolioService {
       return { success: false, error: error.message };
     }
 
+    if (!data) {
+      return { success: false, error: 'Portfolio not found or update failed' };
+    }
+
     return { success: true, portfolio: data };
   }
 
   async deletePortfolio(request: DeletePortfolioRequest) {
-    const supabase = await this.getSupabase();
+    const serviceClient = this.getServiceClient();
     
-    const { error } = await supabase
+    const { error } = await serviceClient
       .from('team_portfolios')
       .delete()
       .eq('id', request.portfolioId)
@@ -87,9 +100,9 @@ export class PortfolioService {
   }
 
   async deleteDocument(request: DeleteDocumentRequest) {
-    const supabase = await this.getSupabase();
+    const serviceClient = this.getServiceClient();
     
-    const { error } = await supabase
+    const { error } = await serviceClient
       .from('team_documents')
       .delete()
       .eq('id', request.documentId);
@@ -102,9 +115,9 @@ export class PortfolioService {
   }
 
   async getPortfolios(teamId: string) {
-    const supabase = await this.getSupabase();
+    const serviceClient = this.getServiceClient();
     
-    const { data, error } = await supabase
+    const { data, error } = await serviceClient
       .from('team_portfolios')
       .select(`
         *,
@@ -115,10 +128,10 @@ export class PortfolioService {
         )
       `)
       .eq('team_id', teamId)
-      .order('created_at');
+      .order('created_at', { ascending: false });
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, portfolios: [] };
     }
 
     return { success: true, portfolios: data || [] };

@@ -310,8 +310,8 @@ function EditPortfoliosContent() {
         }
       }
 
-      // Redirect back to team dashboard
-      router.push(`/launcher/team?teamId=${teamId}`);
+      // RELOAD THE DATA TO SHOW UPDATED PORTFOLIOS
+      await loadExistingData();
 
     } catch (error) {
       console.error('Error updating portfolios:', error);

@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get team and portfolio info
-    const { data: team, error: teamError } = await supabase
+    // Get team and portfolio info - USE SERVICE CLIENT
+    const { data: team, error: teamError } = await serviceClient
       .from('teams')
       .select('name')
       .eq('id', teamId)
@@ -108,8 +108,8 @@ export async function POST(request: NextRequest) {
 
     for (const accountData of accounts) {
       if (accountData.id) {
-        // Update existing account
-        const { data: updatedAccount, error: accountError } = await supabase
+        // Update existing account - USE SERVICE CLIENT
+        const { data: updatedAccount, error: accountError } = await serviceClient
           .from('team_accounts')
           .update({
             name: accountData.name.trim(),
@@ -129,18 +129,20 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        console.log('✅ ACCOUNT UPDATED SUCCESSFULLY:', updatedAccount);
+
         updatedAccounts.push(updatedAccount);
 
-        // Update portfolio assignments
+        // Update portfolio assignments - USE SERVICE CLIENT
         // First, remove existing assignments
-        await supabase
+        await serviceClient
           .from('account_portfolios')
           .delete()
           .eq('account_id', accountData.id);
 
         // Then add new assignments
         for (const portfolioId of accountData.assignedPortfolios) {
-          const { error: assignmentError } = await supabase
+          const { error: assignmentError } = await serviceClient
             .from('account_portfolios')
             .insert({
               account_id: accountData.id,
@@ -153,18 +155,21 @@ export async function POST(request: NextRequest) {
         }
 
         // Update portfolio-specific knowledge for each portfolio that has data
+        console.log('🔍 UPDATING PORTFOLIO KNOWLEDGE FOR ACCOUNT:', accountData.name);
         for (const [portfolioId, portfolioData] of Object.entries(accountData.portfolioData || {})) {
-          if (portfolioData && typeof portfolioData === 'object' && ((portfolioData as any).inventory?.length > 0 || (portfolioData as any).instruments?.length > 0 || (portfolioData as any).technicalInfo?.trim())) {
-            await updatePortfolioSpecificKnowledge(supabase, teamId, { ...accountData, portfolioData: { [portfolioId]: portfolioData } }, portfolioId, imageFiles);
+          if (portfolioData && typeof portfolioData === 'object') {
+            console.log(`🔍 PROCESSING PORTFOLIO ${portfolioId}:`, portfolioData);
+            await updatePortfolioSpecificKnowledge(serviceClient, teamId, { ...accountData, portfolioData: { [portfolioId]: portfolioData } }, portfolioId, imageFiles);
           }
         }
 
         // Update account-level knowledge (access & misc only)
-        await updateAccountLevelKnowledge(supabase, teamId, accountData, imageFiles);
+        console.log('🔍 UPDATING ACCOUNT-LEVEL KNOWLEDGE FOR:', accountData.name);
+        await updateAccountLevelKnowledge(serviceClient, teamId, accountData, imageFiles);
 
       } else {
-        // Create new account (fallback for accounts without ID)
-        const { data: createdAccount, error: accountError } = await supabase
+        // Create new account (fallback for accounts without ID) - USE SERVICE CLIENT
+        const { data: createdAccount, error: accountError } = await serviceClient
           .from('team_accounts')
           .insert({
             team_id: teamId,
@@ -185,9 +190,9 @@ export async function POST(request: NextRequest) {
 
         updatedAccounts.push(createdAccount);
 
-        // Create portfolio assignments for new account
+        // Create portfolio assignments for new account - USE SERVICE CLIENT
         for (const portfolioId of accountData.assignedPortfolios) {
-          const { error: assignmentError } = await supabase
+          const { error: assignmentError } = await serviceClient
             .from('account_portfolios')
             .insert({
               account_id: createdAccount.id,
@@ -201,15 +206,14 @@ export async function POST(request: NextRequest) {
 
         // Create portfolio-specific knowledge for new account (for each assigned portfolio)
         for (const portfolioId of accountData.assignedPortfolios) {
-          await updatePortfolioSpecificKnowledge(supabase, teamId, { ...accountData, id: createdAccount.id }, portfolioId, imageFiles);
+          await updatePortfolioSpecificKnowledge(serviceClient, teamId, { ...accountData, id: createdAccount.id }, portfolioId, imageFiles);
         }
 
         // Create account-level knowledge for new account (access & misc only)
-        await updateAccountLevelKnowledge(supabase, teamId, { ...accountData, id: createdAccount.id }, imageFiles);
+        await updateAccountLevelKnowledge(serviceClient, teamId, { ...accountData, id: createdAccount.id }, imageFiles);
       }
     }
 
-    console.log('Account update completed successfully');
     return NextResponse.json({
       success: true,
       message: `Successfully updated ${updatedAccounts.length} account(s)`,
@@ -225,19 +229,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, accountData: any, portfolioId: string, imageFiles: any) {
+async function updatePortfolioSpecificKnowledge(serviceClient: any, teamId: string, accountData: any, portfolioId: string, imageFiles: any) {
   try {
-    console.log(`Updating portfolio-specific knowledge for account ${accountData.id}, portfolio ${portfolioId}`);
+    console.log(`🔍 UPDATING PORTFOLIO-SPECIFIC KNOWLEDGE for account ${accountData.id}, portfolio ${portfolioId}`);
     
     // Get portfolio-specific data for this portfolio
     const portfolioData = accountData.portfolioData?.[portfolioId] || {};
+    console.log('🔍 PORTFOLIO DATA RECEIVED:', JSON.stringify(portfolioData, null, 2));
     
     // Handle inventory knowledge - UPDATE or INSERT each item (portfolio-specific)
     if (portfolioData.inventory && portfolioData.inventory.length > 0) {
       for (const item of portfolioData.inventory) {
         if (item.name && item.name.trim()) {
           // Check if this inventory item already exists
-          const { data: existingItem, error: checkError } = await supabase
+          const { data: existingItem, error: checkError } = await serviceClient
             .from('team_knowledge')
             .select('id')
             .eq('team_id', teamId)
@@ -259,13 +264,13 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
 
           if (existingItem && !checkError) {
             // UPDATE existing record
-            await supabase
+            await serviceClient
               .from('team_knowledge')
               .update(knowledgeData)
               .eq('id', existingItem.id);
           } else {
             // INSERT new record
-            await supabase
+            await serviceClient
               .from('team_knowledge')
               .insert({
                 team_id: teamId,
@@ -291,13 +296,13 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
             const imageFile = imageFiles[instrument.imageKey];
             const fileName = `team-${teamId}/instruments/${Date.now()}-${imageFile.name}`;
             
-            // Upload to Supabase Storage
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            // Upload to Supabase Storage - USE SERVICE CLIENT
+            const { data: uploadData, error: uploadError } = await serviceClient.storage
               .from('user_note_images')
               .upload(fileName, imageFile);
 
             if (!uploadError && uploadData) {
-              const { data: { publicUrl } } = supabase.storage
+              const { data: { publicUrl } } = serviceClient.storage
                 .from('user_note_images')
                 .getPublicUrl(fileName);
               
@@ -307,7 +312,7 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
           }
 
           // Check if this instrument already exists
-          const { data: existingInstrument, error: checkError } = await supabase
+          const { data: existingInstrument, error: checkError } = await serviceClient
             .from('team_knowledge')
             .select('id')
             .eq('team_id', teamId)
@@ -332,13 +337,13 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
 
           if (existingInstrument && !checkError) {
             // UPDATE existing record
-            await supabase
+            await serviceClient
               .from('team_knowledge')
               .update(knowledgeData)
               .eq('id', existingInstrument.id);
           } else {
             // INSERT new record
-            await supabase
+            await serviceClient
               .from('team_knowledge')
               .insert({
                 team_id: teamId,
@@ -355,7 +360,7 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
     // Handle technical knowledge - UPDATE or INSERT (portfolio-specific)
     if (portfolioData.technicalInfo && portfolioData.technicalInfo.trim()) {
       // Check if technical info already exists
-      const { data: existingTechnical, error: checkError } = await supabase
+      const { data: existingTechnical, error: checkError } = await serviceClient
         .from('team_knowledge')
         .select('id')
         .eq('team_id', teamId)
@@ -376,13 +381,13 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
 
       if (existingTechnical && !checkError) {
         // UPDATE existing record
-        await supabase
+        await serviceClient
           .from('team_knowledge')
           .update(knowledgeData)
           .eq('id', existingTechnical.id);
       } else {
         // INSERT new record
-        await supabase
+        await serviceClient
           .from('team_knowledge')
           .insert({
             team_id: teamId,
@@ -395,7 +400,7 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
     }
 
     // Clean up any orphaned records for this portfolio
-    const { data: allCurrentKnowledge } = await supabase
+    const { data: allCurrentKnowledge } = await serviceClient
       .from('team_knowledge')
       .select('id, category, title')
       .eq('team_id', teamId)
@@ -429,7 +434,7 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
       for (const record of allCurrentKnowledge) {
         const key = `${record.category}:${record.title}`;
         if (!shouldExist.has(key)) {
-          await supabase
+          await serviceClient
             .from('team_knowledge')
             .delete()
             .eq('id', record.id);
@@ -442,80 +447,58 @@ async function updatePortfolioSpecificKnowledge(supabase: any, teamId: string, a
   }
 }
 
-async function updateAccountLevelKnowledge(supabase: any, teamId: string, accountData: any, imageFiles: any) {
+async function updateAccountLevelKnowledge(serviceClient: any, teamId: string, accountData: any, imageFiles: any) {
   try {
-    console.log(`Updating account-level knowledge for account ${accountData.id}`);
+    console.log(`🔍 UPDATING ACCOUNT-LEVEL KNOWLEDGE for account ${accountData.id}`);
+    console.log('🔍 ACCOUNT ACCESS MISC:', accountData.accessMisc);
 
-    // Handle access & misc knowledge - UPDATE or INSERT (account-level only)
-    if (accountData.accessMisc && accountData.accessMisc.trim()) {
-      // Check if access misc already exists
-      const { data: existingAccess, error: checkError } = await supabase
-        .from('team_knowledge')
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('account_id', accountData.id)
-        .eq('portfolio_id', null) // Account-level knowledge
-        .eq('category', 'access_misc')
-        .eq('title', 'Access & Miscellaneous')
-        .single();
-
-      const knowledgeData = {
-        title: 'Access & Miscellaneous',
-        content: accountData.accessMisc.trim(),
-        metadata: {
-          content: accountData.accessMisc.trim()
-        },
-        updated_at: new Date().toISOString()
-      };
-
-      if (existingAccess && !checkError) {
-        // UPDATE existing record
-        await supabase
-          .from('team_knowledge')
-          .update(knowledgeData)
-          .eq('id', existingAccess.id);
-      } else {
-        // INSERT new record
-        await supabase
-          .from('team_knowledge')
-          .insert({
-            team_id: teamId,
-            account_id: accountData.id,
-            portfolio_id: null, // Account-level knowledge
-            category: 'access_misc',
-            ...knowledgeData
-          });
-      }
-    }
-
-    // Clean up any orphaned account-level records
-    const { data: allCurrentKnowledge } = await supabase
+    // FIRST: Clean up any existing access & misc records for this account
+    console.log('🧹 CLEANING UP EXISTING ACCESS MISC RECORDS...');
+    const { error: cleanupError } = await serviceClient
       .from('team_knowledge')
-      .select('id, category, title')
+      .delete()
       .eq('team_id', teamId)
       .eq('account_id', accountData.id)
-      .eq('portfolio_id', null); // Only account-level knowledge
-
-    if (allCurrentKnowledge) {
-      // Build list of titles that should exist
-      const shouldExist = new Set();
-      
-      // Add access & misc
-      if (accountData.accessMisc?.trim()) {
-        shouldExist.add('access_misc:Access & Miscellaneous');
-      }
-
-      // Delete any records that shouldn't exist anymore
-      for (const record of allCurrentKnowledge) {
-        const key = `${record.category}:${record.title}`;
-        if (!shouldExist.has(key)) {
-          await supabase
-            .from('team_knowledge')
-            .delete()
-            .eq('id', record.id);
-        }
-      }
+      .is('portfolio_id', null)
+      .eq('category', 'access_misc')
+      .eq('title', 'Access & Miscellaneous');
+    
+    if (cleanupError) {
+      console.error('❌ ERROR CLEANING UP ACCESS MISC:', cleanupError);
+    } else {
+      console.log('✅ ACCESS MISC CLEANUP COMPLETED');
     }
+
+    // Handle access & misc knowledge - INSERT (account-level only)
+    if (accountData.accessMisc && accountData.accessMisc.trim()) {
+      console.log('🔍 ACCESS MISC HAS CONTENT, INSERTING NEW RECORD...');
+
+      // INSERT new record (since we cleaned up all existing ones)
+      console.log('🔍 INSERTING NEW ACCESS MISC RECORD');
+      const { error: insertError } = await serviceClient
+        .from('team_knowledge')
+        .insert({
+          team_id: teamId,
+          account_id: accountData.id,
+          portfolio_id: null, // Account-level knowledge
+          category: 'access_misc',
+          title: 'Access & Miscellaneous',
+          content: accountData.accessMisc.trim(),
+          metadata: {
+            content: accountData.accessMisc.trim()
+          }
+        });
+      
+      if (insertError) {
+        console.error('❌ ERROR INSERTING ACCESS MISC:', insertError);
+      } else {
+        console.log('✅ ACCESS MISC INSERTED SUCCESSFULLY');
+      }
+    } else {
+      console.log('🔍 NO ACCESS MISC CONTENT TO PROCESS');
+    }
+
+    console.log('✅ ACCOUNT-LEVEL KNOWLEDGE UPDATE COMPLETED');
 
   } catch (error) {
     console.error('Error updating account-level knowledge:', error);

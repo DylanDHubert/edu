@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get team and portfolio info
-    const { data: team, error: teamError } = await supabase
+    // Get team and portfolio info using service client
+    const { data: team, error: teamError } = await serviceClient
       .from('teams')
       .select('name')
       .eq('id', teamId)
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: portfolios, error: portfoliosError } = await supabase
+    const { data: portfolios, error: portfoliosError } = await serviceClient
       .from('team_portfolios')
       .select('id, name')
       .eq('team_id', teamId);
@@ -122,8 +122,8 @@ export async function POST(request: NextRequest) {
     const accountPortfolioStores = [];
 
     for (const accountData of accounts) {
-      // Create account record
-      const { data: createdAccount, error: accountError } = await supabase
+      // Create account record using service client
+      const { data: createdAccount, error: accountError } = await serviceClient
         .from('team_accounts')
         .insert({
           team_id: teamId,
@@ -146,8 +146,8 @@ export async function POST(request: NextRequest) {
 
       // Create account-portfolio assignments and vector stores
       for (const portfolioId of accountData.assignedPortfolios) {
-        // Create account-portfolio assignment
-        const { error: assignmentError } = await supabase
+        // Create account-portfolio assignment using service client
+        const { error: assignmentError } = await serviceClient
           .from('account_portfolios')
           .insert({
             account_id: createdAccount.id,
@@ -198,8 +198,8 @@ export async function POST(request: NextRequest) {
             { file_ids: [openaiFile.id] }
           );
 
-          // Save account-portfolio vector store record
-          const { data: storeRecord, error: storeError } = await supabase
+          // Save account-portfolio vector store record using service client
+          const { data: storeRecord, error: storeError } = await serviceClient
             .from('account_portfolio_stores')
             .insert({
               team_id: teamId,
@@ -231,10 +231,10 @@ export async function POST(request: NextRequest) {
           technical: []
         };
 
-        // Store inventory items
+        // Store inventory items using service client
         for (const item of knowledgeData.inventory) {
           if (item.item && item.item.trim()) {
-            await supabase.from('team_knowledge').insert({
+            await serviceClient.from('team_knowledge').insert({
               team_id: teamId,
               account_id: createdAccount.id,
               portfolio_id: portfolioId,
@@ -274,26 +274,19 @@ export async function POST(request: NextRequest) {
                 if (uploadError) {
                   console.error('Error uploading instrument image:', uploadError);
                 } else {
-                  console.log('🔍 TEAM IMAGE UPLOAD SUCCESS:');
-                  console.log('  📄 Instrument name:', item.name);
-                  console.log('  📁 Storage file path:', filePath);
-                  console.log('  📷 Original filename:', item.imageFile.name);
-                  
                   // Create image metadata for database
                   imageMetadata = [{
                     url: filePath,
                     description: item.name,
                     filename: item.imageFile.name
                   }];
-                  
-                  console.log('  💾 Storing in database:', JSON.stringify(imageMetadata, null, 2));
                 }
               } catch (uploadError) {
                 console.error('Error processing instrument image:', uploadError);
               }
             }
 
-            await supabase.from('team_knowledge').insert({
+            await serviceClient.from('team_knowledge').insert({
               team_id: teamId,
               account_id: createdAccount.id,
               portfolio_id: portfolioId,
@@ -313,10 +306,10 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Store technical items
+        // Store technical items using service client
         for (const item of knowledgeData.technical) {
           if (item.title && item.title.trim()) {
-            await supabase.from('team_knowledge').insert({
+            await serviceClient.from('team_knowledge').insert({
               team_id: teamId,
               account_id: createdAccount.id,
               portfolio_id: portfolioId,

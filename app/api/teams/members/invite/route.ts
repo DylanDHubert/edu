@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get team info
-    const { data: team, error: teamError } = await supabase
+    // Get team info - USE SERVICE CLIENT
+    const { data: team, error: teamError } = await serviceClient
       .from('teams')
       .select('name')
       .eq('id', teamId)
@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if invitation already exists
-        const { data: existingInvitation } = await supabase
+        // Check if invitation already exists - USE SERVICE CLIENT
+        const { data: existingInvitation } = await serviceClient
           .from('team_member_invitations')
           .select('id')
           .eq('team_id', teamId)
@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
         // Generate invitation token
         const invitationToken = generateInvitationToken();
 
-        // Create team member invitation record
-        const { data: invitation, error: invitationError } = await supabase
+        // Create team member invitation record - USE SERVICE CLIENT
+        const { data: invitation, error: invitationError } = await serviceClient
           .from('team_member_invitations')
           .insert({
             team_id: teamId,

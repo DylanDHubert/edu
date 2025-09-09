@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       for (const surgeon of generalKnowledge.surgeons) {
         if (surgeon.name && surgeon.name.trim()) {
           // Check if this specific surgeon + procedure combination already exists
-          const { data: existingSurgeon, error: checkError } = await supabase
+          const { data: existingSurgeon, error: checkError } = await serviceClient
             .from('team_knowledge')
             .select('id')
             .eq('team_id', teamId)
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
           if (existingSurgeon && !checkError) {
             // UPDATE existing record
-            const { error: surgeonError } = await supabase
+            const { error: surgeonError } = await serviceClient
               .from('team_knowledge')
               .update(knowledgeData)
               .eq('id', existingSurgeon.id);
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
             }
           } else {
             // INSERT new record
-            const { error: surgeonError } = await supabase
+            const { error: surgeonError } = await serviceClient
               .from('team_knowledge')
               .insert({
                 team_id: teamId,
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       // Only clean up entries for surgeons being saved in this request
       for (const surgeonName of surgeonsBeingSaved) {
         // Get all existing entries for this specific surgeon
-        const { data: existingEntries } = await supabase
+        const { data: existingEntries } = await serviceClient
           .from('team_knowledge')
           .select('id, metadata')
           .eq('team_id', teamId)
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
           for (const entry of existingEntries) {
             const procedureFocus = entry.metadata?.procedure_focus || '';
             if (!shouldExist.has(procedureFocus)) {
-              await supabase
+              await serviceClient
                 .from('team_knowledge')
                 .delete()
                 .eq('id', entry.id);

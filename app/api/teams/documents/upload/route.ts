@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
 
@@ -47,8 +47,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get portfolio and team info
-    const { data: portfolio, error: portfolioError } = await supabase
+    // Get portfolio and team info using service client
+    const serviceClient = createServiceClient();
+    const { data: portfolio, error: portfolioError } = await serviceClient
       .from('team_portfolios')
       .select(`
         *,
@@ -97,8 +98,8 @@ export async function POST(request: NextRequest) {
 
       openaiFileIds.push(openaiFile.id);
 
-      // Save document record
-      const { data: document, error: docError } = await supabase
+      // Save document record using service client
+      const { data: document, error: docError } = await serviceClient
         .from('team_documents')
         .insert({
           team_id: teamId,

@@ -86,8 +86,8 @@ function TeamDashboardContent() {
   };
 
   const handleEditTeamDetails = () => {
-    // Go to general team info editing page
-    router.push(`/edit/general?teamId=${teamId}`);
+    // Go to surgeon management page
+    router.push(`/edit/surgeons?teamId=${teamId}`);
   };
 
   const handleManagePortfolios = () => {
