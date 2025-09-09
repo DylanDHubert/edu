@@ -65,9 +65,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create service client for team membership operations - AVOID RLS CIRCULAR REFERENCE
-    const serviceClient = createServiceClient();
-
     // Check if user is already a member of this team - USE SERVICE CLIENT
     const { data: existingMember } = await serviceClient
       .from('team_members')

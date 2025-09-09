@@ -110,43 +110,40 @@ function EditMembersContent() {
 
   const removeMember = async (memberId: string, memberEmail: string) => {
     try {
-      // First, check if the member being removed is the original manager
-      const { data: memberToRemove, error: fetchError } = await supabase
-        .from('team_members')
-        .select('is_original_manager, role')
-        .eq('id', memberId)
-        .single();
+      // Call API route to remove member
+      const response = await fetch('/api/teams/members/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId,
+          teamId
+        }),
+      });
 
-      if (fetchError) {
-        console.error('Error fetching member data:', fetchError);
-        setError('Failed to fetch member information');
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to remove team member');
         return;
       }
 
-      // Prevent removal of original manager
-      if (memberToRemove.is_original_manager) {
-        setError('Cannot remove the original team manager. They are the team owner and cannot be removed.');
+      const result = await response.json();
+
+      // Check if it's an original manager error
+      if (result.error && result.error.includes('original team manager')) {
+        setError(result.error);
         return;
       }
 
       const displayName = memberEmail.includes('@unknown.com') ? 'this team member' : memberEmail;
-      const roleText = memberToRemove.role === 'manager' ? 'manager' : 'member';
+      const roleText = result.memberRole === 'manager' ? 'manager' : 'member';
       
       if (!confirm(`Are you sure you want to remove ${displayName} (${roleText}) from the team? This action cannot be undone.`)) {
         return;
       }
 
-      const { error } = await supabase
-        .from('team_members')
-        .update({ status: 'removed' })
-        .eq('id', memberId);
-
-      if (error) {
-        console.error('Error removing member:', error);
-        setError('Failed to remove team member');
-        return;
-      }
-
+      // If user confirmed, the member was already removed by the API
       // Refresh the data
       loadExistingData();
       setSuccessMessage('Team member removed successfully');
