@@ -227,7 +227,7 @@ export default function HomePage() {
       <div className="min-h-screen bg-slate-900 text-slate-100">
         {/* HEADER */}
         <header className="bg-slate-800 border-b border-slate-700 p-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md p-2">
                 <img src="/logo.png" alt="HHB" className="h-8 w-auto" />
@@ -326,7 +326,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-slate-900 text-slate-100">
       {/* HEADER */}
       <header className="bg-slate-800 border-b border-slate-700 p-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md p-2">
               <img src="/logo.png" alt="HHB" className="h-8 w-auto" />

@@ -92,15 +92,12 @@ function EditMembersContent() {
       setUserRole(result.data.userRole);
       setTeam(result.data.team);
 
-      // Transform members data to match expected format
-      const membersWithProfiles = (result.data.members || []).map((member: any) => ({
-        ...member,
-        profiles: {
-          email: member.email,
-          full_name: member.full_name
-        }
-      }));
-      setExistingMembers(membersWithProfiles);
+      // DEBUG: LOG THE MEMBERS DATA TO SEE WHAT'S BEING RECEIVED
+      console.log('DEBUG: Members data received:', JSON.stringify(result.data.members, null, 2));
+      console.log('DEBUG: Members count received:', result.data.members?.length || 0);
+
+      // MEMBERS DATA NOW COMES WITH USER EMAIL FROM API
+      setExistingMembers(result.data.members || []);
 
       // Set pending invitations from the team data
       setPendingInvites(result.data.invitations || []);
@@ -281,15 +278,15 @@ function EditMembersContent() {
                     <div className="flex items-center space-x-4">
                       <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
                         <span className="text-slate-300 font-medium">
-                          {(member.profiles?.full_name || member.profiles?.email || 'M').charAt(0).toUpperCase()}
+                          {member.user_id.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-slate-100 font-medium truncate">
-                          {member.profiles?.full_name || member.profiles?.email || `Member ${member.user_id.slice(0, 8)}`}
+                          Member {member.user_id.slice(0, 8)}
                         </div>
                         <div className="text-slate-400 text-sm truncate">
-                          {member.profiles?.email || `ID: ${member.user_id.slice(0, 8)}...`}
+                          ID: {member.user_id.slice(0, 8)}...
                         </div>
                       </div>
                     </div>
@@ -308,7 +305,7 @@ function EditMembersContent() {
                       </span>
                       {member.user_id !== user.id && !member.is_original_manager && (
                         <button
-                          onClick={() => removeMember(member.id, member.profiles?.email || `Member ${member.user_id.slice(0, 8)}`)}
+                          onClick={() => removeMember(member.id, `Member ${member.user_id.slice(0, 8)}`)}
                           className="px-2 py-1 rounded text-xs font-medium bg-red-900/50 text-red-300 border border-red-700 hover:bg-red-800/50"
                         >
                           Remove

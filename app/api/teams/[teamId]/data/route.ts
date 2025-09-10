@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateWithTeamAccess } from '../../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError } from '../../../../utils/error-responses';
+import { createClient } from '../../../../utils/supabase/server';
+import { cookies } from 'next/headers';
 
 export async function GET(
   request: NextRequest,
@@ -86,6 +88,9 @@ export async function GET(
       return handleDatabaseError(teamData.error, 'load team information');
     }
 
+    // RETURN MEMBERS DATA AS IS
+    const membersWithEmails = members.data || [];
+
     // Calculate statistics
     const stats = {
       portfolios: portfolios.data?.length || 0,
@@ -104,7 +109,7 @@ export async function GET(
         accounts: accounts.data || [],
         documents: documents.data || [],
         knowledge: knowledge.data || [],
-        members: members.data || [],
+        members: membersWithEmails,
         invitations: invitations.data || [],
         stats,
         userRole: membership.role
