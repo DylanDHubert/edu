@@ -51,7 +51,54 @@ export default function HomePage() {
   const [pendingInvitations, setPendingInvitations] = useState<TeamInvitation[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const supabase = createClient();
+
+  // USER TIPS DATA
+  const userTips = [
+    {
+      id: 1,
+      title: "Partition Your Portfolios",
+      content: "Smaller portfolios give better results. You can use the switch assistant feature to quickly switch back and forth between different portfolios.",
+      icon: (
+        <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      ),
+      color: "blue"
+    },
+    {
+      id: 2,
+      title: "Saving Takes Time",
+      content: "Please be patient to ensure saves are properly executed. When Saving, please do not close, exit, or reload the page.",
+      icon: (
+        <svg className="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      color: "green"
+    },
+    {
+      id: 3,
+      title: "Document Processing Time",
+      content: "When you upload new documents to a portfolio, it may take some time for the AI to process them. This can be nearly instant for small files, but larger documents may take up to 2 hours to become available to your assistant.",
+      icon: (
+        <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      color: "purple"
+    }
+  ];
+
+  // NAVIGATION FUNCTIONS
+  const nextTip = () => {
+    setCurrentTipIndex((prev) => (prev + 1) % userTips.length);
+  };
+
+  const prevTip = () => {
+    setCurrentTipIndex((prev) => (prev - 1 + userTips.length) % userTips.length);
+  };
 
   useEffect(() => {
     if (!loading && user) {
@@ -354,22 +401,6 @@ export default function HomePage() {
       <main className="max-w-7xl mx-auto px-6 py-6">
 
 
-        {/* USER INFO CARD */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-100 mb-1">Logged in as:</h3>
-              <p className="text-slate-300 font-medium">{user.email}</p>
-            </div>
-            <div className="text-right flex gap-2">
-              {isAdmin && (
-                <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                  Admin
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
 
         {/* TEAM MEMBERSHIPS SECTION */}
         <div className="mb-6">
@@ -526,19 +557,72 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* RECENT ACTIVITY SECTION - COMING SOON */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 mb-12">
-          <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+        {/* USER TIPS SECTION - INTERACTIVE STACK */}
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold">User Tips</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-400">
+                {currentTipIndex + 1} of {userTips.length}
+              </span>
             </div>
-            <h4 className="text-xl font-semibold text-slate-100 mb-2">Coming Soon</h4>
-            <p className="text-slate-400">
-              Track your recent conversations, team activities, and important updates
-            </p>
+          </div>
+          
+          <div className="relative">
+            {/* CURRENT TIP CARD */}
+            <div className={`bg-slate-800 rounded-lg border border-slate-700 p-6 transition-all duration-300 hover:border-${userTips[currentTipIndex].color}-500`}>
+              <div className="flex items-start gap-4">
+                <div className={`w-12 h-12 bg-${userTips[currentTipIndex].color}-500/20 rounded-full flex items-center justify-center flex-shrink-0`}>
+                  {userTips[currentTipIndex].icon}
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-lg font-semibold text-slate-100 mb-2">
+                    {userTips[currentTipIndex].title}
+                  </h4>
+                  <p className="text-slate-300 text-sm leading-relaxed">
+                    {userTips[currentTipIndex].content}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* NAVIGATION CONTROLS */}
+            <div className="flex items-center justify-between mt-4">
+              <button
+                onClick={prevTip}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-slate-100 rounded-md transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </button>
+              
+              {/* DOT INDICATORS */}
+              <div className="flex gap-2">
+                {userTips.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentTipIndex(index)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === currentTipIndex 
+                        ? 'bg-slate-400' 
+                        : 'bg-slate-600 hover:bg-slate-500'
+                    }`}
+                  />
+                ))}
+              </div>
+              
+              <button
+                onClick={nextTip}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-slate-100 rounded-md transition-colors"
+              >
+                Next
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
