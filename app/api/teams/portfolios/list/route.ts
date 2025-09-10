@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
         team_documents (
           id,
           filename,
-          original_name
+          original_name,
+          file_size
         )
       `)
       .eq('team_id', teamId)

@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../utils/supabase/client";
 import { Trash2, AlertTriangle } from "lucide-react";
+import StandardHeader from "../components/StandardHeader";
 
 interface Team {
   id: string;
@@ -98,25 +99,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-100">HHB Admin Dashboard</h1>
-              <p className="text-slate-400 mt-1">Manage teams and monitor system usage</p>
-            </div>
-            <div className="flex space-x-4">
-              <button
-                onClick={() => router.push('/admin/dashboard')}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
-              >
-                Analytics Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StandardHeader
+        teamName="HHB Admin Dashboard"
+        teamLocation="Manage teams and monitor system usage"
+        showBackButton={true}
+        backText="Analytics Dashboard"
+        backUrl="/admin/dashboard"
+      />
 
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -222,18 +211,12 @@ export default function AdminDashboard() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                       {new Date(team.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                       <button
-                        onClick={() => router.push(`/admin/teams/${team.id}`)}
-                        className="text-blue-400 hover:text-blue-300 mr-4"
+                        onClick={() => router.push(`/launcher/team?teamId=${team.id}&admin=true`)}
+                        className="text-blue-400 hover:text-blue-300"
                       >
                         View
-                      </button>
-                      <button
-                        onClick={() => router.push(`/admin/teams/${team.id}/edit`)}
-                        className="text-slate-400 hover:text-slate-300"
-                      >
-                        Edit
                       </button>
                     </td>
                   </tr>

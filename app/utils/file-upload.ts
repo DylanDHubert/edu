@@ -4,6 +4,7 @@ interface UploadedFile {
   filePath: string;
   originalName: string;
   uniqueFileName: string;
+  fileSize: number;
 }
 
 interface UploadProgress {
@@ -97,7 +98,8 @@ export async function uploadFilesToSupabase(
       uploadedFiles.push({
         filePath,
         originalName: file.name,
-        uniqueFileName
+        uniqueFileName,
+        fileSize: file.size
       });
 
     } catch (error) {

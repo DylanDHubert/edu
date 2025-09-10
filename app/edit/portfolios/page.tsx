@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
+import ConfirmationModal from "../../components/ConfirmationModal";
 import { Save, ChevronDown, ChevronRight } from "lucide-react";
 import { uploadFilesToSupabase, processUploadedFiles } from "../../utils/file-upload";
 
@@ -13,7 +14,7 @@ interface Portfolio {
   name: string;
   description: string;
   files: File[];
-  existingDocuments?: Array<{ id: string; filename: string; original_name: string }>;
+  existingDocuments?: Array<{ id: string; filename: string; original_name: string; file_size?: number | null }>;
 }
 
 function EditPortfoliosContent() {
@@ -31,6 +32,22 @@ function EditPortfoliosContent() {
   const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
   // Add state for managing expanded portfolios
   const [expandedPortfolios, setExpandedPortfolios] = useState<Set<string>>(new Set());
+  // Add state for confirmation modal
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'danger'
+  });
+  // Add state for dismissed warnings
+  const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!loading && !user) {
@@ -106,42 +123,125 @@ function EditPortfoliosContent() {
     setPortfolios([...portfolios, { id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
   };
 
+  // HELPER FUNCTION TO SHOW CONFIRMATION MODAL
+  const showConfirmationModal = (
+    title: string, 
+    message: string, 
+    onConfirm: () => void, 
+    variant: 'danger' | 'warning' | 'info' = 'danger'
+  ) => {
+    setConfirmationModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      variant
+    });
+  };
+
+  // CLOSE CONFIRMATION MODAL
+  const closeConfirmationModal = () => {
+    setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // HELPER FUNCTION TO FORMAT FILE SIZES
+  const formatFileSize = (bytes: number | undefined | null): string => {
+    if (bytes === null || bytes === undefined || bytes === 0) {
+      return bytes === 0 ? '0 Bytes' : 'Size unknown';
+    }
+    
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  // HELPER FUNCTION TO CALCULATE TOTAL PORTFOLIO SIZE
+  const calculatePortfolioSize = (portfolio: Portfolio): number => {
+    let totalSize = 0;
+    
+    // ADD EXISTING DOCUMENTS SIZE
+    if (portfolio.existingDocuments) {
+      portfolio.existingDocuments.forEach(doc => {
+        if (doc.file_size !== null && doc.file_size !== undefined) {
+          totalSize += doc.file_size;
+        } else {
+          // ASSUME 2.5MB FOR UNKNOWN SIZES
+          totalSize += 2.5 * 1024 * 1024;
+        }
+      });
+    }
+    
+    // ADD NEW FILES SIZE
+    portfolio.files.forEach(file => {
+      totalSize += file.size;
+    });
+    
+    return totalSize;
+  };
+
+  // HELPER FUNCTION TO CHECK IF PORTFOLIO NEEDS WARNING
+  const shouldShowSizeWarning = (portfolio: Portfolio): boolean => {
+    const totalSize = calculatePortfolioSize(portfolio);
+    const warningThreshold = 50; // 50MB
+    return totalSize > warningThreshold;
+  };
+
+  // HELPER FUNCTION TO DISMISS WARNING
+  const dismissWarning = (portfolioId: string | undefined, portfolioIndex: number) => {
+    const key = portfolioId || `new-${portfolioIndex}`;
+    setDismissedWarnings(prev => new Set([...prev, key]));
+  };
+
+  // HELPER FUNCTION TO CHECK IF WARNING IS DISMISSED
+  const isWarningDismissed = (portfolioId: string | undefined, portfolioIndex: number): boolean => {
+    const key = portfolioId || `new-${portfolioIndex}`;
+    return dismissedWarnings.has(key);
+  };
+
   const removePortfolio = async (index: number) => {
     const portfolio = portfolios[index];
     
     if (portfolio.id) {
-      // Confirm deletion of existing portfolio
-      if (!confirm(`Are you sure you want to delete "${portfolio.name}"? This will remove all associated documents and knowledge.`)) {
-        return;
-      }
+      // SHOW CONFIRMATION MODAL FOR EXISTING PORTFOLIO
+      showConfirmationModal(
+        'Delete Portfolio',
+        `Are you sure you want to delete "${portfolio.name}"? This will remove all associated documents and knowledge.`,
+        async () => {
+          try {
+            // DELETE VIA API ROUTE
+            const response = await fetch('/api/teams/portfolios/delete', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                portfolioId: portfolio.id,
+                teamId: teamId
+              }),
+            });
 
-      try {
-        // DELETE VIA API ROUTE
-        const response = await fetch('/api/teams/portfolios/delete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            portfolioId: portfolio.id,
-            teamId: teamId
-          }),
-        });
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to delete portfolio');
+            }
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to delete portfolio');
-        }
-      } catch (error) {
-        console.error('Error deleting portfolio:', error);
-        setError('Failed to delete portfolio');
-        return;
-      }
+            // REMOVE FROM STATE AFTER SUCCESSFUL DELETION
+            const newPortfolios = portfolios.filter((_, i) => i !== index);
+            setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
+            closeConfirmationModal();
+          } catch (error) {
+            console.error('Error deleting portfolio:', error);
+            setError('Failed to delete portfolio');
+            closeConfirmationModal();
+          }
+        },
+        'danger'
+      );
+    } else {
+      // REMOVE NEW PORTFOLIO DIRECTLY (NO CONFIRMATION NEEDED)
+      const newPortfolios = portfolios.filter((_, i) => i !== index);
+      setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
     }
-
-    // Remove from state
-    const newPortfolios = portfolios.filter((_, i) => i !== index);
-    setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
   };
 
   const updatePortfolio = (index: number, field: keyof Portfolio, value: any) => {
@@ -165,38 +265,44 @@ function EditPortfoliosContent() {
   };
 
   const removeExistingDocument = async (portfolioIndex: number, documentId: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) {
-      return;
-    }
+    // SHOW CONFIRMATION MODAL FOR DOCUMENT DELETION
+    showConfirmationModal(
+      'Delete Document',
+      'Are you sure you want to delete this document?',
+      async () => {
+        try {
+          // DELETE VIA API ROUTE
+          const response = await fetch('/api/teams/documents/delete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              documentId: documentId,
+              teamId: teamId
+            }),
+          });
 
-    try {
-      // DELETE VIA API ROUTE
-      const response = await fetch('/api/teams/documents/delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          documentId: documentId,
-          teamId: teamId
-        }),
-      });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete document');
+          }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete document');
-      }
+          // REMOVE FROM STATE AFTER SUCCESSFUL DELETION
+          const newPortfolios = [...portfolios];
+          newPortfolios[portfolioIndex].existingDocuments = 
+            newPortfolios[portfolioIndex].existingDocuments?.filter(doc => doc.id !== documentId) || [];
+          setPortfolios(newPortfolios);
+          closeConfirmationModal();
 
-      // Remove from state
-      const newPortfolios = [...portfolios];
-      newPortfolios[portfolioIndex].existingDocuments = 
-        newPortfolios[portfolioIndex].existingDocuments?.filter(doc => doc.id !== documentId) || [];
-      setPortfolios(newPortfolios);
-
-    } catch (error) {
-      console.error('Error deleting document:', error);
-      setError('Failed to delete document');
-    }
+        } catch (error) {
+          console.error('Error deleting document:', error);
+          setError('Failed to delete document');
+          closeConfirmationModal();
+        }
+      },
+      'danger'
+    );
   };
 
   const isFormValid = () => {
@@ -403,6 +509,34 @@ function EditPortfoliosContent() {
                 </button>
               </div>
 
+              {/* PORTFOLIO SIZE WARNING */}
+              {shouldShowSizeWarning(portfolio) && !isWarningDismissed(portfolio.id, index) && (
+                <div className="mb-4 p-3 bg-amber-900/30 border border-amber-700 rounded-md">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-amber-200 text-sm font-medium mb-1">Portfolio Size Notice</p>
+                        <p className="text-amber-300 text-xs leading-relaxed">
+                          Assistants perform better with focused portfolios. Consider organizing your documents into smaller, 
+                          more specific portfolios for improved results and faster responses.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => dismissWarning(portfolio.id, index)}
+                      className="text-amber-400 hover:text-amber-300 ml-2 flex-shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -456,7 +590,10 @@ function EditPortfoliosContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 transition-all duration-200 ease-in-out">
                       {portfolio.existingDocuments.map((doc) => (
                         <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-md">
-                          <span className="text-slate-300 text-sm">{doc.original_name}</span>
+                          <div className="flex flex-col">
+                            <span className="text-slate-300 text-sm">{doc.original_name}</span>
+                            <span className="text-slate-500 text-xs">{formatFileSize(doc.file_size)}</span>
+                          </div>
                           <button
                             onClick={() => removeExistingDocument(index, doc.id)}
                             className="text-red-400 hover:text-red-300 text-sm"
@@ -502,7 +639,10 @@ function EditPortfoliosContent() {
                     <div className="space-y-2">
                       {portfolio.files.map((file, fileIndex) => (
                         <div key={fileIndex} className="flex items-center justify-between p-2 bg-slate-700 rounded">
-                          <span className="text-slate-300 text-sm">{file.name}</span>
+                          <div className="flex flex-col">
+                            <span className="text-slate-300 text-sm">{file.name}</span>
+                            <span className="text-slate-500 text-xs">{formatFileSize(file.size)}</span>
+                          </div>
                           <button
                             onClick={() => removeFile(index, fileIndex)}
                             className="text-red-400 hover:text-red-300 text-sm"
@@ -544,6 +684,16 @@ function EditPortfoliosContent() {
           </div>
         </div>
       </div>
+
+      {/* CONFIRMATION MODAL */}
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={closeConfirmationModal}
+        onConfirm={confirmationModal.onConfirm}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        variant={confirmationModal.variant}
+      />
     </div>
   );
 }

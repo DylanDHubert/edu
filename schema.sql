@@ -150,6 +150,7 @@ CREATE TABLE public.team_documents (
   filename text NOT NULL,
   original_name text NOT NULL,
   file_path text NOT NULL,
+  file_size bigint,
   openai_file_id text,
   uploaded_by uuid,
   created_at timestamp with time zone DEFAULT now(),

@@ -29,6 +29,7 @@ function TeamDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const teamId = searchParams.get('teamId');
+  const isAdminView = searchParams.get('admin') === 'true';
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
@@ -58,8 +59,12 @@ function TeamDashboardContent() {
     try {
       setLoading(true);
       
-      // Use the new team data API endpoint that handles all team data securely
-      const response = await fetch(`/api/teams/${teamId}/data`);
+      // USE ADMIN API ENDPOINT IF ACCESSING AS ADMIN
+      const apiEndpoint = isAdminView 
+        ? `/api/admin/teams/${teamId}/data`
+        : `/api/teams/${teamId}/data`;
+      
+      const response = await fetch(apiEndpoint);
       const result = await response.json();
 
       if (!response.ok) {
@@ -197,15 +202,29 @@ function TeamDashboardContent() {
   return (
     <div className="min-h-screen bg-slate-900">
       <StandardHeader
-        teamName={team.name}
+        teamName={isAdminView ? `${team.name} (Admin View)` : team.name}
         teamLocation={team.location}
         userRole={userRole}
         isOriginalManager={isOriginalManager}
-        backUrl="/"
+        backUrl={isAdminView ? "/admin" : "/"}
+        backText={isAdminView ? "← Back to Admin" : "←"}
       />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* ADMIN VIEW INDICATOR */}
+        {isAdminView && (
+          <div className="mb-6 bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+              <span className="text-blue-300 font-medium">Admin View - Full Access</span>
+            </div>
+            <p className="text-blue-200 text-sm mt-1">
+              You are viewing this team dashboard with administrative privileges, regardless of team membership.
+            </p>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Team Stats */}

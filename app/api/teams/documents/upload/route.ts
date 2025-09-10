@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // Process uploaded files
     for (const uploadedFile of uploadedFiles) {
-      const { filePath, originalName, uniqueFileName } = uploadedFile;
+      const { filePath, originalName, uniqueFileName, fileSize } = uploadedFile;
 
       // Download file from Supabase Storage
       const { data: fileData, error: downloadError } = await supabase.storage
@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
           filename: uniqueFileName,
           original_name: originalName,
           file_path: filePath,
+          file_size: fileSize,
           openai_file_id: openaiFile.id,
           uploaded_by: user.id
         })
