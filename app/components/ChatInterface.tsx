@@ -40,6 +40,7 @@ interface ActiveAssistant {
   teamName?: string;
   teamLocation?: string;
   userRole?: string;
+  isOriginalManager?: boolean;
 }
 
 export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => void }) {
@@ -914,6 +915,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         teamName={activeAssistant?.teamName}
         teamLocation={activeAssistant?.teamLocation}
         userRole={activeAssistant?.userRole}
+        isOriginalManager={activeAssistant?.isOriginalManager}
         accountName={activeAssistant?.accountName}
         portfolioName={activeAssistant?.portfolioName}
         showBackButton={false}

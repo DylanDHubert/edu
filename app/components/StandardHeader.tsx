@@ -6,6 +6,7 @@ interface StandardHeaderProps {
   teamName?: string;
   teamLocation?: string;
   userRole?: string;
+  isOriginalManager?: boolean;
   accountName?: string;
   portfolioName?: string;
   backUrl?: string;
@@ -22,6 +23,7 @@ export default function StandardHeader({
   teamName,
   teamLocation,
   userRole,
+  isOriginalManager = false,
   accountName,
   portfolioName,
   backUrl,
@@ -78,7 +80,7 @@ export default function StandardHeader({
                   <h1 className="text-xl font-bold text-slate-100">{teamName}</h1>
                   {teamLocation && userRole && (
                     <p className="text-slate-400 text-sm mt-1">
-                      {teamLocation} • {userRole === 'manager' ? 'Team Manager' : 'Team Member'}
+                      {teamLocation} • {userRole === 'manager' ? (isOriginalManager ? 'Team Owner' : 'Team Manager') : 'Team Member'}
                     </p>
                   )}
                 </>

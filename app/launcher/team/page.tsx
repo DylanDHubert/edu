@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
-import { FolderOpen, Building2, BookOpen, Users, BrainCog } from "lucide-react";
+import { FolderOpen, Building2, BookOpen, Users, BrainCog, Trash2, AlertTriangle } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
 
 interface TeamStats {
@@ -36,6 +36,13 @@ function TeamDashboardContent() {
   const [stats, setStats] = useState<TeamStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
+  
+  // Team deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && user && teamId) {
@@ -68,6 +75,7 @@ function TeamDashboardContent() {
       // Set team data and user role
       setTeam(result.data.team);
       setUserRole(result.data.userRole);
+      setIsOriginalManager(result.data.isOriginalManager || false);
       setStats(result.data.stats);
 
     } catch (error) {
@@ -103,6 +111,55 @@ function TeamDashboardContent() {
   const handleManageMembers = () => {
     // Go to member management page
     router.push(`/edit/members?teamId=${teamId}`);
+  };
+
+  const handleDeleteTeam = () => {
+    setDeleteError(null);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTeam = async () => {
+    if (!team || deleteConfirmation !== team.name) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/teams/${teamId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmation: deleteConfirmation,
+          deleteExternalResources: true
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete team');
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Team deletion failed');
+      }
+
+      // SUCCESS - REDIRECT TO HOME
+      router.push('/');
+
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Unknown error occurred');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDeleteTeam = () => {
+    setShowDeleteModal(false);
+    setDeleteConfirmation('');
+    setDeleteError(null);
   };
 
   if (authLoading || loading) {
@@ -143,6 +200,7 @@ function TeamDashboardContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
+        isOriginalManager={isOriginalManager}
         backUrl="/"
       />
 
@@ -246,13 +304,26 @@ function TeamDashboardContent() {
                     {/* Team Management */}
                     <div>
                       <h4 className="text-md font-medium text-slate-200 mb-3">Manage Team</h4>
-                      <button
-                        onClick={handleManageMembers}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-                      >
-                        <Users className="w-5 h-5 flex-shrink-0" />
-                        <span className="flex-1 text-center">Members</span>
-                      </button>
+                      <div className="space-y-3">
+                        <button
+                          onClick={handleManageMembers}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                        >
+                          <Users className="w-5 h-5 flex-shrink-0" />
+                          <span className="flex-1 text-center">Members</span>
+                        </button>
+                        
+                        {/* DELETE TEAM BUTTON - ONLY FOR ORIGINAL MANAGERS */}
+                        {isOriginalManager && team && (
+                          <button
+                            onClick={handleDeleteTeam}
+                            className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                          >
+                            <Trash2 className="w-5 h-5 flex-shrink-0" />
+                            <span className="flex-1 text-center">Delete Team</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -261,6 +332,84 @@ function TeamDashboardContent() {
           </div>
         </div>
       </div>
+
+      {/* DELETE TEAM CONFIRMATION MODAL */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4 border border-slate-700">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+              <h3 className="text-lg font-semibold text-slate-100">Delete Team</h3>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-slate-300 mb-4">
+                <strong className="text-red-400">WARNING:</strong> This action cannot be undone. 
+                Deleting the team will permanently remove:
+              </p>
+              <ul className="text-slate-400 text-sm space-y-1 mb-4">
+                <li>• All team data and settings</li>
+                <li>• All portfolios, accounts, and knowledge</li>
+                <li>• All chat history and notes</li>
+                <li>• All uploaded documents and files</li>
+                <li>• All AI assistants and vector stores</li>
+                <li>• All team members and invitations</li>
+              </ul>
+              <p className="text-slate-300">
+                To confirm deletion, type the team name exactly: <strong className="text-slate-100">{team?.name}</strong>
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <input
+                type="text"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="Type team name to confirm"
+                className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+                disabled={isDeleting}
+              />
+              
+              {/* ERROR MESSAGE */}
+              {deleteError && (
+                <div className="mt-3 p-3 bg-red-900/30 border border-red-700 rounded text-red-200 text-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>{deleteError}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cancelDeleteTeam}
+                disabled={isDeleting}
+                className="flex-1 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-800 text-white px-4 py-2 rounded font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteTeam}
+                disabled={isDeleting || deleteConfirmation !== team?.name}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white px-4 py-2 rounded font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Team
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

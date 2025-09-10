@@ -46,6 +46,7 @@ function EditMembersContent() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -90,6 +91,7 @@ function EditMembersContent() {
       }
 
       setUserRole(result.data.userRole);
+      setIsOriginalManager(result.data.isOriginalManager || false);
       setTeam(result.data.team);
 
       // DEBUG: LOG THE MEMBERS DATA TO SEE WHAT'S BEING RECEIVED
@@ -247,6 +249,7 @@ function EditMembersContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
+        isOriginalManager={isOriginalManager}
         backUrl={`/launcher/team?teamId=${teamId}`}
       />
 

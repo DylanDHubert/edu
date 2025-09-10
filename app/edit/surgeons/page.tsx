@@ -35,6 +35,7 @@ function EditGeneralContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
 
   // Modal state for adding procedures
   const [showAddProcedureModal, setShowAddProcedureModal] = useState(false);
@@ -160,6 +161,7 @@ function EditGeneralContent() {
       }
 
       setUserRole(result.data.userRole);
+      setIsOriginalManager(result.data.isOriginalManager || false);
       setTeam(result.data.team);
 
       // Load existing general knowledge using service role via API
@@ -563,6 +565,7 @@ function EditGeneralContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
+        isOriginalManager={isOriginalManager}
         showBackButton={true}
         onBackClick={handleSubmit}
         backText={isSubmitting ? 'SAVING...' : 'SAVE'}

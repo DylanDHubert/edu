@@ -28,6 +28,7 @@ function EditPortfoliosContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
   // Add state for managing expanded portfolios
   const [expandedPortfolios, setExpandedPortfolios] = useState<Set<string>>(new Set());
 
@@ -64,6 +65,7 @@ function EditPortfoliosContent() {
       }
 
       setUserRole(result.data.userRole);
+      setIsOriginalManager(result.data.isOriginalManager || false);
       setTeam(result.data.team);
 
       // Load existing portfolios and their documents using service role via API
@@ -371,6 +373,7 @@ function EditPortfoliosContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
+        isOriginalManager={isOriginalManager}
         showBackButton={true}
         onBackClick={handleSubmit}
         backText={isSubmitting ? 'SAVING...' : 'SAVE'}

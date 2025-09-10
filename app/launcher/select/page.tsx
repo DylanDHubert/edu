@@ -42,6 +42,7 @@ function AccountPortfolioSelectContent() {
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
   const [creatingAssistant, setCreatingAssistant] = useState(false);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ function AccountPortfolioSelectContent() {
       }
 
       setUserRole(result.data.userRole);
+      setIsOriginalManager(result.data.isOriginalManager || false);
       setTeam({
         id: result.data.team.id,
         name: result.data.team.name,
@@ -216,7 +218,8 @@ function AccountPortfolioSelectContent() {
         portfolioName: selectedPortfolioData?.name,
         teamName: team?.name,
         teamLocation: team?.location,
-        userRole: userRole
+        userRole: userRole,
+        isOriginalManager: isOriginalManager
       };
       
       localStorage.setItem('activeAssistant', JSON.stringify(activeAssistant));
@@ -293,6 +296,7 @@ function AccountPortfolioSelectContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
+        isOriginalManager={isOriginalManager}
         backUrl={`/launcher/team?teamId=${teamId}`}
       />
 

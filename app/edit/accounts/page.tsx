@@ -52,6 +52,7 @@ function EditAccountsContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
+  const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
   // Add state for managing expanded accounts
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   // Add state for active portfolio per account
@@ -90,6 +91,7 @@ function EditAccountsContent() {
       }
 
       setUserRole(result.data.userRole);
+      setIsOriginalManager(result.data.isOriginalManager || false);
       setTeam(result.data.team);
       setPortfolios(result.data.portfolios || []);
 
@@ -643,6 +645,7 @@ function EditAccountsContent() {
         teamName={team.name}
         teamLocation={team.location}
         userRole={userRole}
+        isOriginalManager={isOriginalManager}
         showBackButton={true}
         onBackClick={handleSubmit}
         backText={isSubmitting ? 'SAVING...' : 'SAVE'}

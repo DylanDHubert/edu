@@ -112,7 +112,8 @@ export async function GET(
         members: membersWithEmails,
         invitations: invitations.data || [],
         stats,
-        userRole: membership.role
+        userRole: membership.role,
+        isOriginalManager: membership.is_original_manager
       }
     });
 

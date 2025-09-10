@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../utils/supabase/client";
+import { Trash2, AlertTriangle } from "lucide-react";
 
 interface Team {
   id: string;
