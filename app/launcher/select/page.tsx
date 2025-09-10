@@ -7,6 +7,7 @@ import { createClient } from "../../utils/supabase/client";
 import { BrainCog, FileText } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
 import CustomRadioButton from "../../components/CustomRadioButton";
+import LoadingScreen from "../../components/LoadingScreen";
 
 interface Portfolio {
   id: string;
@@ -246,12 +247,10 @@ function AccountPortfolioSelectContent() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">Loading...</h1>
-          <p className="text-slate-400">Loading portfolios and accounts...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading portfolios and accounts..." 
+      />
     );
   }
 
@@ -387,7 +386,12 @@ function AccountPortfolioSelectContent() {
 
 export default function AccountPortfolioSelectPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading..." 
+      />
+    }>
       <AccountPortfolioSelectContent />
     </Suspense>
   );

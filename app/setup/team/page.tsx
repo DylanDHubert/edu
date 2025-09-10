@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import StandardHeader from "../../components/StandardHeader";
+import LoadingScreen from "../../components/LoadingScreen";
 
 export default function TeamSetupPage() {
   const { user, loading } = useAuth();
@@ -83,12 +84,10 @@ export default function TeamSetupPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">Loading...</h1>
-          <p className="text-slate-400">Preparing team setup...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Preparing team setup..." 
+      />
     );
   }
 

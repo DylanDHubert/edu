@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { useAuth } from "../../contexts/AuthContext";
+import LoadingScreen from "../../components/LoadingScreen";
 
 interface InvitationData {
   id: string;
@@ -214,12 +215,10 @@ function TeamMemberInviteContent() {
 
   if (loading || userLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">Loading...</h1>
-          <p className="text-slate-400">Validating invitation...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Validating invitation..." 
+      />
     );
   }
 
@@ -414,7 +413,12 @@ function TeamMemberInviteContent() {
 
 export default function TeamMemberInvitePage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading..." 
+      />
+    }>
       <TeamMemberInviteContent />
     </Suspense>
   );

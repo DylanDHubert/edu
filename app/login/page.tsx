@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { createClient } from "../utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import LoadingScreen from "../components/LoadingScreen";
 
 function LoginPageContent() {
   const [email, setEmail] = useState("");
@@ -164,17 +165,10 @@ function LoginPageContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-gradient-to-r from-slate-300 to-slate-400 rounded-md shadow-lg relative overflow-hidden p-4">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
-              <img src="/logo.png" alt="HHB" className="relative z-10 h-16 w-auto" />
-            </div>
-          </div>
-          <p className="text-slate-400">Loading...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading..." 
+      />
     }>
       <LoginPageContent />
     </Suspense>

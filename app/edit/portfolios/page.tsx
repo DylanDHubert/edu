@@ -8,6 +8,7 @@ import StandardHeader from "../../components/StandardHeader";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { Save, ChevronDown, ChevronRight } from "lucide-react";
 import { uploadFilesToSupabase, processUploadedFiles } from "../../utils/file-upload";
+import LoadingScreen from "../../components/LoadingScreen";
 
 interface Portfolio {
   id?: string;
@@ -182,7 +183,7 @@ function EditPortfoliosContent() {
   // HELPER FUNCTION TO CHECK IF PORTFOLIO NEEDS WARNING
   const shouldShowSizeWarning = (portfolio: Portfolio): boolean => {
     const totalSize = calculatePortfolioSize(portfolio);
-    const warningThreshold = 50; // 50MB
+    const warningThreshold = 50 * 1024 * 1024; // 50MB
     return totalSize > warningThreshold;
   };
 
@@ -443,12 +444,10 @@ function EditPortfoliosContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">Loading...</h1>
-          <p className="text-slate-400">Loading portfolios...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading portfolios..." 
+      />
     );
   }
 
@@ -700,7 +699,12 @@ function EditPortfoliosContent() {
 
 export default function EditPortfoliosPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading..." 
+      />
+    }>
       <EditPortfoliosContent />
     </Suspense>
   );

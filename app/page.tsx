@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "./utils/supabase/client";
 import { MapPin, LogOut } from "lucide-react";
 import Link from "next/link";
+import LoadingScreen from "./components/LoadingScreen";
 
 interface TeamMember {
   id: string;
@@ -259,12 +260,10 @@ export default function HomePage() {
 
   if (loading || loadingTeams) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">HHB Assistant</h1>
-          <p className="text-slate-400">Loading...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle={loading ? "Loading..." : "Loading teams..."} 
+      />
     );
   }
 
@@ -401,6 +400,43 @@ export default function HomePage() {
       <main className="max-w-7xl mx-auto px-6 py-6">
 
 
+
+        {/* DEVELOPER TOOLS PANEL - ADMIN ONLY */}
+        {isAdmin && (
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold mb-4">Developer Tools</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => router.push('/admin')}
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-green-500 rounded-lg p-4 transition-colors group"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-3 group-hover:bg-green-500/30 transition-colors">
+                    <svg className="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
+                    </svg>
+                  </div>
+                  <span className="text-slate-300 text-sm font-medium">Dashboard</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/admin/dashboard')}
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-purple-500 rounded-lg p-4 transition-colors group"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mb-3 group-hover:bg-purple-500/30 transition-colors">
+                    <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <span className="text-slate-300 text-sm font-medium">Analytics</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* TEAM MEMBERSHIPS SECTION */}
         <div className="mb-6">

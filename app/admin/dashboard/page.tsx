@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { BarChart3, MessageSquare, FileText, Download, Filter, RefreshCw, Calendar } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
+import LoadingScreen from "../../components/LoadingScreen";
 
 interface ChatAnalyticsData {
   user_email: string;
@@ -406,12 +407,10 @@ export default function AdminDashboard() {
 
   if (loading || isAdminLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">HHB Admin Analytics</h1>
-          <p className="text-slate-400">Loading...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Admin Analytics" 
+        subtitle="Loading..." 
+      />
     );
   }
 

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { FolderOpen, Building2, BookOpen, Users, BrainCog, Trash2, AlertTriangle } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
+import LoadingScreen from "../../components/LoadingScreen";
 
 interface TeamStats {
   portfolios: number;
@@ -169,12 +170,10 @@ function TeamDashboardContent() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">Loading...</h1>
-          <p className="text-slate-400">Loading team dashboard...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading team dashboard..." 
+      />
     );
   }
 
@@ -435,7 +434,12 @@ function TeamDashboardContent() {
 
 export default function TeamDashboardPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading..." 
+      />
+    }>
       <TeamDashboardContent />
     </Suspense>
   );

@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import ChatInterface from "../components/ChatInterface";
 import DynamicThemeColor from "../components/DynamicThemeColor";
+import LoadingScreen from "../components/LoadingScreen";
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
@@ -78,12 +79,10 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">HHB</h1>
-          <p className="text-slate-400">LOADING...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="HHB Assistant" 
+        subtitle="Loading chat..." 
+      />
     );
   }
 
