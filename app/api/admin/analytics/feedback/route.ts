@@ -38,267 +38,276 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse query parameters
-    const url = new URL(request.url);
-    const startDate = url.searchParams.get('start_date');
-    const endDate = url.searchParams.get('end_date');
-    const teamId = url.searchParams.get('team_id');
+    const { searchParams } = new URL(request.url);
+    const teamFilter = searchParams.get('team');
+    const accountFilter = searchParams.get('account');
+    const portfolioFilter = searchParams.get('portfolio');
 
-    console.log('🔍 Admin Analytics - Feedback Request:', { startDate, endDate, teamId });
+    console.log('🔄 Loading feedback analytics...');
 
-    const startTime = Date.now();
-
-    // Get message ratings with written feedback
+    // Step 1: Get message ratings with feedback text
     let ratingsQuery = serviceClient
       .from('message_ratings')
       .select(`
-        *,
-        chat_history!inner(
-          thread_id,
-          title,
-          user_id,
-          team_id,
-          account_id,
-          portfolio_id
-        )
+        id,
+        user_id,
+        thread_id,
+        message_id,
+        rating,
+        feedback_text,
+        team_id,
+        account_id,
+        portfolio_id,
+        created_at
       `)
       .not('feedback_text', 'is', null)
-      .neq('feedback_text', '')
-      .order('created_at', { ascending: false });
+      .neq('feedback_text', '');
 
     // Apply filters
-    if (startDate) {
-      ratingsQuery = ratingsQuery.gte('created_at', startDate);
-    }
-    if (endDate) {
-      ratingsQuery = ratingsQuery.lte('created_at', endDate);
-    }
-    if (teamId) {
-      ratingsQuery = ratingsQuery.eq('team_id', teamId);
-    }
+    if (teamFilter) ratingsQuery = ratingsQuery.eq('team_id', teamFilter);
+    if (accountFilter) ratingsQuery = ratingsQuery.eq('account_id', accountFilter);
+    if (portfolioFilter) ratingsQuery = ratingsQuery.eq('portfolio_id', portfolioFilter);
 
-    const { data: feedbackRatings, error: ratingsError } = await ratingsQuery;
+    const { data: ratings, error: ratingsError } = await ratingsQuery.order('created_at', { ascending: false });
 
     if (ratingsError) {
-      console.error('Error fetching feedback ratings:', ratingsError);
-      return NextResponse.json({ error: 'Failed to fetch feedback data' }, { status: 500 });
+      console.error('❌ Error fetching ratings:', ratingsError);
+      return NextResponse.json({ error: 'Failed to fetch ratings' }, { status: 500 });
     }
 
-    console.log(`📝 Found ${feedbackRatings?.length || 0} feedback records`);
+    if (!ratings || ratings.length === 0) {
+      console.log('ℹ️ No feedback ratings found');
+      return NextResponse.json({ data: [] });
+    }
 
-    // Get user emails
-    const userIds = [...new Set(feedbackRatings?.map(rating => rating.chat_history?.user_id).filter(Boolean) || [])];
-    const { data: users, error: userError } = await serviceClient.auth.admin.listUsers();
+    console.log(`✅ Found ${ratings.length} feedback ratings`);
+
+    // Step 2: Get chat history and lookup data
+    const threadIds = [...new Set(ratings.map(r => r.thread_id))];
     
-    const userMap: Record<string, string> = {};
-    if (!userError && users?.users) {
-      users.users.forEach(u => {
-        if (u.id && u.email) {
-          userMap[u.id] = u.email;
-        }
+    // Get chat history (only has team_id foreign key)
+    const { data: chatHistory, error: chatError } = await serviceClient
+      .from('chat_history')
+      .select(`
+        thread_id,
+        title,
+        team_id
+      `)
+      .in('thread_id', threadIds);
+
+    if (chatError) {
+      console.error('❌ Error fetching chat history:', chatError);
+      return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
+    }
+
+    // Get team, account, and portfolio names separately (since ratings has the foreign keys)
+    const teamIds = [...new Set(ratings.map(r => r.team_id).filter(Boolean))];
+    const accountIds = [...new Set(ratings.map(r => r.account_id).filter(Boolean))];
+    const portfolioIds = [...new Set(ratings.map(r => r.portfolio_id).filter(Boolean))];
+
+    const [teamsData, accountsData, portfoliosData] = await Promise.all([
+      serviceClient.from('teams').select('id, name').in('id', teamIds),
+      serviceClient.from('team_accounts').select('id, name').in('id', accountIds),
+      serviceClient.from('team_portfolios').select('id, name').in('id', portfolioIds)
+    ]);
+
+    // Create lookup maps
+    const chatLookup = new Map();
+    const teamLookup = new Map();
+    const accountLookup = new Map();
+    const portfolioLookup = new Map();
+
+    if (chatHistory) {
+      chatHistory.forEach(chat => {
+        chatLookup.set(chat.thread_id, chat);
       });
     }
 
-    // Get team names
-    const teamIds = [...new Set(feedbackRatings?.map(rating => rating.chat_history?.team_id).filter(Boolean) || [])];
-    const { data: teams } = await serviceClient
-      .from('teams')
-      .select('id, name')
-      .in('id', teamIds);
+    if (teamsData.data) {
+      teamsData.data.forEach(team => {
+        teamLookup.set(team.id, team.name);
+      });
+    }
+
+    if (accountsData.data) {
+      accountsData.data.forEach(account => {
+        accountLookup.set(account.id, account.name);
+      });
+    }
+
+    if (portfoliosData.data) {
+      portfoliosData.data.forEach(portfolio => {
+        portfolioLookup.set(portfolio.id, portfolio.name);
+      });
+    }
+
+    console.log(`📊 Processing ${threadIds.length} unique threads with feedback`);
+
+    // Step 3: Process each feedback rating
+    const results = [];
     
-    const teamMap: Record<string, string> = {};
-    teams?.forEach(team => {
-      teamMap[team.id] = team.name;
-    });
-
-    // Get account names
-    const accountIds = [...new Set(feedbackRatings?.map(rating => rating.chat_history?.account_id).filter(Boolean) || [])];
-    const { data: accounts } = await serviceClient
-      .from('team_accounts')
-      .select('id, name')
-      .in('id', accountIds);
-    
-    const accountMap: Record<string, string> = {};
-    accounts?.forEach(account => {
-      accountMap[account.id] = account.name;
-    });
-
-    // Get portfolio names
-    const portfolioIds = [...new Set(feedbackRatings?.map(rating => rating.chat_history?.portfolio_id).filter(Boolean) || [])];
-    const { data: portfolios } = await serviceClient
-      .from('team_portfolios')
-      .select('id, name')
-      .in('id', portfolioIds);
-    
-    const portfolioMap: Record<string, string> = {};
-    portfolios?.forEach(portfolio => {
-      portfolioMap[portfolio.id] = portfolio.name;
-    });
-
-    // Process ALL feedback (including from deleted assistants)
-    // We'll handle data source selection per thread when fetching messages
-
-    // Process feedback data and get original messages
-    const enrichedFeedback: any[] = [];
-    let threadsWithErrors = 0;
-
-    for (const rating of feedbackRatings || []) {
+    for (const rating of ratings) {
       try {
-        const chatHistory = rating.chat_history;
-        if (!chatHistory) continue;
-
-        // Get the original messages from OpenAI or archived data
-        let messages = await getThreadMessages(chatHistory.thread_id);
-        let isArchived = false;
+        console.log(`🔍 Processing feedback: ${rating.id}`);
         
-        if (!messages) {
-          // Try archived messages
-          messages = await getArchivedMessages(serviceClient, chatHistory.thread_id);
-          isArchived = true;
-        }
+        // Get chat context
+        const chatContext = chatLookup.get(rating.thread_id);
         
-        if (!messages) {
-          console.log(`❌ No messages found for thread ${chatHistory.thread_id} in OpenAI or archive`);
-          threadsWithErrors++;
-          continue;
-        }
+        // Try to load messages for this thread
+        let messages = null;
+        let originalQuery = "Message not available (thread archived)";
+        let aiResponse = "Message not available (thread archived)";
         
-        console.log(`📍 Using ${isArchived ? 'archived' : 'live'} data for feedback thread ${chatHistory.thread_id}`);
-
-        // Find the specific message that was rated
-        const ratedMessage = messages.find(msg => msg.id === rating.message_id);
-        const userMessage = findPrecedingUserMessage(messages, rating.message_id);
-
-        if (!ratedMessage || !userMessage) {
-          console.log(`Could not find message context for rating ${rating.id}`);
-          continue;
+        try {
+          // Try to get messages from OpenAI or archived sources
+          messages = await getThreadMessages(rating.thread_id);
+          
+          if (messages && messages.length > 0) {
+            // Find the specific message that was rated
+            const ratedMessageIndex = messages.findIndex(msg => msg.id === rating.message_id);
+            
+            if (ratedMessageIndex > 0) {
+              // Get the user message that preceded this AI response
+              const precedingMessage = findPrecedingUserMessage(messages, ratedMessageIndex);
+              if (precedingMessage) {
+                originalQuery = extractTextContent(precedingMessage);
+              }
+              
+              // Get the AI response that was rated
+              const ratedMessage = messages[ratedMessageIndex];
+              if (ratedMessage && ratedMessage.role === 'assistant') {
+                aiResponse = extractTextContent(ratedMessage);
+              }
+            }
+          }
+        } catch (messageError: any) {
+          console.log(`⚠️ Could not load messages for thread ${rating.thread_id}:`, messageError.message);
+          // Keep default fallback values
         }
 
-        const feedbackData = {
-          feedback_id: rating.id,
-          user_email: userMap[chatHistory.user_id] || 'Unknown',
-          team_name: teamMap[chatHistory.team_id] || 'Unknown',
-          account_name: accountMap[chatHistory.account_id] || 'Unknown',
-          portfolio_name: portfolioMap[chatHistory.portfolio_id] || 'Unknown',
-          chat_title: chatHistory.title,
-          thread_id: chatHistory.thread_id,
-          timestamp: rating.created_at,
+        // Build result object
+        const result = {
+          id: rating.id,
+          thread_id: rating.thread_id,
+          message_id: rating.message_id,
           rating: rating.rating,
-          written_feedback: rating.feedback_text,
-          response_time_ms: rating.response_time_ms,
-          original_query: extractTextContent(userMessage),
-          ai_response: extractTextContent(ratedMessage),
-          message_timestamp: new Date(ratedMessage.created_at * 1000).toISOString()
+          feedback_text: rating.feedback_text,
+          original_query: originalQuery,
+          ai_response: aiResponse,
+          created_at: rating.created_at,
+          team_name: teamLookup.get(rating.team_id) || 'Unknown Team',
+          account_name: accountLookup.get(rating.account_id) || 'Unknown Account', 
+          portfolio_name: portfolioLookup.get(rating.portfolio_id) || 'Unknown Portfolio',
+          chat_title: chatContext?.title || 'Untitled Chat'
         };
 
-        enrichedFeedback.push(feedbackData);
-
+        results.push(result);
+        console.log(`✅ Successfully processed feedback: ${rating.id}`);
+        
       } catch (error) {
-        console.error(`Error processing feedback rating ${rating.id}:`, error);
-        threadsWithErrors++;
+        console.error(`❌ Error processing feedback rating ${rating.id}:`, error);
+        
+        // Even if processing fails, include the feedback with minimal info
+        const chatContext = chatLookup.get(rating.thread_id);
+        results.push({
+          id: rating.id,
+          thread_id: rating.thread_id,
+          message_id: rating.message_id,
+          rating: rating.rating,
+          feedback_text: rating.feedback_text,
+          original_query: "Error loading message",
+          ai_response: "Error loading message",
+          created_at: rating.created_at,
+          team_name: teamLookup.get(rating.team_id) || 'Unknown Team',
+          account_name: accountLookup.get(rating.account_id) || 'Unknown Account',
+          portfolio_name: portfolioLookup.get(rating.portfolio_id) || 'Unknown Portfolio', 
+          chat_title: chatContext?.title || 'Untitled Chat'
+        });
       }
     }
 
-    const processingTime = Date.now() - startTime;
-
-    console.log(`✅ Feedback processing complete: ${enrichedFeedback.length} feedback items, ${threadsWithErrors} errors, ${processingTime}ms`);
+    console.log(`✅ Feedback analytics complete: ${results.length} records processed`);
 
     return NextResponse.json({
-      success: true,
-      data: enrichedFeedback,
-      metadata: {
-        total_feedback_ratings: feedbackRatings?.length || 0,
-        processed_feedback: enrichedFeedback.length,
-        threads_with_errors: threadsWithErrors,
-        processing_time_ms: processingTime,
-        filters_applied: {
-          start_date: startDate,
-          end_date: endDate,
-          team_id: teamId
-        }
+      data: results,
+      total: results.length,
+      summary: {
+        total_feedback: results.length,
+        positive_feedback: results.filter(r => r.rating > 0).length,
+        negative_feedback: results.filter(r => r.rating < 0).length
       }
     });
 
   } catch (error) {
-    console.error('Error in feedback analytics:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('❌ Error in feedback analytics:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+// Helper function to get thread messages (try OpenAI first, then archived)
 async function getThreadMessages(threadId: string) {
-  // Try default project first
   try {
-    console.log(`🔍 Trying default project for thread: ${threadId}`);
-    const messages = await defaultClient.beta.threads.messages.list(threadId);
-    console.log(`✅ Found thread ${threadId} in default project`);
-    return messages.data.reverse(); // Chronological order
-  } catch (error: any) {
-    if (error.status === 404) {
-      console.log(`Thread ${threadId} not found in default project, trying specific project...`);
-      
-      // Try specific project
-      try {
-        const messages = await projectClient.beta.threads.messages.list(threadId);
-        console.log(`✅ Found thread ${threadId} in specific project`);
-        return messages.data.reverse(); // Chronological order
-      } catch (projectError: any) {
-        if (projectError.status === 404) {
-          console.log(`Thread ${threadId} not found in either project - likely from deleted assistant`);
-          return null;
-        }
-        throw projectError;
-      }
-    }
-    throw error;
-  }
-}
-
-async function getArchivedMessages(serviceClient: any, threadId: string) {
-  try {
-    console.log(`🗄️ Fetching archived messages for thread: ${threadId}`);
+    // Try default client first
+    console.log(`🔍 Trying to fetch messages for thread ${threadId} from default project...`);
+    const defaultMessages = await defaultClient.beta.threads.messages.list(threadId, {
+      order: 'asc'
+    });
     
+    if (defaultMessages.data && defaultMessages.data.length > 0) {
+      console.log(`✅ Found ${defaultMessages.data.length} messages in default project`);
+      return defaultMessages.data;
+    }
+  } catch (defaultError: any) {
+    console.log(`⚠️ Thread ${threadId} not found in default project:`, defaultError.message);
+  }
+
+  try {
+    // Try specific project client
+    console.log(`🔍 Trying to fetch messages for thread ${threadId} from specific project...`);
+    const projectMessages = await projectClient.beta.threads.messages.list(threadId, {
+      order: 'asc'
+    });
+    
+    if (projectMessages.data && projectMessages.data.length > 0) {
+      console.log(`✅ Found ${projectMessages.data.length} messages in specific project`);
+      return projectMessages.data;
+    }
+  } catch (projectError: any) {
+    console.log(`⚠️ Thread ${threadId} not found in specific project:`, projectError.message);
+  }
+
+  // Try archived messages as fallback
+  try {
+    console.log(`🔍 Trying to fetch archived messages for thread ${threadId}...`);
+    const serviceClient = createServiceClient();
     const { data: archivedMessages, error } = await serviceClient
       .from('archived_messages')
       .select('*')
       .eq('thread_id', threadId)
       .order('message_order', { ascending: true });
 
-    if (error) {
-      console.error(`❌ Error fetching archived messages for ${threadId}:`, error);
-      return null;
+    if (error) throw error;
+
+    if (archivedMessages && archivedMessages.length > 0) {
+      console.log(`✅ Found ${archivedMessages.length} archived messages`);
+      // Convert archived messages to OpenAI format
+      return archivedMessages.map(msg => ({
+        id: msg.message_id,
+        role: msg.role,
+        content: [{ type: 'text', text: { value: msg.content } }],
+        created_at: Math.floor(new Date(msg.created_at).getTime() / 1000)
+      }));
     }
-
-    if (!archivedMessages || archivedMessages.length === 0) {
-      console.log(`ℹ️ No archived messages found for thread ${threadId}`);
-      return null;
-    }
-
-    // Convert archived messages to OpenAI-like format for compatibility
-    const convertedMessages = archivedMessages.map((msg: any) => ({
-      id: msg.message_id,
-      role: msg.role,
-      content: [{ type: 'text', text: { value: msg.content } }],
-      created_at: Math.floor(new Date(msg.created_at).getTime() / 1000), // Convert to Unix timestamp
-      metadata: { archived: true }
-    }));
-
-    console.log(`✅ Retrieved ${convertedMessages.length} archived messages for thread ${threadId}`);
-    return convertedMessages;
-
-  } catch (error) {
-    console.error(`❌ Error in getArchivedMessages for ${threadId}:`, error);
-    return null;
+  } catch (archivedError: any) {
+    console.log(`⚠️ No archived messages found for thread ${threadId}:`, archivedError.message);
   }
+
+  return null;
 }
 
-function findPrecedingUserMessage(messages: any[], assistantMessageId: string) {
-  const assistantIndex = messages.findIndex(msg => msg.id === assistantMessageId);
-  if (assistantIndex === -1) return null;
-  
-  // Look backwards for the preceding user message
-  for (let i = assistantIndex - 1; i >= 0; i--) {
+// Helper function to find the user message that preceded an assistant message
+function findPrecedingUserMessage(messages: any[], assistantMessageIndex: number) {
+  for (let i = assistantMessageIndex - 1; i >= 0; i--) {
     if (messages[i].role === 'user') {
       return messages[i];
     }
@@ -306,28 +315,23 @@ function findPrecedingUserMessage(messages: any[], assistantMessageId: string) {
   return null;
 }
 
-function extractTextContent(message: any) {
-  if (!message.content || message.content.length === 0) return '';
+// Helper function to extract text content from a message
+function extractTextContent(message: any): string {
+  if (!message || !message.content) return 'Content not available';
   
-  return message.content
-    .filter((content: any) => content.type === 'text')
-    .map((content: any) => {
-      let text = content.text.value;
-      
-      // Clean up the system prompts/notes that appear in user messages
-      text = text.replace(/ADDITIONAL NOTES FOR REFERENCE.*?USER MESSAGE: /g, '');
-      text = text.replace(/.*?USER MESSAGE: /g, '');
-      
-      // Process citations in assistant responses
-      if (content.text.annotations) {
-        content.text.annotations.forEach((annotation: any, idx: number) => {
-          if (annotation.type === 'file_citation') {
-            text = text.replace(annotation.text, `[${idx + 1}]`);
-          }
-        });
-      }
-      
-      return text.trim();
-    })
-    .join('\n');
+  try {
+    if (Array.isArray(message.content)) {
+      const textContent = message.content
+        .filter((item: any) => item.type === 'text')
+        .map((item: any) => item.text?.value || item.text || '')
+        .join(' ');
+      return textContent || 'Content not available';
+    } else if (typeof message.content === 'string') {
+      return message.content;
+    }
+  } catch (error) {
+    console.error('Error extracting text content:', error);
+  }
+  
+  return 'Content not available';
 } 

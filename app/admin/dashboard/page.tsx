@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
@@ -24,17 +24,18 @@ interface ChatAnalyticsData {
 }
 
 interface FeedbackData {
-  feedback_id: string;
-  user_email: string;
+  id: string;
+  thread_id: string;
+  message_id: string;
+  rating: number;
+  feedback_text: string;
+  original_query: string;
+  ai_response: string;
+  created_at: string;
   team_name: string;
   account_name: string;
   portfolio_name: string;
   chat_title: string;
-  timestamp: string;
-  rating: number;
-  written_feedback: string;
-  original_query: string;
-  ai_response: string;
 }
 
 interface NotesData {
@@ -87,6 +88,11 @@ export default function AdminDashboard() {
   
   // Metadata
   const [metadata, setMetadata] = useState<any>({});
+
+  // AbortController refs for cancelling API requests
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
+  const feedbackAbortControllerRef = useRef<AbortController | null>(null);
+  const notesAbortControllerRef = useRef<AbortController | null>(null);
   
   const supabase = createClient();
 
@@ -110,6 +116,25 @@ export default function AdminDashboard() {
       }
     }
   }, [isAdmin, activeTab]);
+
+  // Cleanup function to cancel all ongoing requests
+  const cancelAllRequests = () => {
+    if (chatAbortControllerRef.current) {
+      chatAbortControllerRef.current.abort();
+      chatAbortControllerRef.current = null;
+      setLoadingChats(false);
+    }
+    if (feedbackAbortControllerRef.current) {
+      feedbackAbortControllerRef.current.abort();
+      feedbackAbortControllerRef.current = null;
+      setLoadingFeedback(false);
+    }
+    if (notesAbortControllerRef.current) {
+      notesAbortControllerRef.current.abort();
+      notesAbortControllerRef.current = null;
+      setLoadingNotes(false);
+    }
+  };
 
   const checkAdminAccess = async () => {
     try {
@@ -135,6 +160,14 @@ export default function AdminDashboard() {
 
   const loadChatAnalytics = async () => {
     try {
+      // Cancel any existing chat request
+      if (chatAbortControllerRef.current) {
+        chatAbortControllerRef.current.abort();
+      }
+      
+      // Create new AbortController for this request
+      chatAbortControllerRef.current = new AbortController();
+      
       setLoadingChats(true);
       console.log('🔄 Loading chat analytics...');
       
@@ -144,7 +177,9 @@ export default function AdminDashboard() {
       if (endDate) params.append('end_date', endDate);
       if (teamFilter) params.append('team_id', teamFilter);
 
-      const response = await fetch(`/api/admin/analytics/chats?${params}`);
+      const response = await fetch(`/api/admin/analytics/chats?${params}`, {
+        signal: chatAbortControllerRef.current.signal
+      });
       
       if (!response.ok) {
         throw new Error('Failed to load chat analytics');
@@ -155,15 +190,28 @@ export default function AdminDashboard() {
       setMetadata((prev: any) => ({ ...prev, chats: result.metadata }));
       
       console.log('✅ Chat analytics loaded:', result.data?.length, 'records');
-    } catch (error) {
-      console.error('Error loading chat analytics:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('🚫 Chat analytics request cancelled');
+      } else {
+        console.error('Error loading chat analytics:', error);
+      }
     } finally {
       setLoadingChats(false);
+      chatAbortControllerRef.current = null;
     }
   };
 
   const loadFeedbackAnalytics = async () => {
     try {
+      // Cancel any existing feedback request
+      if (feedbackAbortControllerRef.current) {
+        feedbackAbortControllerRef.current.abort();
+      }
+      
+      // Create new AbortController for this request
+      feedbackAbortControllerRef.current = new AbortController();
+      
       setLoadingFeedback(true);
       console.log('🔄 Loading feedback analytics...');
       
@@ -172,7 +220,9 @@ export default function AdminDashboard() {
       if (endDate) params.append('end_date', endDate);
       if (teamFilter) params.append('team_id', teamFilter);
 
-      const response = await fetch(`/api/admin/analytics/feedback?${params}`);
+      const response = await fetch(`/api/admin/analytics/feedback?${params}`, {
+        signal: feedbackAbortControllerRef.current.signal
+      });
       
       if (!response.ok) {
         throw new Error('Failed to load feedback analytics');
@@ -183,15 +233,28 @@ export default function AdminDashboard() {
       setMetadata((prev: any) => ({ ...prev, feedback: result.metadata }));
       
       console.log('✅ Feedback analytics loaded:', result.data?.length, 'records');
-    } catch (error) {
-      console.error('Error loading feedback analytics:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('🚫 Feedback analytics request cancelled');
+      } else {
+        console.error('Error loading feedback analytics:', error);
+      }
     } finally {
       setLoadingFeedback(false);
+      feedbackAbortControllerRef.current = null;
     }
   };
 
   const loadNotesAnalytics = async () => {
     try {
+      // Cancel any existing notes request
+      if (notesAbortControllerRef.current) {
+        notesAbortControllerRef.current.abort();
+      }
+      
+      // Create new AbortController for this request
+      notesAbortControllerRef.current = new AbortController();
+      
       setLoadingNotes(true);
       console.log('🔄 Loading notes analytics...');
       
@@ -200,7 +263,9 @@ export default function AdminDashboard() {
       if (endDate) params.append('end_date', endDate);
       if (teamFilter) params.append('team_id', teamFilter);
 
-      const response = await fetch(`/api/admin/analytics/notes?${params}`);
+      const response = await fetch(`/api/admin/analytics/notes?${params}`, {
+        signal: notesAbortControllerRef.current.signal
+      });
       
       if (!response.ok) {
         throw new Error('Failed to load notes analytics');
@@ -211,10 +276,15 @@ export default function AdminDashboard() {
       setMetadata((prev: any) => ({ ...prev, notes: result.metadata }));
       
       console.log('✅ Notes analytics loaded:', result.data?.length, 'records');
-    } catch (error) {
-      console.error('Error loading notes analytics:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('🚫 Notes analytics request cancelled');
+      } else {
+        console.error('Error loading notes analytics:', error);
+      }
     } finally {
       setLoadingNotes(false);
+      notesAbortControllerRef.current = null;
     }
   };
 
@@ -317,8 +387,19 @@ export default function AdminDashboard() {
   };
 
   const handleTabChange = (tab: TabType) => {
+    // Cancel all ongoing requests before switching tabs
+    console.log(`🔄 Switching from ${activeTab} to ${tab} tab - cancelling previous requests`);
+    cancelAllRequests();
+    
     setActiveTab(tab);
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cancelAllRequests();
+    };
+  }, []);
 
   const isLoading = loadingChats || loadingFeedback || loadingNotes;
 
@@ -704,11 +785,11 @@ export default function AdminDashboard() {
             {/* Feedback Data */}
             <div className="space-y-4">
               {feedbackData.map((feedback) => (
-                <div key={feedback.feedback_id} className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                <div key={feedback.id} className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-slate-100 font-medium">{feedback.user_email}</span>
+                        <span className="text-slate-100 font-medium">{feedback.chat_title}</span>
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           feedback.rating === 1 
                             ? 'bg-green-100 text-green-800' 
@@ -722,7 +803,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div className="text-slate-400 text-sm">
-                      {new Date(feedback.timestamp).toLocaleDateString()}
+                      {new Date(feedback.created_at).toLocaleDateString()}
                     </div>
                   </div>
 
@@ -744,7 +825,7 @@ export default function AdminDashboard() {
                     <div>
                       <div className="text-slate-300 font-medium mb-2">User Feedback:</div>
                       <div className="bg-blue-900/30 border border-blue-700 rounded p-3 text-blue-100">
-                        {feedback.written_feedback}
+                        {feedback.feedback_text}
                       </div>
                     </div>
                   </div>
