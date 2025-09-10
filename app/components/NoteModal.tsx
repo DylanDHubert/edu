@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "../utils/supabase/client";
 import { useAuth } from "../contexts/AuthContext";
+import CustomRadioButtonBlue from "./CustomRadioButtonBlue";
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -169,7 +170,7 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -248,62 +249,42 @@ export default function NoteModal({ isOpen, onClose, onNoteCreated, editingNote,
               
               {teamContext && (
                 <>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      id="private"
-                      type="radio"
-                      name="sharing"
-                      checked={sharingLevel === 'private'}
-                      onChange={() => setSharingLevel('private')}
-                      className="w-4 h-4 text-slate-600 bg-slate-700 border-slate-600 rounded focus:ring-slate-500 focus:ring-2"
-                    />
-                    <label htmlFor="private" className="text-sm text-slate-300">
-                      <span className="font-medium">Private</span> - Just me
-                    </label>
-                  </div>
+                  <CustomRadioButtonBlue
+                    name="sharing"
+                    value="private"
+                    checked={sharingLevel === 'private'}
+                    onChange={() => setSharingLevel('private')}
+                    label="Private"
+                    description="Just me"
+                  />
                   
-                  <div className="flex items-center space-x-3">
-                    <input
-                      id="account"
-                      type="radio"
-                      name="sharing"
-                      checked={sharingLevel === 'account'}
-                      onChange={() => setSharingLevel('account')}
-                      disabled={!teamContext.accountId}
-                      className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50"
-                    />
-                    <label htmlFor="account" className="text-sm text-slate-300">
-                      <span className="font-medium">Account</span> - {teamContext.accountName} only
-                    </label>
-                  </div>
+                  <CustomRadioButtonBlue
+                    name="sharing"
+                    value="account"
+                    checked={sharingLevel === 'account'}
+                    onChange={() => setSharingLevel('account')}
+                    label="Account"
+                    description={`${teamContext.accountName} only`}
+                    disabled={!teamContext.accountId}
+                  />
                   
-                  <div className="flex items-center space-x-3">
-                    <input
-                      id="portfolio"
-                      type="radio"
-                      name="sharing"
-                      checked={sharingLevel === 'portfolio'}
-                      onChange={() => setSharingLevel('portfolio')}
-                      className="w-4 h-4 text-green-600 bg-slate-700 border-slate-600 rounded focus:ring-green-500 focus:ring-2"
-                    />
-                    <label htmlFor="portfolio" className="text-sm text-slate-300">
-                      <span className="font-medium">Portfolio</span> - All hospitals in this portfolio
-                    </label>
-                  </div>
+                  <CustomRadioButtonBlue
+                    name="sharing"
+                    value="portfolio"
+                    checked={sharingLevel === 'portfolio'}
+                    onChange={() => setSharingLevel('portfolio')}
+                    label="Portfolio"
+                    description="All hospitals in this portfolio"
+                  />
                   
-                  <div className="flex items-center space-x-3">
-                    <input
-                      id="team"
-                      type="radio"
-                      name="sharing"
-                      checked={sharingLevel === 'team'}
-                      onChange={() => setSharingLevel('team')}
-                      className="w-4 h-4 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500 focus:ring-2"
-                    />
-                    <label htmlFor="team" className="text-sm text-slate-300">
-                      <span className="font-medium">Team</span> - Everyone on the team
-                    </label>
-                  </div>
+                  <CustomRadioButtonBlue
+                    name="sharing"
+                    value="team"
+                    checked={sharingLevel === 'team'}
+                    onChange={() => setSharingLevel('team')}
+                    label="Team"
+                    description="Everyone on the team"
+                  />
                 </>
               )}
             </div>

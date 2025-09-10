@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useChat } from "../contexts/ChatContext";
 import NotesSection from "./NotesSection";
+import AssistantSelectModal from "./AssistantSelectModal";
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -30,24 +31,43 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
   const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
   const [activeAssistant, setActiveAssistant] = useState<any>(null);
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
+  const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
 
   // Load active assistant from localStorage
   useEffect(() => {
-    const storedAssistant = localStorage.getItem('activeAssistant');
-    if (storedAssistant) {
-      try {
-        const assistant = JSON.parse(storedAssistant);
-        setActiveAssistant(assistant);
-        
-        // Update the sidebar info elements
-        const nameEl = document.getElementById('sidebar-assistant-name');
-        const contextEl = document.getElementById('sidebar-assistant-context');
-        if (nameEl) nameEl.textContent = assistant.assistantName || 'Team Assistant';
-        if (contextEl) contextEl.textContent = assistant.teamName ? `Team: ${assistant.teamName}` : 'Team Mode';
-      } catch (error) {
-        console.error('Error parsing activeAssistant from localStorage:', error);
+    const loadActiveAssistant = () => {
+      const storedAssistant = localStorage.getItem('activeAssistant');
+      if (storedAssistant) {
+        try {
+          const assistant = JSON.parse(storedAssistant);
+          setActiveAssistant(assistant);
+          
+          // Update the sidebar info elements
+          const nameEl = document.getElementById('sidebar-assistant-name');
+          const contextEl = document.getElementById('sidebar-assistant-context');
+          if (nameEl) nameEl.textContent = assistant.assistantName || 'Team Assistant';
+          if (contextEl) contextEl.textContent = assistant.teamName ? `Team: ${assistant.teamName}` : 'Team Mode';
+        } catch (error) {
+          console.error('Error parsing activeAssistant from localStorage:', error);
+        }
+      } else {
+        setActiveAssistant(null);
       }
-    }
+    };
+
+    // Load initially
+    loadActiveAssistant();
+
+    // Listen for changes to active assistant
+    const handleActiveAssistantChanged = () => {
+      loadActiveAssistant();
+    };
+
+    window.addEventListener('activeAssistantChanged', handleActiveAssistantChanged);
+
+    return () => {
+      window.removeEventListener('activeAssistantChanged', handleActiveAssistantChanged);
+    };
   }, []);
 
   const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
@@ -115,7 +135,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
       {/* MOBILE OVERLAY */}
       {isMobileOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="lg:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
@@ -245,16 +265,16 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
           )}
         </div>
 
-        {/* CHANGE ASSISTANT BUTTON */}
+        {/* SWITCH ASSISTANT BUTTON */}
         <div className="p-4 border-t border-slate-700">
           <button
-            onClick={() => router.push('/')}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+            onClick={() => setIsAssistantModalOpen(true)}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
           >
             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
             </svg>
-            <span className="flex-1 text-center">Change Assistant</span>
+            <span className="flex-1 text-center">Switch Assistant</span>
           </button>
         </div>
 
@@ -265,6 +285,13 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
           </div>
         </div>
       </div>
+
+      {/* ASSISTANT SELECT MODAL */}
+      <AssistantSelectModal
+        isOpen={isAssistantModalOpen}
+        onClose={() => setIsAssistantModalOpen(false)}
+        currentAssistant={activeAssistant}
+      />
     </>
   );
 } 

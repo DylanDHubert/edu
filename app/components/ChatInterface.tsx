@@ -62,18 +62,36 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load active assistant from localStorage on mount
+  // Load active assistant from localStorage on mount and listen for changes
   useEffect(() => {
-    const storedAssistant = localStorage.getItem('activeAssistant');
-    if (storedAssistant) {
-      try {
-        const assistant = JSON.parse(storedAssistant);
-        setActiveAssistant(assistant);
-        // Team assistant loaded
-      } catch (error) {
-        console.error('Error parsing activeAssistant from localStorage:', error);
+    const loadActiveAssistant = () => {
+      const storedAssistant = localStorage.getItem('activeAssistant');
+      if (storedAssistant) {
+        try {
+          const assistant = JSON.parse(storedAssistant);
+          setActiveAssistant(assistant);
+          // Team assistant loaded
+        } catch (error) {
+          console.error('Error parsing activeAssistant from localStorage:', error);
+        }
+      } else {
+        setActiveAssistant(null);
       }
-    }
+    };
+
+    // Load initially
+    loadActiveAssistant();
+
+    // Listen for changes to active assistant
+    const handleActiveAssistantChanged = () => {
+      loadActiveAssistant();
+    };
+
+    window.addEventListener('activeAssistantChanged', handleActiveAssistantChanged);
+
+    return () => {
+      window.removeEventListener('activeAssistantChanged', handleActiveAssistantChanged);
+    };
   }, []);
 
   // MARKDOWN STYLING COMPONENTS WITH MINIMAL SPACING

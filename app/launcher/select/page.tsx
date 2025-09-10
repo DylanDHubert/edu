@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { BrainCog, FileText } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
+import CustomRadioButton from "../../components/CustomRadioButton";
 
 interface Portfolio {
   id: string;
@@ -313,22 +314,15 @@ function AccountPortfolioSelectContent() {
             
             <div className="space-y-3">
               {portfolios.map((portfolio) => (
-                <label key={portfolio.id} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="portfolio"
-                    value={portfolio.id}
-                    checked={selectedPortfolio === portfolio.id}
-                    onChange={(e) => handlePortfolioChange(e.target.value)}
-                    className="w-4 h-4 text-purple-600"
-                  />
-                  <div>
-                    <span className="text-slate-100 font-medium">{portfolio.name}</span>
-                    {portfolio.description && (
-                      <span className="text-slate-400 text-sm ml-2">- {portfolio.description}</span>
-                    )}
-                  </div>
-                </label>
+                <CustomRadioButton
+                  key={portfolio.id}
+                  name="portfolio"
+                  value={portfolio.id}
+                  checked={selectedPortfolio === portfolio.id}
+                  onChange={handlePortfolioChange}
+                  label={portfolio.name}
+                  description={portfolio.description}
+                />
               ))}
             </div>
           </div>
@@ -344,22 +338,15 @@ function AccountPortfolioSelectContent() {
               {accounts.length > 0 ? (
                 <div className="space-y-3">
                   {accounts.map((account) => (
-                    <label key={account.id} className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="account"
-                        value={account.id}
-                        checked={selectedAccount === account.id}
-                        onChange={(e) => handleAccountSelect(e.target.value)}
-                        className="w-4 h-4 text-purple-600"
-                      />
-                      <div>
-                        <span className="text-slate-100 font-medium">{account.name}</span>
-                        {account.description && (
-                          <span className="text-slate-400 text-sm ml-2">- {account.description}</span>
-                        )}
-                      </div>
-                    </label>
+                    <CustomRadioButton
+                      key={account.id}
+                      name="account"
+                      value={account.id}
+                      checked={selectedAccount === account.id}
+                      onChange={handleAccountSelect}
+                      label={account.name}
+                      description={account.description}
+                    />
                   ))}
                 </div>
               ) : (
