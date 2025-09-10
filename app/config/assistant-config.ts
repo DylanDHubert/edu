@@ -3,7 +3,7 @@
  */
 
 export const ASSISTANT_CONFIG = {
-  DEFAULT_MODEL: 'gpt-4o',
+  DEFAULT_MODEL: 'gpt-4.1',
   CACHE_TTL_HOURS: 24,
   MAX_RETRIES: 3,
   VECTOR_STORE_CLEANUP_DAYS: 30,
@@ -16,6 +16,7 @@ export const ASSISTANT_TOOLS = [
 ] as const;
 
 export const ASSISTANT_MODELS = {
+  GPT4_1: 'gpt-4.1',
   GPT4O: 'gpt-4o',
   GPT4O_MINI: 'gpt-4o-mini',
   GPT4_TURBO: 'gpt-4-turbo'

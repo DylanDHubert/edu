@@ -122,7 +122,7 @@ export default function AssistantSelectModal({
       setPortfolios(transformedPortfolios);
 
       // AUTO-SELECT CURRENT PORTFOLIO IF IT EXISTS
-      if (currentAssistant.portfolioId && transformedPortfolios.some(p => p.id === currentAssistant.portfolioId)) {
+      if (currentAssistant.portfolioId && transformedPortfolios.some((p: Portfolio) => p.id === currentAssistant.portfolioId)) {
         setSelectedPortfolio(currentAssistant.portfolioId);
       } else if (transformedPortfolios.length === 1) {
         setSelectedPortfolio(transformedPortfolios[0].id);
@@ -184,7 +184,7 @@ export default function AssistantSelectModal({
       setAccounts(transformedAccounts);
 
       // AUTO-SELECT CURRENT ACCOUNT IF IT EXISTS
-      if (currentAssistant?.accountId && transformedAccounts.some(a => a.id === currentAssistant.accountId)) {
+      if (currentAssistant?.accountId && transformedAccounts.some((a: Account) => a.id === currentAssistant.accountId)) {
         setSelectedAccount(currentAssistant.accountId);
       } else if (transformedAccounts.length > 0) {
         setSelectedAccount(transformedAccounts[0].id);

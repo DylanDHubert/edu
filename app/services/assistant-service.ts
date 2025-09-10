@@ -95,7 +95,7 @@ export class AssistantService {
       const assistantConfig: AssistantConfig = {
         name: `${names.teamName} - ${names.portfolioName} Assistant`,
         instructions,
-        model: 'gpt-4o',
+        model: 'gpt-4.1',
         tools: [
           { type: 'file_search' }
         ],
