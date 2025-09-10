@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   // DEFINE ROUTES
   const protectedRoutes = ["/dashboard", "/setup", "/chat"];  // Removed launcher, added chat
   const authRoutes = ["/login", "/signup"];
-  const publicRoutes = ["/", "/invite", "/no-access"];  // Home page is now public for both logged in and out users
+  const publicRoutes = ["/", "/invite"];  // Home page is now public for both logged in and out users
 
   // CHECK IF USER IS AUTHENTICATED
   const isAuthenticated = !!user;
