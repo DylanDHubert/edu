@@ -106,18 +106,19 @@ export default function AdminDashboard() {
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (isAdmin) {
-      // Load initial data based on active tab
-      if (activeTab === 'chats') {
-        loadChatAnalytics();
-      } else if (activeTab === 'feedback') {
-        loadFeedbackAnalytics();
-      } else if (activeTab === 'notes') {
-        loadNotesAnalytics();
-      }
-    }
-  }, [isAdmin, activeTab]);
+  // REMOVED AUTOMATIC DATA LOADING - NOW ON-DEMAND ONLY
+  // useEffect(() => {
+  //   if (isAdmin) {
+  //     // Load initial data based on active tab
+  //     if (activeTab === 'chats') {
+  //       loadChatAnalytics();
+  //     } else if (activeTab === 'feedback') {
+  //       loadFeedbackAnalytics();
+  //     } else if (activeTab === 'notes') {
+  //       loadNotesAnalytics();
+  //     }
+  //   }
+  // }, [isAdmin, activeTab]);
 
   // Cleanup function to cancel all ongoing requests
   const cancelAllRequests = () => {
@@ -394,6 +395,7 @@ export default function AdminDashboard() {
     cancelAllRequests();
     
     setActiveTab(tab);
+    // REMOVED AUTOMATIC DATA LOADING - NOW ON-DEMAND ONLY
   };
 
   // Cleanup on unmount
@@ -542,7 +544,7 @@ export default function AdminDashboard() {
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-3 py-1 rounded text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
+                {isLoading ? 'Loading...' : (metadata[activeTab] ? 'Refresh' : 'Load Data')}
               </button>
               
               <button
