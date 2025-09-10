@@ -96,19 +96,19 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
 
   // MARKDOWN STYLING COMPONENTS WITH MINIMAL SPACING
   const markdownComponents = {
-    h1: ({children}: any) => <h1 className="text-2xl font-bold text-slate-100 mt-2 mb-1">{children}</h1>,
-    h2: ({children}: any) => <h2 className="text-xl font-semibold text-slate-100 mt-2 mb-1">{children}</h2>,
-    h3: ({children}: any) => <h3 className="text-lg font-semibold text-slate-100 mt-1 mb-0.5">{children}</h3>,
+    h1: ({children}: any) => <h1 className="text-2xl font-bold text-slate-100 mt-1 mb-0.5">{children}</h1>,
+    h2: ({children}: any) => <h2 className="text-xl font-semibold text-slate-100 mt-1 mb-0.5">{children}</h2>,
+    h3: ({children}: any) => <h3 className="text-lg font-semibold text-slate-100 mt-0.5 mb-0.5">{children}</h3>,
     p: ({children}: any) => {
       // DON'T RENDER EMPTY PARAGRAPHS
       if (!children || (typeof children === 'string' && children.trim() === '')) {
         return null;
       }
       
-      return <p className="mb-1 text-slate-100">{children}</p>;
+      return <p className="mb-0.5 text-slate-100">{children}</p>;
     },
-    ul: ({children}: any) => <ul className="mb-1 ml-4 space-y-0">{children}</ul>,
-    ol: ({children}: any) => <ol className="mb-1 ml-4 space-y-0 list-decimal list-inside">{children}</ol>,
+    ul: ({children}: any) => <ul className="mb-0.5 ml-4 space-y-0">{children}</ul>,
+    ol: ({children}: any) => <ol className="mb-0.5 ml-4 space-y-0 list-decimal list-inside">{children}</ol>,
     li: ({children}: any) => <li className="text-slate-100">{children}</li>,
     strong: ({children}: any) => <strong className="font-semibold text-slate-100">{children}</strong>,
     em: ({children}: any) => <em className="italic text-slate-100">{children}</em>,
@@ -180,9 +180,11 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     // AGGRESSIVE WHITESPACE CLEANUP
     processedText = processedText.replace(/\s*\.\s*\./g, '.'); // REMOVE DOUBLE PERIODS
     processedText = processedText.replace(/[ \t]+/g, ' '); // NORMALIZE SPACES
-    processedText = processedText.replace(/\n\s*\n\s*\n/g, '\n\n'); // MAX 2 consecutive newlines
+    processedText = processedText.replace(/\n\s*\n\s*\n+/g, '\n\n'); // MAX 2 consecutive newlines (more aggressive)
     processedText = processedText.replace(/\n[ \t]+/g, '\n'); // REMOVE SPACES AFTER NEWLINES
     processedText = processedText.replace(/[ \t]+\n/g, '\n'); // REMOVE SPACES BEFORE NEWLINES
+    processedText = processedText.replace(/\n{2,}/g, '\n\n'); // REMOVE ANY 3+ CONSECUTIVE NEWLINES
+    processedText = processedText.replace(/\n\s*\n\s*\n/g, '\n\n'); // REMOVE TRIPLE NEWLINES WITH SPACES
     processedText = processedText.trim(); // REMOVE LEADING/TRAILING SPACES
     
     return (
