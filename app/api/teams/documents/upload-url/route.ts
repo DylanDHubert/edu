@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { rateLimitMiddleware, RATE_LIMITS } from '../../../../utils/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // APPLY RATE LIMITING FOR FILE UPLOAD URL GENERATION
+    const rateLimitResponse = rateLimitMiddleware(request, RATE_LIMITS.FILE_UPLOAD);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { teamId, portfolioId, fileName, fileSize } = await request.json();
 
     // Validate required fields

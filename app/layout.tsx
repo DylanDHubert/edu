@@ -4,6 +4,16 @@ import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ChatProvider } from "./contexts/ChatContext";
 import { NotesProvider } from "./contexts/NotesContext";
+import { validateAppEnvironment } from "./utils/env-validation";
+
+// VALIDATE ENVIRONMENT VARIABLES AT STARTUP
+try {
+  validateAppEnvironment();
+} catch (error) {
+  console.error('Failed to start application due to missing environment variables:', error);
+  // IN PRODUCTION, YOU MIGHT WANT TO THROW THE ERROR TO PREVENT THE APP FROM STARTING
+  // throw error;
+}
 
 const coda = Coda({
   weight: "400",

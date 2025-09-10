@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { rateLimitMiddleware, RATE_LIMITS } from '../../../../utils/rate-limit';
+import { sanitizeInput } from '../../../../utils/security';
 
 export async function POST(request: NextRequest) {
   try {
+    // APPLY RATE LIMITING FOR TEAM GENERAL UPDATE
+    const rateLimitResponse = rateLimitMiddleware(request, RATE_LIMITS.SENSITIVE);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { teamId, generalKnowledge } = await request.json();
-    console.log('General knowledge update called for team:', teamId);
-    console.log('General knowledge data:', JSON.stringify(generalKnowledge, null, 2));
 
     // Validate required fields
     if (!teamId || !generalKnowledge) {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
+import { validateFileContent } from '../../../../utils/security';
+import { rateLimitMiddleware, RATE_LIMITS } from '../../../../utils/rate-limit';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -9,6 +11,12 @@ const client = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
+    // APPLY RATE LIMITING FOR FILE UPLOAD
+    const rateLimitResponse = rateLimitMiddleware(request, RATE_LIMITS.FILE_UPLOAD);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { teamId, portfolioId, uploadedFiles } = await request.json();
 
     // Validate required fields
@@ -89,6 +97,16 @@ export async function POST(request: NextRequest) {
       // Convert to buffer for OpenAI upload
       const arrayBuffer = await fileData.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+
+      // VALIDATE FILE CONTENT TO ENSURE IT'S ACTUALLY A PDF
+      const isValidPdf = await validateFileContent(buffer, 'application/pdf');
+      if (!isValidPdf) {
+        console.error(`File content validation failed for: ${originalName}`);
+        return NextResponse.json(
+          { error: `Invalid file type detected for: ${originalName}. Only PDF files are allowed.` },
+          { status: 400 }
+        );
+      }
 
       // Upload to OpenAI
       const openaiFile = await client.files.create({

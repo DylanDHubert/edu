@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
+import { rateLimitMiddleware, RATE_LIMITS } from '../../../utils/rate-limit';
+import { sanitizeInput } from '../../../utils/security';
 
 export async function POST(request: NextRequest) {
   try {
+    // APPLY RATE LIMITING FOR TEAM CREATION
+    const rateLimitResponse = rateLimitMiddleware(request, RATE_LIMITS.SENSITIVE);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { name, description, location } = await request.json();
 
     // Validate required fields
@@ -13,6 +21,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // SANITIZE USER INPUT TO PREVENT XSS
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedDescription = description ? sanitizeInput(description) : '';
+    const sanitizedLocation = sanitizeInput(location);
 
     // Verify user authentication
     const cookieStore = cookies();
@@ -34,9 +47,9 @@ export async function POST(request: NextRequest) {
     const { data: team, error: teamError } = await serviceClient
       .from('teams')
       .insert({
-        name: name.trim(),
-        description: description?.trim() || null,
-        location: location.trim(),
+        name: sanitizedName,
+        description: sanitizedDescription || null,
+        location: sanitizedLocation,
         created_by: user.id
       })
       .select()

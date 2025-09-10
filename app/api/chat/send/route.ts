@@ -4,9 +4,17 @@ import { verifyUserAuth } from '../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
 import { ChatService } from '../../../services/chat-service';
 import { SendMessageRequest } from '../../../types/chat';
+import { rateLimitMiddleware, RATE_LIMITS } from '../../../utils/rate-limit';
+import { sanitizeInput } from '../../../utils/security';
 
 export async function POST(request: NextRequest) {
   try {
+    // APPLY RATE LIMITING FOR CHAT ENDPOINT
+    const rateLimitResponse = rateLimitMiddleware(request, RATE_LIMITS.CHAT);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { 
       threadId, 
       message, 
@@ -21,6 +29,9 @@ export async function POST(request: NextRequest) {
       return handleValidationError('Thread ID, message, assistant ID, team ID, account ID, and portfolio ID are required');
     }
 
+    // SANITIZE USER INPUT TO PREVENT XSS
+    const sanitizedMessage = sanitizeInput(message);
+
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
     const { user } = await verifyUserAuth(cookieStore);
@@ -28,7 +39,7 @@ export async function POST(request: NextRequest) {
     // CREATE SEND MESSAGE REQUEST
     const sendRequest: SendMessageRequest = {
       threadId,
-      message,
+      message: sanitizedMessage,
       assistantId,
       teamId,
       accountId,

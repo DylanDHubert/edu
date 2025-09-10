@@ -4,9 +4,17 @@ import { verifyUserAuth } from '../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
 import { NotesService } from '../../../services/notes-service';
 import { UpdateNoteRequest } from '../../../types/notes';
+import { sanitizeInput } from '../../../utils/security';
+import { rateLimitMiddleware, RATE_LIMITS } from '../../../utils/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // APPLY RATE LIMITING FOR NOTES UPDATE
+    const rateLimitResponse = rateLimitMiddleware(request, RATE_LIMITS.SENSITIVE);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const formData = await request.formData();
     
     // VERIFY USER AUTHENTICATION
@@ -23,11 +31,15 @@ export async function POST(request: NextRequest) {
       return handleValidationError('Title and content are required');
     }
 
+    // SANITIZE USER INPUT TO PREVENT XSS
+    const sanitizedTitle = sanitizeInput(parsedData.title);
+    const sanitizedContent = sanitizeInput(parsedData.content);
+
     // UPDATE NOTE REQUEST
     const updateRequest: UpdateNoteRequest = {
       noteId: formData.get('noteId') as string,
-      title: parsedData.title,
-      content: parsedData.content,
+      title: sanitizedTitle,
+      content: sanitizedContent,
       is_shared: parsedData.is_shared,
       is_portfolio_shared: parsedData.is_portfolio_shared,
       team_id: parsedData.team_id || undefined,
