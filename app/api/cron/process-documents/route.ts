@@ -68,7 +68,18 @@ export async function GET(request: NextRequest) {
             'uploading_to_supabase'
           );
           
-          const originalFileName = job.team_documents.original_name.replace('.pdf', '');
+          // FETCH DOCUMENT INFO TO GET ORIGINAL FILENAME
+          const { data: documentData, error: documentError } = await serviceClient
+            .from('team_documents')
+            .select('original_name')
+            .eq('id', job.document_id)
+            .single();
+          
+          if (documentError || !documentData) {
+            throw new Error(`Failed to fetch document info: ${documentError?.message || 'Document not found'}`);
+          }
+          
+          const originalFileName = documentData.original_name.replace('.pdf', '');
           const markdownFileName = `processed_${originalFileName}.md`;
           const markdownFilePath = `teams/${job.team_id}/portfolios/${job.portfolio_id}/${markdownFileName}`;
           
