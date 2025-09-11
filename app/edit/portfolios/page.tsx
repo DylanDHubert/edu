@@ -9,6 +9,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import { Save, ChevronDown, ChevronRight } from "lucide-react";
 import { uploadFilesToSupabase, processUploadedFiles } from "../../utils/file-upload";
 import LoadingScreen from "../../components/LoadingScreen";
+import { ProcessingDocumentsSection } from "../../components/ProcessingDocumentsSection";
 
 interface Portfolio {
   id?: string;
@@ -197,6 +198,32 @@ function EditPortfoliosContent() {
   const isWarningDismissed = (portfolioId: string | undefined, portfolioIndex: number): boolean => {
     const key = portfolioId || `new-${portfolioIndex}`;
     return dismissedWarnings.has(key);
+  };
+
+  // HANDLE LLAMAPARSE FILE UPLOAD
+  const processUploadedFilesWithLlamaParse = async (
+    uploadedFiles: any[],
+    teamId: string,
+    portfolioId: string
+  ): Promise<any> => {
+    const response = await fetch('/api/teams/documents/upload-with-llamaparse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        teamId,
+        portfolioId,
+        uploadedFiles
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to process uploaded files with LlamaParse');
+    }
+
+    return response.json();
   };
 
   const removePortfolio = async (index: number) => {
@@ -397,7 +424,7 @@ function EditPortfoliosContent() {
           }
         }
 
-        // Handle new file uploads using new client-side upload flow
+        // Handle new file uploads using LlamaParse processing
         if (portfolio.files.length > 0 && portfolio.id) {
           try {
             // UPLOAD FILES DIRECTLY TO SUPABASE
@@ -407,8 +434,8 @@ function EditPortfoliosContent() {
               portfolio.id
             );
 
-            // PROCESS UPLOADED FILES (UPLOAD TO OPENAI AND SAVE TO DATABASE)
-            await processUploadedFiles(
+            // PROCESS UPLOADED FILES WITH LLAMAPARSE
+            await processUploadedFilesWithLlamaParse(
               uploadedFiles,
               teamId!,
               portfolio.id
@@ -563,6 +590,18 @@ function EditPortfoliosContent() {
                   />
                 </div>
               </div>
+
+              {/* Processing Documents Section */}
+              {portfolio.id && (
+                <ProcessingDocumentsSection
+                  teamId={teamId!}
+                  portfolioId={portfolio.id}
+                  onDocumentCompleted={(documentId) => {
+                    // RELOAD DATA WHEN DOCUMENT COMPLETES PROCESSING
+                    loadExistingData();
+                  }}
+                />
+              )}
 
               {/* Existing Documents - Collapsible */}
               {portfolio.existingDocuments && portfolio.existingDocuments.length > 0 && (

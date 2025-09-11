@@ -18,6 +18,7 @@
     "dotenv": "^17.2.1",
     "file-type": "^21.0.0",
     "jsdom": "^26.1.0",
+    "llama-cloud-services": "^0.3.5",
     "lucide-react": "^0.539.0",
     "next": "15.4.5",
     "openai": "^4.104.0",
