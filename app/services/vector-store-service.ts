@@ -16,14 +16,22 @@ export class VectorStoreService {
         .select('openai_file_id, original_name')
         .eq('team_id', teamId)
         .eq('portfolio_id', portfolioId)
-        .not('openai_file_id', 'is', null);
+        .not('openai_file_id', 'is', null)
+        .not('openai_file_id', 'eq', 'processing')
+        .not('openai_file_id', 'eq', 'failed');
 
       if (error) {
         console.error('Error gathering portfolio documents:', error);
         return [];
       }
 
-      return documents || [];
+      // FILTER OUT ANY DOCUMENTS THAT DON'T HAVE VALID OPENAI FILE IDS
+      const validDocuments = (documents || []).filter(doc => 
+        doc.openai_file_id && 
+        doc.openai_file_id.startsWith('file-')
+      );
+
+      return validDocuments;
     } catch (error) {
       console.error('Error gathering portfolio documents:', error);
       return [];

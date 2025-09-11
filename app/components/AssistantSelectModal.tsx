@@ -59,6 +59,15 @@ export default function AssistantSelectModal({
   const [userRole, setUserRole] = useState<string>('');
   const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
   const [creatingAssistant, setCreatingAssistant] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<{
+    isComplete: boolean;
+    totalJobs: number;
+    completedJobs: number;
+    pendingJobs: number;
+    processingJobs: number;
+    failedJobs: number;
+  } | null>(null);
+  const [checkingProcessing, setCheckingProcessing] = useState(false);
 
   // RESET STATE WHEN MODAL OPENS/CLOSES
   useEffect(() => {
@@ -78,8 +87,27 @@ export default function AssistantSelectModal({
       setUserRole('');
       setIsOriginalManager(false);
       setCreatingAssistant(false);
+      setProcessingStatus(null);
     }
   }, [isOpen, currentAssistant]);
+
+  // CHECK PROCESSING STATUS WHEN PORTFOLIO CHANGES
+  useEffect(() => {
+    if (selectedPortfolio && currentAssistant?.teamId) {
+      checkProcessingStatus();
+    }
+  }, [selectedPortfolio, currentAssistant?.teamId]);
+
+  // POLL PROCESSING STATUS EVERY 5 SECONDS IF NOT COMPLETE
+  useEffect(() => {
+    if (!processingStatus?.isComplete && selectedPortfolio && currentAssistant?.teamId) {
+      const interval = setInterval(() => {
+        checkProcessingStatus();
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [processingStatus?.isComplete, selectedPortfolio, currentAssistant?.teamId]);
 
   const loadTeamData = async () => {
     if (!currentAssistant?.teamId) return;
@@ -204,9 +232,39 @@ export default function AssistantSelectModal({
     setSelectedAccount(accountId);
   };
 
+  const checkProcessingStatus = async () => {
+    if (!selectedPortfolio || !currentAssistant?.teamId) return;
+    
+    setCheckingProcessing(true);
+    try {
+      const response = await fetch(`/api/teams/portfolios/processing-status?teamId=${currentAssistant.teamId}&portfolioId=${selectedPortfolio}`);
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setProcessingStatus(result);
+      } else {
+        console.error('Failed to check processing status:', result.error);
+        setProcessingStatus(null);
+      }
+    } catch (error) {
+      console.error('Error checking processing status:', error);
+      setProcessingStatus(null);
+    } finally {
+      setCheckingProcessing(false);
+    }
+  };
+
   const handleSwitchAssistant = async () => {
     if (!selectedPortfolio || !selectedAccount || !currentAssistant?.teamId) {
       setError('Please select a portfolio and account');
+      return;
+    }
+
+    // CHECK PROCESSING STATUS FIRST
+    await checkProcessingStatus();
+    
+    if (processingStatus && !processingStatus.isComplete && processingStatus.totalJobs > 0) {
+      setError(`Documents still processing... ${processingStatus.completedJobs} of ${processingStatus.totalJobs} ready`);
       return;
     }
 
@@ -384,16 +442,36 @@ export default function AssistantSelectModal({
 
               {/* SWITCH ASSISTANT BUTTON */}
               <div className="bg-slate-700 rounded-lg border border-slate-600 p-4">
-                <button
-                  onClick={handleSwitchAssistant}
-                  disabled={!selectedPortfolio || !selectedAccount || creatingAssistant}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-                >
-                  <BrainCog className="w-5 h-5 flex-shrink-0" />
-                  <span className="flex-1 text-center">
-                    {creatingAssistant ? 'Switching Assistant...' : 'Switch Assistant'}
-                  </span>
-                </button>
+                {processingStatus && !processingStatus.isComplete && processingStatus.totalJobs > 0 ? (
+                  <div className="text-center">
+                    <div className="text-yellow-400 text-sm mb-2">
+                      Documents still processing...
+                    </div>
+                    <div className="text-slate-300 text-xs mb-3">
+                      {processingStatus.completedJobs} of {processingStatus.totalJobs} ready
+                    </div>
+                    <button
+                      disabled={true}
+                      className="w-full bg-slate-600 text-slate-400 px-4 py-3 rounded-md font-medium cursor-not-allowed flex items-center gap-3"
+                    >
+                      <BrainCog className="w-5 h-5 flex-shrink-0" />
+                      <span className="flex-1 text-center">
+                        {checkingProcessing ? 'Checking...' : 'Waiting for documents...'}
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleSwitchAssistant}
+                    disabled={!selectedPortfolio || !selectedAccount || creatingAssistant}
+                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                  >
+                    <BrainCog className="w-5 h-5 flex-shrink-0" />
+                    <span className="flex-1 text-center">
+                      {creatingAssistant ? 'Switching Assistant...' : 'Switch Assistant'}
+                    </span>
+                  </button>
+                )}
               </div>
             </>
           )}
