@@ -3,6 +3,8 @@ import { createClient, createServiceClient } from '../../../../utils/supabase/se
 import { cookies } from 'next/headers';
 import { rateLimitMiddleware, RATE_LIMITS } from '../../../../utils/rate-limit';
 import { DocumentProcessingService } from '../../../../services/document-processing-service';
+import { JobQueueService } from '../../../../services/job-queue-service';
+import { LlamaParseService } from '../../../../services/llamaparse-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,7 +68,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const processingService = new DocumentProcessingService();
+    const jobQueueService = new JobQueueService();
+    const llamaparseService = new LlamaParseService();
     const uploadedDocuments = [];
 
     // PROCESS UPLOADED FILES
@@ -97,12 +100,43 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // CREATE PROCESSING JOB
+      // DOWNLOAD PDF FROM SUPABASE STORAGE TO SUBMIT TO LLAMAPARSE
       try {
-        await processingService.createJob(teamId, portfolioId, document.id);
+        const { data: fileData, error: downloadError } = await serviceClient.storage
+          .from('team-documents')
+          .download(filePath);
+
+        if (downloadError) {
+          throw new Error(`Failed to download PDF: ${downloadError.message}`);
+        }
+
+        // CONVERT TO BUFFER
+        const arrayBuffer = await fileData.arrayBuffer();
+        const pdfBuffer = Buffer.from(arrayBuffer);
+
+        console.log(`PDF DOWNLOADED FOR LLAMAPARSE: ${originalName} (${pdfBuffer.length} bytes)`);
+
+        // SUBMIT TO LLAMAPARSE AND GET JOB ID IMMEDIATELY
+        const llamaparseJobId = await llamaparseService.submitDocument(pdfBuffer, originalName);
+        console.log(`LLAMAPARSE JOB SUBMITTED: ${originalName} -> Job ID: ${llamaparseJobId}`);
+
+        // CREATE PROCESSING JOB WITH LLAMAPARSE JOB ID
+        await jobQueueService.createJob(document.id, teamId, portfolioId, llamaparseJobId);
         console.log(`PROCESSING JOB CREATED FOR: ${originalName}`);
+
+        // UPDATE DOCUMENT STATUS TO PROCESSING
+        await serviceClient
+          .from('team_documents')
+          .update({ openai_file_id: 'processing' })
+          .eq('id', document.id);
+
       } catch (jobError) {
         console.error('ERROR CREATING PROCESSING JOB:', jobError);
+        // MARK DOCUMENT AS FAILED
+        await serviceClient
+          .from('team_documents')
+          .update({ openai_file_id: 'failed' })
+          .eq('id', document.id);
         // CONTINUE WITH OTHER FILES EVEN IF ONE FAILS
       }
 
@@ -112,30 +146,6 @@ export async function POST(request: NextRequest) {
         originalName: document.original_name,
         fileSize: document.file_size,
         status: 'processing'
-      });
-    }
-
-    // START BACKGROUND PROCESSING (FIRE-AND-FORGET)
-    for (const uploadedFile of uploadedFiles) {
-      const { originalName, uniqueFileName } = uploadedFile;
-      
-      // FIND THE DOCUMENT ID
-      const document = uploadedDocuments.find(doc => doc.filename === uniqueFileName);
-      if (!document) continue;
-
-      // START PROCESSING IN BACKGROUND (DON'T WAIT)
-      fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/process-document`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          teamId,
-          portfolioId,
-          documentId: document.id
-        }),
-      }).catch(error => {
-        console.error(`ERROR STARTING BACKGROUND PROCESSING FOR ${originalName}:`, error);
       });
     }
 

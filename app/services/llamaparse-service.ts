@@ -1,5 +1,4 @@
 import { createServiceClient } from '../utils/supabase/server';
-import { LlamaParseReader } from 'llama-cloud-services';
 
 export interface LlamaParseJob {
   id: string;
@@ -19,7 +18,7 @@ export class LlamaParseService {
 
   constructor() {
     this.apiKey = process.env.LLAMAPARSE_API_KEY || '';
-    this.baseUrl = process.env.LLAMAPARSE_BASE_URL || 'https://cloud.llamaindex.ai';
+    this.baseUrl = (process.env.LLAMAPARSE_BASE_URL || 'https://api.cloud.llamaindex.ai') + '/api/v1';
 
     // DON'T THROW ERROR IN CONSTRUCTOR - CHECK IN METHODS INSTEAD
     console.log('LLAMAPARSE SERVICE INITIALIZED:', {
@@ -29,7 +28,7 @@ export class LlamaParseService {
   }
 
   /**
-   * SUBMIT DOCUMENT TO LLAMAPARSE FOR PROCESSING
+   * SUBMIT DOCUMENT TO LLAMAPARSE FOR PROCESSING (GET JOB ID IMMEDIATELY)
    */
   async submitDocument(pdfBuffer: Buffer, filename: string): Promise<string> {
     try {
@@ -40,47 +39,95 @@ export class LlamaParseService {
 
       console.log(`SUBMITTING DOCUMENT TO LLAMAPARSE: ${filename}`);
       
-      // SET UP LLAMAPARSE READER
-      const reader = new LlamaParseReader({ 
-        apiKey: this.apiKey,
-        resultType: "markdown",
-        parse_mode: "parse_document_with_agent"
+      // CREATE FORM DATA
+      const formData = new FormData();
+      formData.append('file', new Blob([pdfBuffer]), filename);
+
+      // SUBMIT TO LLAMAPARSE API
+      const response = await fetch(`${this.baseUrl}/parsing/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: formData,
       });
 
-      // CREATE TEMPORARY FILE PATH
-      const tempFilePath = `/tmp/${filename}`;
-      
-      // WRITE BUFFER TO TEMPORARY FILE
-      const fs = require('fs');
-      fs.writeFileSync(tempFilePath, pdfBuffer);
-
-      try {
-        // PARSE THE DOCUMENT (THIS IS ALREADY ASYNC AND HANDLES POLLING INTERNALLY)
-        const documents = await reader.loadData(tempFilePath);
-        
-        if (!documents || documents.length === 0) {
-          throw new Error('No documents returned from LlamaParse');
-        }
-
-        // EXTRACT MARKDOWN CONTENT
-        const markdown = documents.map(doc => doc.text).join('\n\n');
-        
-        console.log(`LLAMAPARSE PROCESSING COMPLETE: ${filename}`);
-        
-        // RETURN THE MARKDOWN DIRECTLY
-        return markdown;
-        
-      } finally {
-        // CLEAN UP TEMPORARY FILE
-        try {
-          fs.unlinkSync(tempFilePath);
-        } catch (cleanupError) {
-          console.warn('Failed to cleanup temp file:', cleanupError);
-        }
+      if (!response.ok) {
+        throw new Error(`LLAMAPARSE UPLOAD FAILED: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      const jobId = data.id;
+
+      if (!jobId) {
+        throw new Error('No job ID returned from LlamaParse');
+      }
+
+      console.log(`LLAMAPARSE JOB SUBMITTED: ${filename} -> Job ID: ${jobId}`);
+      
+      // RETURN THE JOB ID (NOT THE MARKDOWN)
+      return jobId;
       
     } catch (error) {
       console.error('ERROR SUBMITTING TO LLAMAPARSE:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * CHECK LLAMAPARSE JOB STATUS
+   */
+  async checkJobStatus(jobId: string): Promise<{ status: string; progress?: number; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/parsing/job/${jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`LLAMAPARSE STATUS CHECK FAILED: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      console.log(`LLAMAPARSE JOB STATUS: ${jobId} -> ${data.status}`);
+      
+      return {
+        status: data.status,
+        progress: data.progress,
+        error: data.error
+      };
+      
+    } catch (error) {
+      console.error('ERROR CHECKING LLAMAPARSE JOB STATUS:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * DOWNLOAD MARKDOWN FROM COMPLETED LLAMAPARSE JOB
+   */
+  async downloadMarkdown(jobId: string): Promise<string> {
+    try {
+      const response = await fetch(`${this.baseUrl}/parsing/job/${jobId}/result/markdown`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`LLAMAPARSE DOWNLOAD FAILED: ${response.status} ${response.statusText}`);
+      }
+
+      const markdown = await response.text();
+      
+      console.log(`LLAMAPARSE MARKDOWN DOWNLOADED: ${jobId} (${markdown.length} characters)`);
+      
+      return markdown;
+      
+    } catch (error) {
+      console.error('ERROR DOWNLOADING LLAMAPARSE MARKDOWN:', error);
       throw error;
     }
   }
