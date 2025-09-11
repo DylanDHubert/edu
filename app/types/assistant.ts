@@ -46,7 +46,7 @@ export interface BackupThread {
   messages: ThreadMessage[];
 }
 
-export interface PortfolioPDF {
+export interface PortfolioDocument {
   openai_file_id: string;
   original_name: string;
 }

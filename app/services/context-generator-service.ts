@@ -122,7 +122,7 @@ export class ContextGeneratorService {
    */
   async checkIfCacheIsStale(teamId: string, portfolioId: string): Promise<boolean> {
     try {
-      // Check if any portfolio PDFs were uploaded/updated after assistant creation
+      // Check if any portfolio documents were uploaded/updated after assistant creation
       const { data: latestDocuments } = await this.serviceClient
         .from('team_documents')
         .select('created_at')

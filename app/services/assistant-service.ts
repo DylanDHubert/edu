@@ -75,7 +75,7 @@ export class AssistantService {
         
         context = this.buildAccountContext(accountContext, names);
         
-        // Create vector store for portfolio PDFs
+        // Create vector store for portfolio documents
         const vectorResult = await this.vectorService.createPortfolioVectorStore(
           teamId, 
           portfolioId, 

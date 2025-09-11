@@ -1,15 +1,15 @@
 import { createServiceClient } from '../utils/supabase/server';
 import { OpenAIService } from './openai-service';
-import { PortfolioPDF, VectorStoreResult } from '../types/assistant';
+import { PortfolioDocument, VectorStoreResult } from '../types/assistant';
 
 export class VectorStoreService {
   private serviceClient = createServiceClient();
   private openaiService = new OpenAIService();
 
   /**
-   * GATHER PORTFOLIO PDFS
+   * GATHER PORTFOLIO DOCUMENTS
    */
-  async gatherPortfolioPDFs(teamId: string, portfolioId: string): Promise<PortfolioPDF[]> {
+  async gatherPortfolioDocuments(teamId: string, portfolioId: string): Promise<PortfolioDocument[]> {
     try {
       const { data: documents, error } = await this.serviceClient
         .from('team_documents')
@@ -19,13 +19,13 @@ export class VectorStoreService {
         .not('openai_file_id', 'is', null);
 
       if (error) {
-        console.error('Error gathering portfolio PDFs:', error);
+        console.error('Error gathering portfolio documents:', error);
         return [];
       }
 
       return documents || [];
     } catch (error) {
-      console.error('Error gathering portfolio PDFs:', error);
+      console.error('Error gathering portfolio documents:', error);
       return [];
     }
   }
@@ -35,11 +35,11 @@ export class VectorStoreService {
    */
   async createPortfolioVectorStore(teamId: string, portfolioId: string, names: any): Promise<VectorStoreResult> {
     try {
-      // Gather PDFs for this portfolio
-      const pdfs = await this.gatherPortfolioPDFs(teamId, portfolioId);
+      // Gather documents for this portfolio
+      const documents = await this.gatherPortfolioDocuments(teamId, portfolioId);
       
-      if (pdfs.length === 0) {
-        throw new Error('No PDFs found for this portfolio');
+      if (documents.length === 0) {
+        throw new Error('No documents found for this portfolio');
       }
 
       // Create vector store
@@ -47,7 +47,7 @@ export class VectorStoreService {
       const vectorStore = await this.openaiService.createVectorStore(vectorStoreName);
 
       // Add files to vector store
-      const fileIds = pdfs.map(pdf => pdf.openai_file_id);
+      const fileIds = documents.map(doc => doc.openai_file_id);
       await this.openaiService.addFilesToVectorStore(vectorStore.id, fileIds);
 
       return {
