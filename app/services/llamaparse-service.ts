@@ -39,9 +39,10 @@ export class LlamaParseService {
 
       console.log(`SUBMITTING DOCUMENT TO LLAMAPARSE: ${filename}`);
       
-      // CREATE FORM DATA
+      // CREATE FORM DATA WITH TECHNICAL DOCUMENTATION PRESET
       const formData = new FormData();
       formData.append('file', new Blob([pdfBuffer]), filename);
+      formData.append('preset', 'technicalDocumentation');
 
       // SUBMIT TO LLAMAPARSE API
       const response = await fetch(`${this.baseUrl}/parsing/upload`, {

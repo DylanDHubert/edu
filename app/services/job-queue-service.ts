@@ -209,4 +209,50 @@ export class JobQueueService {
     }
   }
 
+  /**
+   * CHECK IF ALL JOBS FOR A PORTFOLIO ARE COMPLETED
+   */
+  async isPortfolioProcessingComplete(teamId: string, portfolioId: string): Promise<{
+    isComplete: boolean;
+    totalJobs: number;
+    completedJobs: number;
+    pendingJobs: number;
+    processingJobs: number;
+    failedJobs: number;
+  }> {
+    try {
+      const { data: jobs, error } = await this.serviceClient
+        .from('processing_jobs')
+        .select('status')
+        .eq('team_id', teamId)
+        .eq('portfolio_id', portfolioId);
+
+      if (error) {
+        console.error('ERROR CHECKING PORTFOLIO PROCESSING STATUS:', error);
+        throw error;
+      }
+
+      const totalJobs = jobs?.length || 0;
+      const completedJobs = jobs?.filter(job => job.status === 'completed').length || 0;
+      const pendingJobs = jobs?.filter(job => job.status === 'pending').length || 0;
+      const processingJobs = jobs?.filter(job => job.status === 'processing').length || 0;
+      const failedJobs = jobs?.filter(job => job.status === 'failed').length || 0;
+
+      // IF NO JOBS EXIST, CONSIDER IT COMPLETE (LEGACY PORTFOLIOS)
+      const isComplete = totalJobs === 0 || (pendingJobs === 0 && processingJobs === 0);
+
+      return {
+        isComplete,
+        totalJobs,
+        completedJobs,
+        pendingJobs,
+        processingJobs,
+        failedJobs
+      };
+    } catch (error) {
+      console.error('ERROR CHECKING PORTFOLIO PROCESSING STATUS:', error);
+      throw error;
+    }
+  }
+
 }
