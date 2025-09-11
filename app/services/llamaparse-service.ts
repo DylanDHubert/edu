@@ -43,7 +43,8 @@ export class LlamaParseService {
       // SET UP LLAMAPARSE READER
       const reader = new LlamaParseReader({ 
         apiKey: this.apiKey,
-        resultType: "markdown"
+        resultType: "markdown",
+        parse_mode: "parse_document_with_agent"
       });
 
       // CREATE TEMPORARY FILE PATH
