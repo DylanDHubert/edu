@@ -347,9 +347,7 @@ function extractTextContent(message: any) {
     .map((content: any) => {
       let text = content.text.value;
       
-      // Clean up the system prompts/notes that appear in user messages
-      text = text.replace(/ADDITIONAL NOTES FOR REFERENCE.*?USER MESSAGE: /g, '');
-      text = text.replace(/.*?USER MESSAGE: /g, '');
+      // NOTES ARE NOW IN INITIAL CONTEXT, NO CLEANUP NEEDED
       
       // Process citations in assistant responses
       if (content.text.annotations) {

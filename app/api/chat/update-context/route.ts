@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '../../../utils/supabase/server';
-import { createThread } from '../../../utils/openai';
 import { cookies } from 'next/headers';
-import OpenAI from 'openai';
-import { createAccountPortfolioKnowledgeText, createGeneralKnowledgeText, filterSurgeonInfoByPortfolio } from '../../../utils/knowledge-generator';
+import { verifyUserAuth } from '../../../utils/auth-helpers';
+import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { getNotesForTeamContext, formatNotesForContext } from '../../../utils/notes-server';
+import { createAccountPortfolioKnowledgeText, createGeneralKnowledgeText, filterSurgeonInfoByPortfolio } from '../../../utils/knowledge-generator';
+import OpenAI from 'openai';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Function to get team knowledge for context injection
-async function getTeamKnowledgeForContext(
-  supabase: any,
+// Function to get updated team knowledge context (same as create-team but for updates)
+async function getUpdatedTeamKnowledgeForContext(
   teamId: string,
   accountId: string,
   portfolioId: string,
@@ -61,8 +61,6 @@ async function getTeamKnowledgeForContext(
       ...(accountLevelKnowledgeResult.data || []),
       ...(generalKnowledgeResult.data || [])
     ];
-
-    // Knowledge data processed
 
     // Transform knowledge data for text generation
     const inventory = allKnowledgeData
@@ -128,35 +126,25 @@ async function getTeamKnowledgeForContext(
     return combinedContext;
 
   } catch (error) {
-    console.error('❌ Error generating team knowledge context:', error);
+    console.error('❌ Error generating updated team knowledge context:', error);
     return '';
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamId, accountId, portfolioId, assistantId, title, initialMessage } = await request.json();
+    const { teamId, accountId, portfolioId, threadId } = await request.json();
     
-    if (!teamId || !accountId || !portfolioId || !assistantId || !title) {
-      return NextResponse.json(
-        { error: 'Team ID, Account ID, Portfolio ID, Assistant ID, and Title are required' },
-        { status: 400 }
-      );
+    if (!teamId || !accountId || !portfolioId || !threadId) {
+      return handleValidationError('Team ID, Account ID, Portfolio ID, and Thread ID are required');
     }
 
     // VERIFY USER AUTHENTICATION
     const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
+    const { user } = await verifyUserAuth(cookieStore);
 
     // VERIFY USER IS A MEMBER OF THIS TEAM
+    const supabase = await createClient(cookieStore);
     const { data: teamMember, error: memberError } = await supabase
       .from('team_members')
       .select('role')
@@ -172,77 +160,76 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // CREATE NEW THREAD
-    const thread = await createThread();
+    // GET UPDATED CONTEXT WITH NOTES
+    const updatedContext = await getUpdatedTeamKnowledgeForContext(teamId, accountId, portfolioId, user.id);
     
-    // INJECT TEAM KNOWLEDGE AS FIRST MESSAGE (HIDDEN FROM USER)
-    const teamKnowledgeContext = await getTeamKnowledgeForContext(supabase, teamId, accountId, portfolioId, user.id);
-    
-    if (teamKnowledgeContext) {
-      // Send team knowledge as a HIDDEN system message
-      // This establishes the context for the entire conversation
-      await client.beta.threads.messages.create(thread.id, {
-        role: 'user',
-        content: teamKnowledgeContext,
-        metadata: {
-          isSystemContext: 'true',
-          hidden: 'true', // HIDDEN FROM USER
-          messageType: 'team_knowledge_context'
-        }
-      });
-    }
-    
-    // SAVE TO DATABASE - Using team-based schema
-    const { data: chatHistory, error: dbError } = await supabase
-      .from('chat_history')
-      .insert({
-        user_id: user.id,
-        team_id: teamId,
-        account_id: accountId,
-        portfolio_id: portfolioId,
-        assistant_id: assistantId,
-        thread_id: thread.id,
-        title: title
-      })
-      .select()
-      .single();
-
-    if (dbError) {
-      console.error('DATABASE ERROR:', dbError);
+    if (!updatedContext) {
       return NextResponse.json(
-        { error: 'FAILED TO SAVE CHAT HISTORY' },
+        { error: 'No context to update' },
+        { status: 400 }
+      );
+    }
+
+    // UPDATE THE FIRST CONTEXT MESSAGE IN THE THREAD
+    try {
+      // Get all messages in the thread
+      const messages = await client.beta.threads.messages.list(threadId, {
+        order: 'asc'
+      });
+
+      // Find the first context message (hidden system message)
+      const firstContextMessage = messages.data.find(msg => 
+        msg.metadata?.isSystemContext === 'true' && 
+        msg.metadata?.messageType === 'team_knowledge_context'
+      );
+
+      if (firstContextMessage) {
+        // Update the first context message metadata only (content cannot be updated)
+        await client.beta.threads.messages.update(threadId, firstContextMessage.id, {
+          metadata: {
+            isSystemContext: 'true',
+            hidden: 'false', // VISIBLE TO USER FOR DEBUGGING
+            messageType: 'team_knowledge_context',
+            lastUpdated: new Date().toISOString()
+          }
+        });
+
+        console.log('✅ Updated context message for thread:', threadId);
+      } else {
+        // If no context message found, create a new one
+        await client.beta.threads.messages.create(threadId, {
+          role: 'user',
+          content: updatedContext,
+          metadata: {
+            isSystemContext: 'true',
+            hidden: 'false', // VISIBLE TO USER FOR DEBUGGING
+            messageType: 'team_knowledge_context',
+            lastUpdated: new Date().toISOString()
+          }
+        });
+
+        console.log('✅ Created new context message for thread:', threadId);
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Context updated successfully',
+        threadId 
+      });
+
+    } catch (openaiError) {
+      console.error('❌ Error updating OpenAI thread context:', openaiError);
+      return NextResponse.json(
+        { error: 'Failed to update thread context' },
         { status: 500 }
       );
     }
 
-    // UPDATE CHAT TITLE WITH THE INITIAL MESSAGE (BUT DON'T ADD TO THREAD YET)
-    const chatTitle = title.length > 50 ? title.substring(0, 50) + '...' : title;
-    
-    const { error: updateError } = await supabase
-      .from('chat_history')
-      .update({ title: chatTitle })
-      .eq('id', chatHistory.id);
-
-    if (updateError) {
-      console.error('ERROR UPDATING CHAT TITLE:', updateError);
-    }
-
-    return NextResponse.json({
-      id: chatHistory.id,
-      thread_id: thread.id,
-      title: chatTitle,
-      team_id: teamId,
-      account_id: accountId,
-      portfolio_id: portfolioId,
-      assistant_id: assistantId,
-      created_at: chatHistory.created_at
-    });
-
   } catch (error) {
-    console.error('ERROR CREATING TEAM CHAT:', error);
-    return NextResponse.json(
-      { error: 'INTERNAL SERVER ERROR' },
-      { status: 500 }
-    );
+    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+      return handleAuthError(error);
+    }
+    console.error('Error in update context route:', error);
+    return handleDatabaseError(error, 'update chat context');
   }
-} 
+}

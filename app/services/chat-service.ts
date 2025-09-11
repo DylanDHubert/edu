@@ -2,7 +2,6 @@ import { createClient } from '../utils/supabase/server';
 import { verifyUserAuth, verifyTeamAccess } from '../utils/auth-helpers';
 import { cookies } from 'next/headers';
 import { sendMessage, sendMessageStreaming, getThreadMessages } from '../utils/openai';
-import { getNotesForTeamContext, formatNotesForContext } from '../utils/notes-server';
 import { 
   SendMessageRequest, 
   RateMessageRequest, 
@@ -55,7 +54,7 @@ export class ChatService {
   }
 
   /**
-   * BUILD MESSAGE CONTEXT WITH NOTES
+   * BUILD MESSAGE CONTEXT (NOTES NOW HANDLED IN INITIAL CONTEXT)
    */
   async buildMessageContext(
     teamId: string, 
@@ -64,17 +63,9 @@ export class ChatService {
     userId: string, 
     message: string
   ): Promise<string> {
-    try {
-      // GET NOTES FOR TEAM CONTEXT
-      const notes = await getNotesForTeamContext(teamId, accountId, portfolioId, userId);
-      const notesContext = formatNotesForContext(notes);
-      
-      // COMBINE NOTES AND MESSAGE
-      return notesContext ? `${notesContext}USER MESSAGE: ${message}` : message;
-    } catch (error) {
-      console.error('Error building message context:', error);
-      return message; // Fallback to original message
-    }
+    // NOTES ARE NOW INJECTED IN INITIAL CONTEXT, NOT PER MESSAGE
+    // THIS METHOD IS KEPT FOR POTENTIAL FUTURE USE
+    return message;
   }
 
   /**

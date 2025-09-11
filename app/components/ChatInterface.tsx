@@ -412,37 +412,13 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
 
       const { messages: loadedMessages } = await response.json();
 
-      // CLEAN MESSAGES TO REMOVE NOTES CONTEXT FROM USER MESSAGES
-      const cleanedMessages = (loadedMessages || []).map((msg: any) => {
-        if (msg.role === 'user' && msg.content[0]?.text?.value) {
-          const text = msg.content[0].text.value;
-          // REMOVE NOTES CONTEXT FROM USER MESSAGES
-          const userMessageMatch = text.match(/USER MESSAGE: (.+)/);
-          if (userMessageMatch) {
-            return {
-              ...msg,
-              content: [{
-                ...msg.content[0],
-                text: {
-                  ...msg.content[0].text,
-                  value: userMessageMatch[1]
-                }
-              }]
-            };
-          }
-        }
-        return msg;
-      });
-
       // FILTER OUT HIDDEN SYSTEM CONTEXT MESSAGES
-      const visibleMessages = cleanedMessages.filter((msg: any) => {
+      const visibleMessages = (loadedMessages || []).filter((msg: any) => {
         // Check message metadata
         
-        // Check if message has metadata indicating it's a hidden system context message
-        if (msg.metadata?.hidden === 'true' || 
-            msg.metadata?.messageType === 'team_knowledge_context' ||
-            msg.metadata?.isSystemContext === 'true') {
-          // Filtering out system message
+        // Filter out ALL hidden context messages regardless of position
+        if (msg.metadata?.hidden === 'true' && msg.metadata?.messageType === 'team_knowledge_context') {
+          // Filtering out context message
           return false;
         }
         return true;

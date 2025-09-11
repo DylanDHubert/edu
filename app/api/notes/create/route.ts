@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     const result = await notesService.createNote(createRequest, user.id);
 
     if (result.success) {
+      // CONTEXT UPDATE DISABLED FOR NOW - NOTES WILL BE AVAILABLE IN NEW CHATS ONLY
       return NextResponse.json(result.note);
     } else {
       return handleDatabaseError(new Error(result.error), 'create note');

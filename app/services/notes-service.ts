@@ -1,4 +1,4 @@
-import { createClient } from '../utils/supabase/server';
+import { createClient, createServiceClient } from '../utils/supabase/server';
 import { verifyUserAuth, verifyTeamAccess } from '../utils/auth-helpers';
 import { cookies } from 'next/headers';
 import { 
@@ -185,8 +185,9 @@ export class NotesService {
    */
   async getPortfolioName(portfolioId: string): Promise<string> {
     try {
-      const supabase = await this.getSupabase();
-      const { data: portfolioData, error: portfolioError } = await supabase
+      // USE SERVICE CLIENT TO BYPASS RLS (LIKE OTHER PORTFOLIO QUERIES)
+      const serviceClient = createServiceClient();
+      const { data: portfolioData, error: portfolioError } = await serviceClient
         .from('team_portfolios')
         .select('name')
         .eq('id', portfolioId)
