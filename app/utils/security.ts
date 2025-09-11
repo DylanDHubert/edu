@@ -91,3 +91,39 @@ export async function validateFileContent(buffer: Buffer, expectedMimeType: stri
     return false;
   }
 }
+
+/**
+ * VALIDATE MARKDOWN FILE CONTENT
+ * @param buffer - File buffer to validate
+ * @returns Promise<boolean> - True if content appears to be valid markdown
+ */
+export async function validateMarkdownContent(buffer: Buffer): Promise<boolean> {
+  try {
+    const content = buffer.toString('utf-8');
+    
+    // Basic checks for markdown content
+    // Check if it's valid UTF-8 text and contains markdown-like patterns
+    if (content.length === 0) return false;
+    
+    // Look for common markdown patterns
+    const markdownPatterns = [
+      /^#\s+/m,           // Headers
+      /\*\*.*\*\*/,       // Bold text
+      /\*.*\*/,           // Italic text
+      /^\s*-\s+/m,        // List items
+      /^\s*\d+\.\s+/m,    // Numbered lists
+      /\[.*\]\(.*\)/,     // Links
+      /```/,              // Code blocks
+    ];
+    
+    // If it contains any markdown patterns, consider it valid
+    // Or if it's just plain text (which is also valid markdown)
+    const hasMarkdownPatterns = markdownPatterns.some(pattern => pattern.test(content));
+    const isProbablyText = /^[\x00-\x7F\s]*$/.test(content.substring(0, 1000)); // ASCII check for first 1000 chars
+    
+    return hasMarkdownPatterns || isProbablyText;
+  } catch (error) {
+    console.error('Error validating markdown content:', error);
+    return false;
+  }
+}

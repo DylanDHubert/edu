@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '../../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
-import { validateFileContent } from '../../../../utils/security';
+import { validateFileContent, validateMarkdownContent } from '../../../../utils/security';
 import { rateLimitMiddleware, RATE_LIMITS } from '../../../../utils/rate-limit';
 
 const client = new OpenAI({
@@ -98,12 +98,17 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await fileData.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // VALIDATE FILE CONTENT TO ENSURE IT'S ACTUALLY A PDF
-      const isValidPdf = await validateFileContent(buffer, 'application/pdf');
-      if (!isValidPdf) {
+      // VALIDATE FILE CONTENT TO ENSURE IT'S ACTUALLY A PDF OR MARKDOWN
+      const isMarkdown = originalName.toLowerCase().endsWith('.md');
+      const expectedMimeType = isMarkdown ? 'text/plain' : 'application/pdf'; // Markdown files often detected as text/plain
+      
+      const isValidFile = await validateFileContent(buffer, expectedMimeType) || 
+                         (isMarkdown && await validateMarkdownContent(buffer));
+      
+      if (!isValidFile) {
         console.error(`File content validation failed for: ${originalName}`);
         return NextResponse.json(
-          { error: `Invalid file type detected for: ${originalName}. Only PDF files are allowed.` },
+          { error: `Invalid file type detected for: ${originalName}. Only PDF and Markdown files are allowed.` },
           { status: 400 }
         );
       }
