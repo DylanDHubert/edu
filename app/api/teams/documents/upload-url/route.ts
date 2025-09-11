@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2);
-    const fileExtension = '.pdf';
+    const fileExtension = fileName.toLowerCase().endsWith('.md') ? '.md' : '.pdf';
     const uniqueFileName = `${timestamp}_${random}${fileExtension}`;
     const filePath = `teams/${teamId}/portfolios/${portfolioId}/${uniqueFileName}`;
 

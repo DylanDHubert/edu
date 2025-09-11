@@ -35,11 +35,11 @@ export async function uploadFilesToSupabase(
     
     try {
       // VALIDATE FILE TYPE
-      if (file.type !== 'application/pdf') {
+      if (file.type !== 'application/pdf' && file.type !== 'text/markdown' && !file.name.toLowerCase().endsWith('.md')) {
         progress[i].status = 'error';
-        progress[i].error = 'Only PDF files are allowed';
+        progress[i].error = 'Only PDF and Markdown files are allowed';
         onProgress?.(progress);
-        throw new Error(`File ${file.name} is not a PDF`);
+        throw new Error(`File ${file.name} is not a PDF or Markdown file`);
       }
 
       // VALIDATE FILE SIZE
@@ -75,11 +75,15 @@ export async function uploadFilesToSupabase(
       const { uploadUrl, filePath, uniqueFileName } = await urlResponse.json();
 
       // UPLOAD DIRECTLY TO SUPABASE
+      const contentType = file.type === 'text/markdown' || file.name.toLowerCase().endsWith('.md') 
+        ? 'text/markdown' 
+        : 'application/pdf';
+      
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
         headers: {
-          'Content-Type': 'application/pdf',
+          'Content-Type': contentType,
         },
       });
 

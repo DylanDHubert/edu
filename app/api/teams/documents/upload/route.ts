@@ -109,8 +109,9 @@ export async function POST(request: NextRequest) {
       }
 
       // Upload to OpenAI
+      const fileType = originalName.toLowerCase().endsWith('.md') ? 'text/markdown' : 'application/pdf';
       const openaiFile = await client.files.create({
-        file: new File([buffer], originalName, { type: 'application/pdf' }),
+        file: new File([buffer], originalName, { type: fileType }),
         purpose: 'assistants'
       });
 

@@ -609,13 +609,13 @@ function EditPortfoliosContent() {
               {/* File Upload Area */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Add New Documents <span className="text-slate-500">(PDF files)</span>
+                  Add New Documents <span className="text-slate-500">(PDF and Markdown files)</span>
                 </label>
                 <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
                   <input
                     type="file"
                     multiple
-                    accept=".pdf"
+                    accept=".pdf,.md"
                     onChange={(e) => handleFileUpload(index, e.target.files)}
                     className="hidden"
                     id={`file-upload-${index}`}
@@ -626,7 +626,7 @@ function EditPortfoliosContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                     </div>
-                    <p className="text-slate-300">Click to upload PDF files</p>
+                    <p className="text-slate-300">Click to upload PDF or Markdown files</p>
                     <p className="text-slate-500 text-sm">or drag and drop</p>
                   </label>
                 </div>
