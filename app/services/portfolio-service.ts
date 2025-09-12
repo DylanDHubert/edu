@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from '../utils/supabase/server';
 import { cookies } from 'next/headers';
 import { deleteOpenAIResources } from '../utils/openai';
+import { StorageCleanupService } from './storage-cleanup-service';
 
 export interface CreatePortfolioRequest {
   teamId: string;
@@ -42,9 +43,19 @@ export interface PortfolioDeletionResult {
     deletedTables: string[];
     errors: string[];
   };
+  storageCleanup?: {
+    deletedFiles: number;
+    errors: string[];
+  };
 }
 
 export class PortfolioService {
+  private storageCleanup: StorageCleanupService;
+
+  constructor() {
+    this.storageCleanup = new StorageCleanupService();
+  }
+
   private async getSupabase() {
     return await createClient(cookies());
   }
@@ -117,21 +128,40 @@ export class PortfolioService {
       const openaiCleanup = await deleteOpenAIResources(openaiResources);
       console.log('✅ OPENAI CLEANUP RESULT:', openaiCleanup);
 
-      // PHASE 3: DELETE DATABASE RECORDS IN DEPENDENCY ORDER
-      console.log('🗄️ PHASE 3: CLEANING UP DATABASE RECORDS');
+      // PHASE 3: CLEAN UP STORAGE FILES
+      console.log('🗂️ PHASE 3: CLEANING UP STORAGE FILES');
+      const storageCleanup = await this.storageCleanup.cleanupPortfolioStorage(request.portfolioId, request.teamId);
+      console.log('✅ STORAGE CLEANUP RESULT:', storageCleanup);
+
+      // PHASE 4: DELETE DATABASE RECORDS IN DEPENDENCY ORDER
+      console.log('🗄️ PHASE 4: CLEANING UP DATABASE RECORDS');
       const databaseCleanup = await this.cleanupDatabaseRecords(request.portfolioId, request.teamId);
       console.log('✅ DATABASE CLEANUP RESULT:', databaseCleanup);
 
-      // DETERMINE OVERALL SUCCESS
-      const success = databaseCleanup.success;
-      const hasErrors = !openaiCleanup.success || !databaseCleanup.success;
+      // DETERMINE OVERALL SUCCESS - ALL CLEANUP PHASES MUST SUCCEED
+      const success = databaseCleanup.success && openaiCleanup.success && storageCleanup.success;
+      const hasErrors = !openaiCleanup.success || !databaseCleanup.success || !storageCleanup.success;
 
       console.log(`${success ? '✅' : '❌'} PORTFOLIO DELETION COMPLETED: ${success ? 'SUCCESS' : 'PARTIAL FAILURE'}`);
+      
+      if (hasErrors) {
+        console.log('🔍 CLEANUP ERRORS:');
+        if (!openaiCleanup.success) {
+          console.log('  OpenAI cleanup errors:', openaiCleanup.errors);
+        }
+        if (!storageCleanup.success) {
+          console.log('  Storage cleanup errors:', storageCleanup.errors);
+        }
+        if (!databaseCleanup.success) {
+          console.log('  Database cleanup errors:', databaseCleanup.errors);
+        }
+      }
 
       return {
         success,
-        error: !success ? 'Portfolio deletion completed with some errors' : undefined,
+        error: !success ? 'Portfolio deletion completed with some errors - check logs for details' : undefined,
         openaiCleanup,
+        storageCleanup,
         databaseCleanup
       };
 
@@ -147,16 +177,47 @@ export class PortfolioService {
   async deleteDocument(request: DeleteDocumentRequest) {
     const serviceClient = this.getServiceClient();
     
-    const { error } = await serviceClient
-      .from('team_documents')
-      .delete()
-      .eq('id', request.documentId);
+    try {
+      // GET DOCUMENT INFO BEFORE DELETION FOR STORAGE CLEANUP
+      const { data: document, error: fetchError } = await serviceClient
+        .from('team_documents')
+        .select('file_path, original_name')
+        .eq('id', request.documentId)
+        .single();
 
-    if (error) {
+      if (fetchError) {
+        return { success: false, error: `Document not found: ${fetchError.message}` };
+      }
+
+      // DELETE FROM DATABASE
+      const { error } = await serviceClient
+        .from('team_documents')
+        .delete()
+        .eq('id', request.documentId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // CLEAN UP STORAGE FILE
+      if (document.file_path) {
+        try {
+          const storageResult = await this.storageCleanup.cleanupDocumentStorage([request.documentId]);
+          if (!storageResult.success) {
+            console.warn('⚠️ STORAGE CLEANUP FAILED FOR DOCUMENT:', document.original_name, storageResult.errors);
+            // DON'T FAIL THE ENTIRE OPERATION FOR STORAGE ISSUES
+          }
+        } catch (storageError) {
+          console.warn('⚠️ STORAGE CLEANUP ERROR FOR DOCUMENT:', document.original_name, storageError);
+          // DON'T FAIL THE ENTIRE OPERATION FOR STORAGE ISSUES
+        }
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ ERROR DELETING DOCUMENT:', error);
       return { success: false, error: error.message };
     }
-
-    return { success: true };
   }
 
   async getPortfolios(teamId: string) {
@@ -182,17 +243,17 @@ export class PortfolioService {
     return { success: true, portfolios: data || [] };
   }
 
-  // COLLECT OPENAI RESOURCES LINKED TO PORTFOLIO (SIMPLIFIED)
+  // COLLECT OPENAI RESOURCES LINKED TO PORTFOLIO (COMPREHENSIVE)
   private async collectOpenAIResources(portfolioId: string): Promise<PortfolioOpenAIResources> {
     const serviceClient = this.getServiceClient();
     const assistants: string[] = [];
     const vectorStores: string[] = [];
 
     try {
-      // GET TEAM ASSISTANTS - ONLY EXTRACT THE TWO VALUES THAT MATTER
+      // GET TEAM ASSISTANTS - EXTRACT ALL VECTOR STORE REFERENCES
       const { data: teamAssistants } = await serviceClient
         .from('team_assistants')
-        .select('assistant_id, consolidated_vector_store_id')
+        .select('assistant_id, consolidated_vector_store_id, general_vector_store_id, account_portfolio_vector_store_id, portfolio_vector_store_id')
         .eq('portfolio_id', portfolioId);
 
       if (teamAssistants) {
@@ -202,13 +263,38 @@ export class PortfolioService {
             assistants.push(assistant.assistant_id);
           }
           
-          // COLLECT ONLY THE CONSOLIDATED VECTOR STORE (THE REAL ONE)
-          if (assistant.consolidated_vector_store_id && assistant.consolidated_vector_store_id.startsWith('vs_')) {
-            vectorStores.push(assistant.consolidated_vector_store_id);
-          }
+          // COLLECT ALL VECTOR STORE IDS (AVOID DUPLICATES)
+          const vectorStoreIds = [
+            assistant.consolidated_vector_store_id,
+            assistant.general_vector_store_id,
+            assistant.account_portfolio_vector_store_id,
+            assistant.portfolio_vector_store_id
+          ].filter(id => id && id.startsWith('vs_'));
+
+          vectorStoreIds.forEach(id => {
+            if (!vectorStores.includes(id)) {
+              vectorStores.push(id);
+            }
+          });
         });
       }
 
+      // GET DOCUMENT FILE IDS (FOR POTENTIAL OPENAI FILE CLEANUP)
+      const { data: documents } = await serviceClient
+        .from('team_documents')
+        .select('openai_file_id')
+        .eq('portfolio_id', portfolioId);
+
+      if (documents) {
+        // NOTE: We don't delete OpenAI files here as they might be shared across portfolios
+        // But we log them for potential future cleanup
+        const fileIds = documents.filter(doc => doc.openai_file_id).map(doc => doc.openai_file_id);
+        if (fileIds.length > 0) {
+          console.log('📄 FOUND OPENAI FILE IDS (NOT DELETING - MAY BE SHARED):', fileIds);
+        }
+      }
+
+      console.log(`🔍 COLLECTED OPENAI RESOURCES: ${assistants.length} assistants, ${vectorStores.length} vector stores`);
       return {
         assistants,
         vectorStores
@@ -231,9 +317,48 @@ export class PortfolioService {
     const errors: string[] = [];
 
     try {
-      // DELETE IN REVERSE DEPENDENCY ORDER
+      // DELETE IN REVERSE DEPENDENCY ORDER TO RESPECT FOREIGN KEY CONSTRAINTS
 
-      // 1. DELETE TEAM ASSISTANTS
+      // 1. DELETE CHAT HISTORY (REFERENCES PORTFOLIO)
+      const { error: chatHistoryError } = await serviceClient
+        .from('chat_history')
+        .delete()
+        .eq('portfolio_id', portfolioId);
+
+      if (chatHistoryError) {
+        errors.push(`chat_history: ${chatHistoryError.message}`);
+      } else {
+        deletedTables.push('chat_history');
+        console.log('✅ DELETED CHAT HISTORY');
+      }
+
+      // 2. DELETE MESSAGE RATINGS (REFERENCES PORTFOLIO)
+      const { error: ratingsError } = await serviceClient
+        .from('message_ratings')
+        .delete()
+        .eq('portfolio_id', portfolioId);
+
+      if (ratingsError) {
+        errors.push(`message_ratings: ${ratingsError.message}`);
+      } else {
+        deletedTables.push('message_ratings');
+        console.log('✅ DELETED MESSAGE RATINGS');
+      }
+
+      // 3. DELETE NOTES (REFERENCES PORTFOLIO)
+      const { error: notesError } = await serviceClient
+        .from('notes')
+        .delete()
+        .eq('portfolio_id', portfolioId);
+
+      if (notesError) {
+        errors.push(`notes: ${notesError.message}`);
+      } else {
+        deletedTables.push('notes');
+        console.log('✅ DELETED NOTES');
+      }
+
+      // 4. DELETE TEAM ASSISTANTS (REFERENCES PORTFOLIO)
       const { error: assistantsError } = await serviceClient
         .from('team_assistants')
         .delete()
@@ -246,7 +371,7 @@ export class PortfolioService {
         console.log('✅ DELETED TEAM ASSISTANTS');
       }
 
-      // 2. DELETE ACCOUNT PORTFOLIO STORES
+      // 5. DELETE ACCOUNT PORTFOLIO STORES (REFERENCES PORTFOLIO)
       const { error: storesError } = await serviceClient
         .from('account_portfolio_stores')
         .delete()
@@ -259,7 +384,7 @@ export class PortfolioService {
         console.log('✅ DELETED ACCOUNT PORTFOLIO STORES');
       }
 
-      // 3. DELETE ACCOUNT PORTFOLIOS
+      // 6. DELETE ACCOUNT PORTFOLIOS (REFERENCES PORTFOLIO)
       const { error: accountPortfoliosError } = await serviceClient
         .from('account_portfolios')
         .delete()
@@ -272,7 +397,7 @@ export class PortfolioService {
         console.log('✅ DELETED ACCOUNT PORTFOLIOS');
       }
 
-      // 4. NULLIFY TEAM KNOWLEDGE PORTFOLIO REFERENCES (DON'T DELETE KNOWLEDGE)
+      // 7. NULLIFY TEAM KNOWLEDGE PORTFOLIO REFERENCES (PRESERVE KNOWLEDGE)
       const { error: knowledgeError } = await serviceClient
         .from('team_knowledge')
         .update({ portfolio_id: null })
@@ -285,7 +410,7 @@ export class PortfolioService {
         console.log('✅ NULLIFIED TEAM KNOWLEDGE PORTFOLIO REFERENCES');
       }
 
-      // 5. DELETE TEAM DOCUMENTS
+      // 8. DELETE TEAM DOCUMENTS (REFERENCES PORTFOLIO)
       const { error: documentsError } = await serviceClient
         .from('team_documents')
         .delete()
@@ -298,7 +423,7 @@ export class PortfolioService {
         console.log('✅ DELETED TEAM DOCUMENTS');
       }
 
-      // 6. DELETE PORTFOLIO (NOTES AND MESSAGE_RATINGS SHOULD ALREADY BE TRANSFERRED)
+      // 9. DELETE PORTFOLIO (FINAL STEP)
       const { error: portfolioError } = await serviceClient
         .from('team_portfolios')
         .delete()

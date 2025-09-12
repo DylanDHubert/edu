@@ -51,6 +51,9 @@ function EditPortfoliosContent() {
     variant: 'danger'
   });
 
+  // Add state for tracking which portfolio is being deleted
+  const [deletingPortfolioId, setDeletingPortfolioId] = useState<string | null>(null);
+
   // Add portfolio status state
   const [portfolioStatuses, setPortfolioStatuses] = useState<Record<string, any>>({});
   // Add state for dismissed warnings
@@ -286,9 +289,14 @@ function EditPortfoliosContent() {
       // SHOW CONFIRMATION MODAL FOR EXISTING PORTFOLIO
       showConfirmationModal(
         'Delete Portfolio',
-        `Are you sure you want to delete "${portfolio.name}"? This will remove all associated documents and knowledge.`,
+        `Are you sure you want to delete "${portfolio.name}"? This will permanently remove all associated documents, chat history, notes, and knowledge. This action cannot be undone.`,
         async () => {
           try {
+            // SHOW LOADING STATE
+            setIsSubmitting(true);
+            setDeletingPortfolioId(portfolio.id);
+            setError(null);
+
             // DELETE VIA API ROUTE
             const response = await fetch('/api/teams/portfolios/delete', {
               method: 'POST',
@@ -306,14 +314,27 @@ function EditPortfoliosContent() {
               throw new Error(errorData.error || 'Failed to delete portfolio');
             }
 
-            // REMOVE FROM STATE AFTER SUCCESSFUL DELETION
-            const newPortfolios = portfolios.filter((_, i) => i !== index);
-            setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
-            closeConfirmationModal();
+            const result = await response.json();
+            
+            if (result.success) {
+              // ONLY REMOVE FROM STATE AFTER CONFIRMED SUCCESSFUL DELETION
+              const newPortfolios = portfolios.filter((_, i) => i !== index);
+              setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
+              
+              // RELOAD DATA TO ENSURE CONSISTENCY
+              await loadExistingData();
+              
+              closeConfirmationModal();
+            } else {
+              throw new Error(result.error || 'Portfolio deletion failed');
+            }
           } catch (error) {
             console.error('Error deleting portfolio:', error);
-            setError('Failed to delete portfolio');
+            setError(error instanceof Error ? error.message : 'Failed to delete portfolio');
             closeConfirmationModal();
+          } finally {
+            setIsSubmitting(false);
+            setDeletingPortfolioId(null);
           }
         },
         'danger'
@@ -562,7 +583,7 @@ function EditPortfoliosContent() {
         showBackButton={true}
         onBackClick={handleSubmit}
         backText={isSubmitting ? 'SAVING...' : 'SAVE'}
-        backButtonDisabled={isSubmitting || !isFormValid()}
+        backButtonDisabled={isSubmitting || !isFormValid() || deletingPortfolioId !== null}
       />
 
       {/* Main Content */}
@@ -582,9 +603,24 @@ function EditPortfoliosContent() {
                 </h3>
                 <button
                   onClick={() => removePortfolio(index)}
-                  className="text-red-400 hover:text-red-300 font-medium"
+                  disabled={deletingPortfolioId === portfolio.id || isSubmitting}
+                  className={`font-medium transition-colors flex items-center gap-2 ${
+                    deletingPortfolioId === portfolio.id || isSubmitting
+                      ? 'text-slate-500 cursor-not-allowed'
+                      : 'text-red-400 hover:text-red-300'
+                  }`}
                 >
-                  Delete Portfolio
+                  {deletingPortfolioId === portfolio.id ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete Portfolio'
+                  )}
                 </button>
               </div>
 
@@ -795,7 +831,8 @@ function EditPortfoliosContent() {
           <div className="text-center">
             <button
               onClick={addPortfolio}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-slate-100 px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+              disabled={deletingPortfolioId !== null}
+              className="w-full bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:cursor-not-allowed text-slate-100 px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -808,11 +845,13 @@ function EditPortfoliosContent() {
           <div className="flex justify-end">
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || !isFormValid()}
+              disabled={isSubmitting || !isFormValid() || deletingPortfolioId !== null}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
             >
               <Save className="w-5 h-5 flex-shrink-0" />
-              <span className="flex-1 text-center">{isSubmitting ? 'Saving Changes...' : 'Save Changes'}</span>
+              <span className="flex-1 text-center">
+                {isSubmitting ? 'Saving Changes...' : deletingPortfolioId ? 'Deleting Portfolio...' : 'Save Changes'}
+              </span>
             </button>
           </div>
         </div>
@@ -826,6 +865,8 @@ function EditPortfoliosContent() {
         title={confirmationModal.title}
         message={confirmationModal.message}
         variant={confirmationModal.variant}
+        isLoading={isSubmitting}
+        loadingText="Deleting portfolio..."
       />
     </div>
   );

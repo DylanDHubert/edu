@@ -7,6 +7,7 @@ import { createClient } from "../../utils/supabase/client";
 import ImageUpload from "../../components/ImageUpload";
 import StandardHeader from "../../components/StandardHeader";
 import { Save, ChevronDown, ChevronRight } from "lucide-react";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 interface Inventory {
   id: string;
@@ -57,6 +58,22 @@ function EditAccountsContent() {
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   // Add state for active portfolio per account
   const [activePortfolios, setActivePortfolios] = useState<{ [accountIndex: number]: string }>({});
+  // Add state for confirmation modal
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'danger'
+  });
+  // Add state for tracking which account is being deleted
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -202,48 +219,100 @@ function EditAccountsContent() {
     }]);
   };
 
+  // HELPER FUNCTION TO SHOW CONFIRMATION MODAL
+  const showConfirmationModal = (
+    title: string, 
+    message: string, 
+    onConfirm: () => void, 
+    variant: 'danger' | 'warning' | 'info' = 'danger'
+  ) => {
+    setConfirmationModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      variant
+    });
+  };
+
+  // CLOSE CONFIRMATION MODAL
+  const closeConfirmationModal = () => {
+    setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+  };
+
   const removeAccount = async (index: number) => {
     const account = accounts[index];
     
     if (account.id) {
-      if (!confirm(`Are you sure you want to delete "${account.name}"? This will remove all associated knowledge.`)) {
-        return;
-      }
+      // SHOW CONFIRMATION MODAL FOR EXISTING ACCOUNT
+      showConfirmationModal(
+        'Delete Account',
+        `Are you sure you want to delete "${account.name}"? This will permanently remove all associated knowledge, inventory, instruments, and technical information. This action cannot be undone.`,
+        async () => {
+          try {
+            // SHOW LOADING STATE
+            setIsSubmitting(true);
+            setDeletingAccountId(account.id);
+            setError(null);
 
-      try {
-        // Delete from database
-        const { error: deleteError } = await supabase
-          .from('team_accounts')
-          .delete()
-          .eq('id', account.id);
+            // DELETE FROM DATABASE
+            const { error: deleteError } = await supabase
+              .from('team_accounts')
+              .delete()
+              .eq('id', account.id);
 
-        if (deleteError) {
-          console.error('Error deleting account:', deleteError);
-          setError('Failed to delete account');
-          return;
-        }
-      } catch (error) {
-        console.error('Error deleting account:', error);
-        setError('Failed to delete account');
-        return;
-      }
+            if (deleteError) {
+              console.error('Error deleting account:', deleteError);
+              setError('Failed to delete account');
+              closeConfirmationModal();
+              return;
+            }
+
+            // REMOVE FROM STATE AFTER SUCCESSFUL DELETION
+            const newAccounts = accounts.filter((_, i) => i !== index);
+            setAccounts(newAccounts.length > 0 ? newAccounts : [{
+              id: undefined,
+              name: '',
+              description: '',
+              assignedPortfolios: [],
+              portfolioData: {},
+              accessMisc: ''
+            }]);
+
+            // UPDATE ACTIVE PORTFOLIOS
+            const newActivePortfolios = { ...activePortfolios };
+            delete newActivePortfolios[index];
+            setActivePortfolios(newActivePortfolios);
+
+            closeConfirmationModal();
+          } catch (error) {
+            console.error('Error deleting account:', error);
+            setError('Failed to delete account');
+            closeConfirmationModal();
+          } finally {
+            setIsSubmitting(false);
+            setDeletingAccountId(null);
+          }
+        },
+        'danger'
+      );
+    } else {
+      // REMOVE NEW ACCOUNT DIRECTLY (NO CONFIRMATION NEEDED)
+      const newAccounts = accounts.filter((_, i) => i !== index);
+      setAccounts(newAccounts.length > 0 ? newAccounts : [{
+        id: undefined,
+        name: '',
+        description: '',
+        assignedPortfolios: [],
+        portfolioData: {},
+        accessMisc: ''
+      }]);
+
+      // UPDATE ACTIVE PORTFOLIOS
+      const newActivePortfolios = { ...activePortfolios };
+      delete newActivePortfolios[index];
+      setActivePortfolios(newActivePortfolios);
     }
-
-    // Remove from state
-    const newAccounts = accounts.filter((_, i) => i !== index);
-    setAccounts(newAccounts.length > 0 ? newAccounts : [{
-      id: undefined,
-      name: '',
-      description: '',
-      assignedPortfolios: [],
-      portfolioData: {},
-      accessMisc: ''
-    }]);
-
-    // Update active portfolios
-    const newActivePortfolios = { ...activePortfolios };
-    delete newActivePortfolios[index];
-    setActivePortfolios(newActivePortfolios);
   };
 
   const updateAccount = (index: number, field: keyof Account, value: any) => {
@@ -414,6 +483,9 @@ function EditAccountsContent() {
   };
 
   const isFormValid = () => {
+    // If no portfolios exist, accounts can't be valid
+    if (portfolios.length === 0) return false;
+    
     // Check if any account has empty name or no portfolios
     const hasInvalidAccount = accounts.some(account => 
       !account.name.trim() || account.assignedPortfolios.length === 0
@@ -428,6 +500,11 @@ function EditAccountsContent() {
   };
 
   const validateForm = () => {
+    if (portfolios.length === 0) {
+      setError('No portfolios available. Create portfolios first before setting up accounts.');
+      return false;
+    }
+
     for (let i = 0; i < accounts.length; i++) {
       const account = accounts[i];
       if (!account.name.trim()) {
@@ -622,18 +699,12 @@ function EditAccountsContent() {
     );
   }
 
-  if (!user || !teamId || !team || portfolios.length === 0) {
+  if (!user || !teamId || !team) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center max-w-md">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">No Portfolios Found</h1>
-          <p className="text-slate-400 mb-6">You need to create portfolios before setting up accounts.</p>
-          <button
-            onClick={() => router.push(`/edit/portfolios?teamId=${teamId}`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
-          >
-            Go to Portfolios
-          </button>
+          <h1 className="text-4xl font-bold text-slate-100 mb-4">Loading...</h1>
+          <p className="text-slate-400">Loading team data...</p>
         </div>
       </div>
     );
@@ -657,6 +728,29 @@ function EditAccountsContent() {
         {error && (
           <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-md">
             <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* No Portfolios Warning */}
+        {portfolios.length === 0 && (
+          <div className="mb-6 p-4 bg-amber-900/30 border border-amber-700 rounded-md">
+            <div className="flex items-start space-x-3">
+              <svg className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div className="flex-1">
+                <h3 className="text-amber-200 text-sm font-medium mb-1">No Portfolios Available</h3>
+                <p className="text-amber-300 text-sm leading-relaxed mb-3">
+                  You need to create portfolios before you can assign them to accounts. Accounts can be assigned to multiple portfolios to organize your knowledge.
+                </p>
+                <button
+                  onClick={() => router.push(`/edit/portfolios?teamId=${teamId}`)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Create Portfolios
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -736,24 +830,38 @@ function EditAccountsContent() {
                 <label className="block text-sm font-medium text-slate-300 mb-3">
                   Assigned Portfolios <span className="text-red-400">*</span>
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {portfolios.map((portfolio) => (
-                    <div
-                      key={portfolio.id}
-                      onClick={() => togglePortfolioAssignment(accountIndex, portfolio.id)}
-                      className={`p-3 rounded-md cursor-pointer border-2 transition-colors ${
-                        account.assignedPortfolios.includes(portfolio.id)
-                          ? 'border-blue-500 bg-blue-900/20 text-blue-300'
-                          : 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500'
-                      }`}
+                {portfolios.length === 0 ? (
+                  <div className="p-4 bg-slate-700 rounded-md border border-slate-600">
+                    <p className="text-slate-400 text-sm mb-3">
+                      No portfolios available. Create portfolios first to assign them to accounts.
+                    </p>
+                    <button
+                      onClick={() => router.push(`/edit/portfolios?teamId=${teamId}`)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                     >
-                      <div className="font-medium">{portfolio.name}</div>
-                      {portfolio.description && (
-                        <div className="text-sm opacity-80">{portfolio.description}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      Create Portfolios
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {portfolios.map((portfolio) => (
+                      <div
+                        key={portfolio.id}
+                        onClick={() => togglePortfolioAssignment(accountIndex, portfolio.id)}
+                        className={`p-3 rounded-md cursor-pointer border-2 transition-colors ${
+                          account.assignedPortfolios.includes(portfolio.id)
+                            ? 'border-blue-500 bg-blue-900/20 text-blue-300'
+                            : 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        <div className="font-medium">{portfolio.name}</div>
+                        {portfolio.description && (
+                          <div className="text-sm opacity-80">{portfolio.description}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Portfolio Tabs and Data */}
