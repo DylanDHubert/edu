@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
-import { BarChart3, MessageSquare, FileText, Download, Filter, RefreshCw, Calendar } from "lucide-react";
+import { BarChart3, MessageSquare, FileText, Download, Filter, RefreshCw, Calendar, AlertTriangle, ChevronDown, ChevronRight, Play } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
 import StandardHeader from "../../components/StandardHeader";
 import LoadingScreen from "../../components/LoadingScreen";
 
@@ -56,7 +57,20 @@ interface NotesData {
   created_at: string;
 }
 
-type TabType = 'chats' | 'feedback' | 'notes';
+interface TestData {
+  id: string;
+  original_query: string;
+  ai_response: string;
+  assistant_id: string;
+  thread_id: string;
+  team_name: string;
+  account_name: string;
+  portfolio_name: string;
+  feedback_text: string;
+  created_at: string;
+}
+
+type TabType = 'chats' | 'feedback' | 'notes' | 'test';
 
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
@@ -71,16 +85,23 @@ export default function AdminDashboard() {
   const [chatData, setChatData] = useState<ChatAnalyticsData[]>([]);
   const [feedbackData, setFeedbackData] = useState<FeedbackData[]>([]);
   const [notesData, setNotesData] = useState<NotesData[]>([]);
+  const [testData, setTestData] = useState<TestData[]>([]);
   
   // Loading states
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [loadingTest, setLoadingTest] = useState(false);
   
   // Thread expansion state
   const [expandedThread, setExpandedThread] = useState<string | null>(null);
   const [threadData, setThreadData] = useState<any>(null);
   const [loadingThread, setLoadingThread] = useState(false);
+  
+  // Test page specific state
+  const [expandedQueries, setExpandedQueries] = useState<Set<string>>(new Set());
+  const [experimentResults, setExperimentResults] = useState<Map<string, any>>(new Map());
+  const [runningExperiments, setRunningExperiments] = useState<Set<string>>(new Set());
   
   // Filter states
   const [feedbackFilter, setFeedbackFilter] = useState('all');
@@ -95,6 +116,7 @@ export default function AdminDashboard() {
   const chatAbortControllerRef = useRef<AbortController | null>(null);
   const feedbackAbortControllerRef = useRef<AbortController | null>(null);
   const notesAbortControllerRef = useRef<AbortController | null>(null);
+  const testAbortControllerRef = useRef<AbortController | null>(null);
   
   const supabase = createClient();
 
@@ -136,6 +158,11 @@ export default function AdminDashboard() {
       notesAbortControllerRef.current.abort();
       notesAbortControllerRef.current = null;
       setLoadingNotes(false);
+    }
+    if (testAbortControllerRef.current) {
+      testAbortControllerRef.current.abort();
+      testAbortControllerRef.current = null;
+      setLoadingTest(false);
     }
   };
 
@@ -291,6 +318,50 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadTestAnalytics = async () => {
+    try {
+      // Cancel any existing test request
+      if (testAbortControllerRef.current) {
+        testAbortControllerRef.current.abort();
+      }
+      
+      // Create new AbortController for this request
+      testAbortControllerRef.current = new AbortController();
+      
+      setLoadingTest(true);
+      console.log('🔄 Loading test analytics...');
+      
+      const params = new URLSearchParams();
+      params.append('format', 'experiment'); // Use experiment format
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      if (teamFilter) params.append('team_id', teamFilter);
+
+      const response = await fetch(`/api/admin/analytics/feedback?${params}`, {
+        signal: testAbortControllerRef.current.signal
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to load test analytics');
+      }
+
+      const result = await response.json();
+      setTestData(result.data || []);
+      setMetadata((prev: any) => ({ ...prev, test: result.metadata }));
+      
+      console.log('✅ Test analytics loaded:', result.data?.length, 'records');
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('🚫 Test analytics request cancelled');
+      } else {
+        console.error('Error loading test analytics:', error);
+      }
+    } finally {
+      setLoadingTest(false);
+      testAbortControllerRef.current = null;
+    }
+  };
+
   const handleExport = async () => {
     try {
       let dataToExport: any[] = [];
@@ -308,6 +379,10 @@ export default function AdminDashboard() {
       } else if (activeTab === 'notes') {
         dataToExport = notesData;
         dataType = 'notes';
+        currentFilters = { start_date: startDate, end_date: endDate, team_filter: teamFilter };
+      } else if (activeTab === 'test') {
+        dataToExport = testData;
+        dataType = 'test';
         currentFilters = { start_date: startDate, end_date: endDate, team_filter: teamFilter };
       }
 
@@ -352,6 +427,88 @@ export default function AdminDashboard() {
       loadFeedbackAnalytics();
     } else if (activeTab === 'notes') {
       loadNotesAnalytics();
+    } else if (activeTab === 'test') {
+      loadTestAnalytics();
+    }
+  };
+
+  // Test page specific functions
+  const handleQueryExpand = (queryId: string) => {
+    const newExpanded = new Set(expandedQueries);
+    if (newExpanded.has(queryId)) {
+      newExpanded.delete(queryId);
+    } else {
+      newExpanded.add(queryId);
+    }
+    setExpandedQueries(newExpanded);
+  };
+
+  const handleRunExperiment = async (query: TestData, forceRefresh = false) => {
+    const queryId = query.id;
+    
+    if (!query.assistant_id) {
+      console.error('No assistant_id available for query:', queryId);
+      return;
+    }
+
+    if (!query.original_query) {
+      console.error('No query text available for query:', queryId);
+      return;
+    }
+
+    try {
+      setRunningExperiments(prev => new Set([...prev, queryId]));
+      console.log('🧪 Running experiment for query:', queryId);
+
+      const response = await fetch('/api/admin/test/run-experiment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assistantId: query.assistant_id,
+          query: query.original_query,
+          forceRefresh
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to run experiment');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setExperimentResults(prev => new Map([...prev, [queryId, result]]));
+        console.log('✅ Experiment completed:', queryId, result.metadata?.cached ? '(cached)' : '(fresh)');
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Experiment failed:', error);
+      
+      // Store error in results for display
+      const errorResult = {
+        success: false,
+        error: error.message || 'Unknown error',
+        result: `# Experiment Failed\n\n**Error:** ${error.message || 'Unknown error'}\n\n**Query:** ${query.original_query}\n\n**Assistant ID:** ${query.assistant_id}`,
+        metadata: {
+          cached: false,
+          error: true,
+          timestamp: new Date().toISOString(),
+          assistantId: query.assistant_id,
+          query: query.original_query
+        }
+      };
+      
+      setExperimentResults(prev => new Map([...prev, [queryId, errorResult]]));
+    } finally {
+      setRunningExperiments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(queryId);
+        return newSet;
+      });
     }
   };
 
@@ -405,7 +562,7 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const isLoading = loadingChats || loadingFeedback || loadingNotes;
+  const isLoading = loadingChats || loadingFeedback || loadingNotes || loadingTest;
 
   if (loading || isAdminLoading) {
     return (
@@ -486,6 +643,22 @@ export default function AdminDashboard() {
               {metadata.notes?.total_notes && (
                 <span className="bg-slate-700 text-slate-300 px-2 py-1 rounded-full text-xs">
                   {metadata.notes.total_notes}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleTabChange('test')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+                activeTab === 'test'
+                  ? 'border-blue-500 text-blue-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-300'
+              }`}
+            >
+              <AlertTriangle className="w-5 h-5" />
+              Test Experiments
+              {metadata.test?.total_feedback && (
+                <span className="bg-slate-700 text-slate-300 px-2 py-1 rounded-full text-xs">
+                  {metadata.test.total_feedback}
                 </span>
               )}
             </button>
@@ -914,6 +1087,185 @@ export default function AdminDashboard() {
             {notesData.length === 0 && !isLoading && (
               <div className="bg-slate-800 rounded-lg p-12 border border-slate-700 text-center">
                 <p className="text-slate-400">No notes found with current filters.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Test Tab */}
+        {activeTab === 'test' && !isLoading && (
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            {metadata.test && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                  <div className="text-2xl font-bold text-slate-100">{metadata.test.total}</div>
+                  <div className="text-slate-400 text-sm">Negative Feedback</div>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                  <div className="text-2xl font-bold text-slate-100">{experimentResults.size}</div>
+                  <div className="text-slate-400 text-sm">Experiments Run</div>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                  <div className="text-2xl font-bold text-slate-100">{runningExperiments.size}</div>
+                  <div className="text-slate-400 text-sm">Running Now</div>
+                </div>
+              </div>
+            )}
+
+            {/* Test Query Cards */}
+            <div className="space-y-4">
+              {testData.map((query) => {
+                const isExpanded = expandedQueries.has(query.id);
+                const isRunning = runningExperiments.has(query.id);
+                const experimentResult = experimentResults.get(query.id);
+
+                return (
+                  <div key={query.id} className="bg-slate-800 rounded-lg border border-slate-700">
+                    {/* Collapsed View */}
+                    <div 
+                      className="p-6 cursor-pointer hover:bg-slate-750 transition-colors"
+                      onClick={() => handleQueryExpand(query.id)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            {isExpanded ? 
+                              <ChevronDown className="w-5 h-5 text-slate-400" /> : 
+                              <ChevronRight className="w-5 h-5 text-slate-400" />
+                            }
+                            <span className="text-slate-100 font-medium">
+                              {query.team_name} → {query.account_name} → {query.portfolio_name}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {new Date(query.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          
+                          <div className="ml-8">
+                            <div className="text-slate-300 mb-2">
+                              <strong>Query:</strong> {query.original_query ? (query.original_query.substring(0, 150) + (query.original_query.length > 150 ? '...' : '')) : 'No query available'}
+                            </div>
+                            <div className="text-slate-300">
+                              <strong>Response:</strong> {query.ai_response ? (query.ai_response.substring(0, 150) + (query.ai_response.length > 150 ? '...' : '')) : 'No response available'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="ml-4 text-right">
+                          {experimentResult && !experimentResult.metadata?.error && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 mb-2">
+                              {experimentResult.metadata?.cached ? '📋 Cached' : '🆕 Fresh'}
+                            </span>
+                          )}
+                          {experimentResult?.metadata?.error && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 mb-2">
+                              ❌ Failed
+                            </span>
+                          )}
+                          {isRunning && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              ⏳ Running...
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded View */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-700 p-6">
+                        <div className="space-y-6">
+                          {/* Full Query and Response */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <h4 className="text-slate-100 font-medium mb-3">Full Query</h4>
+                              <div className="bg-slate-700 rounded p-4 text-slate-200 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
+                                {query.original_query || 'No query available'}
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="text-slate-100 font-medium mb-3">AI Response</h4>
+                              <div className="bg-slate-700 rounded p-4 text-slate-200 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
+                                {query.ai_response || 'No response available'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* User Feedback */}
+                          <div>
+                            <h4 className="text-slate-100 font-medium mb-3">User Feedback</h4>
+                            <div className="bg-red-900/30 border border-red-700 rounded p-4 text-red-100">
+                              {query.feedback_text || 'No feedback text available'}
+                            </div>
+                          </div>
+
+                          {/* Experiment Controls */}
+                          <div className="flex items-center gap-4">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRunExperiment(query, false);
+                              }}
+                              disabled={isRunning || !query.assistant_id || !query.original_query}
+                              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-2 rounded font-medium transition-colors flex items-center gap-2"
+                            >
+                              <Play className="w-4 h-4" />
+                              {isRunning ? 'Running...' : 'Run Chunks Experiment'}
+                            </button>
+                            
+                            {experimentResult && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRunExperiment(query, true);
+                                }}
+                                disabled={isRunning}
+                                className="bg-orange-600 hover:bg-orange-700 disabled:bg-orange-800 text-white px-4 py-2 rounded font-medium transition-colors"
+                              >
+                                Force Refresh
+                              </button>
+                            )}
+                            
+                            {(!query.assistant_id || !query.original_query) && (
+                              <span className="text-red-400 text-sm">
+                                {!query.assistant_id && 'No assistant_id available'}
+                                {!query.assistant_id && !query.original_query && ' • '}
+                                {!query.original_query && 'No query text available'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Experiment Results */}
+                          {experimentResult && (
+                            <div>
+                              <h4 className="text-slate-100 font-medium mb-3">Experiment Results</h4>
+                              <div className="bg-slate-900 rounded-lg p-4 border border-slate-600 max-h-96 overflow-y-auto prose prose-invert prose-sm max-w-none">
+                                <ReactMarkdown>
+                                  {experimentResult.result}
+                                </ReactMarkdown>
+                              </div>
+                              
+                              {experimentResult.metadata && (
+                                <div className="mt-3 text-xs text-slate-400">
+                                  Processed in {experimentResult.metadata.processingTime}ms • 
+                                  {experimentResult.metadata.chunkCount} chunks retrieved • 
+                                  {experimentResult.metadata.cached ? 'From cache' : 'Fresh run'}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {testData.length === 0 && !isLoading && (
+              <div className="bg-slate-800 rounded-lg p-12 border border-slate-700 text-center">
+                <p className="text-slate-400">No negative feedback found with current filters.</p>
               </div>
             )}
           </div>

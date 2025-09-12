@@ -42,8 +42,9 @@ export async function GET(request: NextRequest) {
     const teamFilter = searchParams.get('team');
     const accountFilter = searchParams.get('account');
     const portfolioFilter = searchParams.get('portfolio');
+    const format = searchParams.get('format'); // 'display' | 'experiment'
 
-    console.log('🔄 Loading feedback analytics...');
+    console.log('🔄 Loading feedback analytics...', { format });
 
     // Step 1: Get message ratings with feedback text
     let ratingsQuery = serviceClient
@@ -62,6 +63,11 @@ export async function GET(request: NextRequest) {
       `)
       .not('feedback_text', 'is', null)
       .neq('feedback_text', '');
+
+    // For experiment format, only get negative feedback
+    if (format === 'experiment') {
+      ratingsQuery = ratingsQuery.eq('rating', -1);
+    }
 
     // Apply filters
     if (teamFilter) ratingsQuery = ratingsQuery.eq('team_id', teamFilter);
@@ -85,14 +91,14 @@ export async function GET(request: NextRequest) {
     // Step 2: Get chat history and lookup data
     const threadIds = [...new Set(ratings.map(r => r.thread_id))];
     
-    // Get chat history (only has team_id foreign key)
+    // Get chat history - include assistant_id for experiment format
+    const chatHistorySelect = format === 'experiment' 
+      ? `thread_id, title, team_id, assistant_id`
+      : `thread_id, title, team_id`;
+      
     const { data: chatHistory, error: chatError } = await serviceClient
       .from('chat_history')
-      .select(`
-        thread_id,
-        title,
-        team_id
-      `)
+      .select(chatHistorySelect)
       .in('thread_id', threadIds);
 
     if (chatError) {
@@ -112,13 +118,13 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Create lookup maps
-    const chatLookup = new Map();
+    const chatLookup = new Map<string, any>();
     const teamLookup = new Map();
     const accountLookup = new Map();
     const portfolioLookup = new Map();
 
     if (chatHistory) {
-      chatHistory.forEach(chat => {
+      chatHistory.forEach((chat: any) => {
         chatLookup.set(chat.thread_id, chat);
       });
     }
@@ -185,8 +191,8 @@ export async function GET(request: NextRequest) {
           // Keep default fallback values
         }
 
-        // Build result object
-        const result = {
+        // Build result object - format based on request type
+        const baseResult = {
           id: rating.id,
           thread_id: rating.thread_id,
           message_id: rating.message_id,
@@ -201,6 +207,11 @@ export async function GET(request: NextRequest) {
           chat_title: chatContext?.title || 'Untitled Chat'
         };
 
+        // Add assistant_id for experiment format
+        const result = format === 'experiment' 
+          ? { ...baseResult, assistant_id: chatContext?.assistant_id || null }
+          : baseResult;
+
         results.push(result);
         console.log(`✅ Successfully processed feedback: ${rating.id}`);
         
@@ -209,7 +220,7 @@ export async function GET(request: NextRequest) {
         
         // Even if processing fails, include the feedback with minimal info
         const chatContext = chatLookup.get(rating.thread_id);
-        results.push({
+        const errorResult = {
           id: rating.id,
           thread_id: rating.thread_id,
           message_id: rating.message_id,
@@ -222,7 +233,14 @@ export async function GET(request: NextRequest) {
           account_name: accountLookup.get(rating.account_id) || 'Unknown Account',
           portfolio_name: portfolioLookup.get(rating.portfolio_id) || 'Unknown Portfolio', 
           chat_title: chatContext?.title || 'Untitled Chat'
-        });
+        };
+
+        // Add assistant_id for experiment format
+        if (format === 'experiment') {
+          (errorResult as any).assistant_id = chatContext?.assistant_id || null;
+        }
+
+        results.push(errorResult);
       }
     }
 
