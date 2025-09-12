@@ -6,6 +6,13 @@ export interface StorageCleanupResult {
   errors: string[];
 }
 
+export interface TeamStorageCleanupResult {
+  success: boolean;
+  documentsDeleted: number;
+  imagesDeleted: number;
+  errors: string[];
+}
+
 export class StorageCleanupService {
   private supabase: any;
 
@@ -165,6 +172,73 @@ export class StorageCleanupService {
       console.error('💥 CRITICAL ERROR DURING STORAGE CLEANUP:', error);
       result.success = false;
       result.errors.push(`Critical storage cleanup error: ${error.message}`);
+      return result;
+    }
+  }
+
+  /**
+   * CLEAN UP STORAGE FILES FOR AN ENTIRE TEAM
+   */
+  async cleanupTeamStorage(teamData: any): Promise<TeamStorageCleanupResult> {
+    const result: TeamStorageCleanupResult = {
+      success: true,
+      documentsDeleted: 0,
+      imagesDeleted: 0,
+      errors: []
+    };
+
+    try {
+      console.log(`🗂️ STARTING TEAM STORAGE CLEANUP`);
+
+      const documents = teamData.documents || [];
+      
+      if (documents.length === 0) {
+        console.log('📁 NO DOCUMENTS FOUND FOR TEAM STORAGE CLEANUP');
+        return result;
+      }
+
+      console.log(`📁 FOUND ${documents.length} DOCUMENTS TO DELETE FROM STORAGE`);
+
+      // DELETE EACH FILE FROM STORAGE
+      for (const document of documents) {
+        try {
+          const filePath = document.file_path;
+          
+          if (!filePath) {
+            result.errors.push(`Document ${document.original_name} has no file path`);
+            continue;
+          }
+
+          // DELETE FROM STORAGE
+          const { error: deleteError } = await this.supabase.storage
+            .from('team-documents')
+            .remove([filePath]);
+
+          if (deleteError) {
+            result.errors.push(`Failed to delete ${document.original_name}: ${deleteError.message}`);
+            console.error(`❌ STORAGE DELETE ERROR for ${document.original_name}:`, deleteError);
+          } else {
+            result.documentsDeleted++;
+            console.log(`✅ DELETED STORAGE FILE: ${document.original_name}`);
+          }
+
+        } catch (error: any) {
+          result.errors.push(`Error deleting ${document.original_name}: ${error.message}`);
+          console.error(`❌ ERROR DELETING STORAGE FILE ${document.original_name}:`, error);
+        }
+      }
+
+      // DETERMINE OVERALL SUCCESS
+      result.success = result.errors.length === 0;
+
+      console.log(`🗂️ TEAM STORAGE CLEANUP COMPLETED: ${result.documentsDeleted} documents deleted, ${result.errors.length} errors`);
+
+      return result;
+
+    } catch (error: any) {
+      console.error('💥 CRITICAL ERROR DURING TEAM STORAGE CLEANUP:', error);
+      result.success = false;
+      result.errors.push(`Critical team storage cleanup error: ${error.message}`);
       return result;
     }
   }

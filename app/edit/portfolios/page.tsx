@@ -294,7 +294,7 @@ function EditPortfoliosContent() {
           try {
             // SHOW LOADING STATE
             setIsSubmitting(true);
-            setDeletingPortfolioId(portfolio.id);
+            setDeletingPortfolioId(portfolio.id || null);
             setError(null);
 
             // DELETE VIA API ROUTE
