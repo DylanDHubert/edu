@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { ProcessingDocumentItem } from './ProcessingDocumentItem';
+import { PortfolioProcessingSummary } from './PortfolioProcessingSummary';
+import { usePortfolioDocumentStatus } from '../hooks/usePortfolioDocumentStatus';
 import { createClient } from '../utils/supabase/client';
 
 interface ProcessingDocument {

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // AUTHENTICATE USER AND VERIFY TEAM ACCESS
     const { user, membership, serviceClient } = await authenticateWithTeamAccess(teamId);
 
-    // CHECK PROCESSING STATUS
+    // CHECK PROCESSING STATUS USING JOB QUEUE (GROUND TRUTH)
     const jobQueueService = new JobQueueService();
     const status = await jobQueueService.isPortfolioProcessingComplete(teamId, portfolioId);
 

@@ -232,48 +232,67 @@ export class DocumentProcessingService {
   }
 
   /**
-   * GET PROCESSING STATUS
+   * GET PROCESSING STATUS FROM JOB QUEUE (GROUND TRUTH)
    */
   async getProcessingStatus(documentId: string): Promise<ProcessingJob | null> {
     try {
-      const { data: document, error } = await this.serviceClient
-        .from('team_documents')
+      // GET PROCESSING JOB FOR THIS DOCUMENT
+      const { data: job, error } = await this.serviceClient
+        .from('processing_jobs')
         .select('*')
-        .eq('id', documentId)
+        .eq('document_id', documentId)
         .single();
 
-      if (error || !document) {
-        return null;
+      if (error || !job) {
+        // NO JOB EXISTS - CHECK IF DOCUMENT EXISTS AND IS COMPLETED
+        const { data: document, error: docError } = await this.serviceClient
+          .from('team_documents')
+          .select('*')
+          .eq('id', documentId)
+          .single();
+
+        if (docError || !document) {
+          return null;
+        }
+
+        // IF DOCUMENT HAS OPENAI FILE ID, IT'S COMPLETED (LEGACY)
+        if (document.openai_file_id && document.openai_file_id.startsWith('file-')) {
+          return {
+            id: documentId,
+            teamId: document.team_id,
+            portfolioId: document.portfolio_id,
+            documentId: document.id,
+            status: 'completed',
+            progress: 100,
+            createdAt: document.created_at,
+            updatedAt: document.updated_at,
+          };
+        }
+
+        // NO JOB AND NO COMPLETED STATUS = PENDING
+        return {
+          id: documentId,
+          teamId: document.team_id,
+          portfolioId: document.portfolio_id,
+          documentId: document.id,
+          status: 'pending',
+          progress: 0,
+          createdAt: document.created_at,
+          updatedAt: document.updated_at,
+        };
       }
 
-      // MAP OPENAI_FILE_ID TO PROCESSING STATUS
-      let status: ProcessingJob['status'];
-      let progress = 0;
-
-      if (!document.openai_file_id) {
-        status = 'pending';
-        progress = 0;
-      } else if (document.openai_file_id === 'processing') {
-        status = 'processing';
-        progress = 50; // ESTIMATED PROGRESS
-      } else if (document.openai_file_id === 'failed') {
-        status = 'failed';
-        progress = 0;
-      } else {
-        status = 'completed';
-        progress = 100;
-      }
-
+      // RETURN JOB STATUS (GROUND TRUTH)
       return {
-        id: documentId,
-        teamId: document.team_id,
-        portfolioId: document.portfolio_id,
-        documentId: document.id,
-        status,
-        progress,
-        error: status === 'failed' ? 'Processing failed' : undefined,
-        createdAt: document.created_at,
-        updatedAt: document.updated_at,
+        id: job.id,
+        teamId: job.team_id,
+        portfolioId: job.portfolio_id,
+        documentId: job.document_id,
+        status: job.status,
+        progress: job.progress,
+        error: job.error,
+        createdAt: job.created_at,
+        updatedAt: job.updated_at,
       };
     } catch (error) {
       console.error('ERROR GETTING PROCESSING STATUS:', error);

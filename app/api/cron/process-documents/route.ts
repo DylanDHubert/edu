@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
           
           console.log(`MARKDOWN UPLOADED TO OPENAI: ${openaiFile.id}`);
           
-          // UPDATE DOCUMENT WITH OPENAI FILE ID
+          // ATOMIC UPDATE: MARK JOB AS COMPLETED AND UPDATE DOCUMENT
           const { error: updateError } = await serviceClient
             .from('team_documents')
             .update({ 
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
             throw new Error(`Failed to update document: ${updateError.message}`);
           }
           
-          // MARK JOB AS COMPLETED
+          // MARK JOB AS COMPLETED (AFTER DOCUMENT UPDATE SUCCESS)
           await jobQueueService.markJobCompleted(job.id);
           console.log(`JOB COMPLETED: ${job.id} -> ${openaiFile.id}`);
           successCount++;

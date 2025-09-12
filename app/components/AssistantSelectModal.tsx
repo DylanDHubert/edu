@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { BrainCog, X } from "lucide-react";
 import CustomRadioButton from "./CustomRadioButton";
+import { PortfolioProcessingSummary } from "./PortfolioProcessingSummary";
 
 interface Portfolio {
   id: string;
@@ -98,16 +99,7 @@ export default function AssistantSelectModal({
     }
   }, [selectedPortfolio, currentAssistant?.teamId]);
 
-  // POLL PROCESSING STATUS EVERY 5 SECONDS IF NOT COMPLETE
-  useEffect(() => {
-    if (!processingStatus?.isComplete && selectedPortfolio && currentAssistant?.teamId) {
-      const interval = setInterval(() => {
-        checkProcessingStatus();
-      }, 5000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [processingStatus?.isComplete, selectedPortfolio, currentAssistant?.teamId]);
+  // NO POLLING - ONLY CHECK ON PORTFOLIO CHANGE
 
   const loadTeamData = async () => {
     if (!currentAssistant?.teamId) return;
@@ -438,6 +430,24 @@ export default function AssistantSelectModal({
                 <div className="bg-red-900/50 border border-red-700 rounded-md p-4">
                   <p className="text-red-400 text-sm">{error}</p>
                 </div>
+              )}
+
+              {/* Processing Summary */}
+              {selectedPortfolio && currentAssistant?.teamId && processingStatus && (
+                <PortfolioProcessingSummary
+                  teamId={currentAssistant.teamId}
+                  portfolioId={selectedPortfolio}
+                  summary={{
+                    total: processingStatus.totalJobs,
+                    completed: processingStatus.completedJobs,
+                    pending: processingStatus.pendingJobs,
+                    processing: processingStatus.processingJobs,
+                    failed: processingStatus.failedJobs,
+                    isComplete: processingStatus.isComplete
+                  }}
+                  onRefresh={checkProcessingStatus}
+                  className="mb-4"
+                />
               )}
 
               {/* SWITCH ASSISTANT BUTTON */}

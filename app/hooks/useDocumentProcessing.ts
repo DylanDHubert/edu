@@ -77,24 +77,13 @@ export function useDocumentProcessing(documentId: string) {
     }
   }, [documentId, fetchStatus]);
 
-  // POLL FOR STATUS UPDATES
+  // FETCH STATUS ON MOUNT ONLY (NO POLLING)
   useEffect(() => {
     if (!documentId) return;
 
     // FETCH INITIAL STATUS
     fetchStatus();
-
-    // SET UP POLLING INTERVAL
-    const interval = setInterval(() => {
-      // ONLY POLL IF STILL PROCESSING
-      if (status === 'pending' || status === 'processing') {
-        fetchStatus();
-      }
-    }, 2000); // POLL EVERY 2 SECONDS
-
-    // CLEANUP INTERVAL
-    return () => clearInterval(interval);
-  }, [documentId, status, fetchStatus]);
+  }, [documentId, fetchStatus]);
 
   return {
     status,

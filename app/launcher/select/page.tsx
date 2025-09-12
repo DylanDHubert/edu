@@ -8,6 +8,7 @@ import { BrainCog, FileText } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
 import CustomRadioButton from "../../components/CustomRadioButton";
 import LoadingScreen from "../../components/LoadingScreen";
+import { PortfolioProcessingSummary } from "../../components/PortfolioProcessingSummary";
 
 interface Portfolio {
   id: string;
@@ -73,16 +74,7 @@ function AccountPortfolioSelectContent() {
     }
   }, [selectedPortfolio, teamId]);
 
-  // POLL PROCESSING STATUS EVERY 5 SECONDS IF NOT COMPLETE
-  useEffect(() => {
-    if (!processingStatus?.isComplete && selectedPortfolio && teamId) {
-      const interval = setInterval(() => {
-        checkProcessingStatus();
-      }, 5000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [processingStatus?.isComplete, selectedPortfolio, teamId]);
+  // NO POLLING - ONLY CHECK ON PORTFOLIO CHANGE
 
   const loadTeamData = async () => {
     try {
@@ -422,6 +414,24 @@ function AccountPortfolioSelectContent() {
             </div>
           )}
 
+          {/* Processing Summary */}
+          {selectedPortfolio && teamId && processingStatus && (
+            <PortfolioProcessingSummary
+              teamId={teamId}
+              portfolioId={selectedPortfolio}
+              summary={{
+                total: processingStatus.totalJobs,
+                completed: processingStatus.completedJobs,
+                pending: processingStatus.pendingJobs,
+                processing: processingStatus.processingJobs,
+                failed: processingStatus.failedJobs,
+                isComplete: processingStatus.isComplete
+              }}
+              onRefresh={checkProcessingStatus}
+              className="mb-4"
+            />
+          )}
+
           {/* Start Chat Button */}
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
             {processingStatus && !processingStatus.isComplete && processingStatus.totalJobs > 0 ? (
@@ -450,7 +460,7 @@ function AccountPortfolioSelectContent() {
               >
                 <BrainCog className="w-5 h-5 flex-shrink-0" />
                 <span className="flex-1 text-center">
-                  {creatingAssistant ? 'Creating Assistant...' : 'Start Chat'}
+                  {creatingAssistant ? 'Updating Assistant Knowledge...' : 'Start Chat'}
                 </span>
               </button>
             )}

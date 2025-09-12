@@ -10,6 +10,8 @@ import { Save, ChevronDown, ChevronRight } from "lucide-react";
 import { uploadFilesToSupabase, processUploadedFiles } from "../../utils/file-upload";
 import LoadingScreen from "../../components/LoadingScreen";
 import { ProcessingDocumentsSection } from "../../components/ProcessingDocumentsSection";
+import { PortfolioProcessingSummary } from "../../components/PortfolioProcessingSummary";
+import { DocumentStatusIndicator } from "../../components/DocumentStatusIndicator";
 
 interface Portfolio {
   id?: string;
@@ -48,6 +50,9 @@ function EditPortfoliosContent() {
     onConfirm: () => {},
     variant: 'danger'
   });
+
+  // Add portfolio status state
+  const [portfolioStatuses, setPortfolioStatuses] = useState<Record<string, any>>({});
   // Add state for dismissed warnings
   const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set());
 
@@ -60,6 +65,54 @@ function EditPortfoliosContent() {
       loadExistingData();
     }
   }, [user, loading, teamId, router]);
+
+  // FETCH STATUS FOR ALL PORTFOLIOS WHEN PORTFOLIOS ARE LOADED
+  const fetchPortfolioStatus = async (portfolioId: string) => {
+    try {
+      const response = await fetch(
+        `/api/teams/portfolios/${portfolioId}/documents/status?teamId=${teamId}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch document status');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPortfolioStatuses(prev => ({
+          ...prev,
+          [portfolioId]: {
+            documents: data.documents,
+            summary: data.summary
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('ERROR FETCHING PORTFOLIO STATUS:', error);
+    }
+  };
+
+  // REFRESH ALL PORTFOLIO STATUSES
+  const refreshAllPortfolioStatuses = async () => {
+    if (portfolios.length > 0 && teamId) {
+      await Promise.all(
+        portfolios
+          .filter(portfolio => portfolio.id)
+          .map(portfolio => fetchPortfolioStatus(portfolio.id!))
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (portfolios.length > 0 && teamId) {
+      portfolios.forEach(portfolio => {
+        if (portfolio.id) {
+          fetchPortfolioStatus(portfolio.id);
+        }
+      });
+    }
+  }, [portfolios, teamId]);
 
   const loadExistingData = async () => {
     try {
@@ -599,6 +652,10 @@ function EditPortfoliosContent() {
                   onDocumentCompleted={(documentId) => {
                     // RELOAD DATA WHEN DOCUMENT COMPLETES PROCESSING
                     loadExistingData();
+                    // REFRESH PORTFOLIO STATUS
+                    if (portfolio.id) {
+                      fetchPortfolioStatus(portfolio.id);
+                    }
                   }}
                 />
               )}
@@ -625,21 +682,59 @@ function EditPortfoliosContent() {
                   
                   {/* Collapsible Documents List */}
                   {expandedPortfolios.has(portfolio.id || `new-${index}`) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 transition-all duration-200 ease-in-out">
-                      {portfolio.existingDocuments.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-md">
-                          <div className="flex flex-col">
-                            <span className="text-slate-300 text-sm">{doc.original_name}</span>
-                            <span className="text-slate-500 text-xs">{formatFileSize(doc.file_size)}</span>
-                          </div>
-                          <button
-                            onClick={() => removeExistingDocument(index, doc.id)}
-                            className="text-red-400 hover:text-red-300 text-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ))}
+                    <div className="space-y-4 transition-all duration-200 ease-in-out">
+                      {/* Portfolio Processing Summary */}
+                      {portfolio.id && teamId && portfolioStatuses[portfolio.id] && (
+                        <PortfolioProcessingSummary
+                          teamId={teamId}
+                          portfolioId={portfolio.id}
+                          summary={portfolioStatuses[portfolio.id].summary || {
+                            total: 0,
+                            completed: 0,
+                            pending: 0,
+                            processing: 0,
+                            failed: 0,
+                            isComplete: true
+                          }}
+                          onRefresh={() => fetchPortfolioStatus(portfolio.id!)}
+                          className="mb-4"
+                        />
+                      )}
+
+                      {/* Documents Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {portfolio.existingDocuments.map((doc) => {
+                          const documentStatus = portfolio.id ? portfolioStatuses[portfolio.id]?.documents?.find(
+                            (d: any) => d.id === doc.id
+                          ) : null;
+                          
+                          return (
+                            <div key={doc.id} className="flex items-center p-3 bg-slate-700 rounded-md">
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-slate-300 text-sm truncate">{doc.original_name}</span>
+                                <span className="text-slate-500 text-xs">{formatFileSize(doc.file_size)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                                {documentStatus && portfolio.id && (
+                                  <DocumentStatusIndicator
+                                    documentId={doc.id}
+                                    status={documentStatus.status}
+                                    progress={documentStatus.progress}
+                                    error={documentStatus.error}
+                                    onRefresh={() => fetchPortfolioStatus(portfolio.id!)}
+                                  />
+                                )}
+                                <button
+                                  onClick={() => removeExistingDocument(index, doc.id)}
+                                  className="text-red-400 hover:text-red-300 text-sm"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

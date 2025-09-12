@@ -63,10 +63,13 @@ export class JobQueueService {
   }
 
   /**
-   * GET ALL PENDING JOBS
+   * GET ALL PENDING JOBS AND CHECK FOR STUCK JOBS
    */
   async getPendingJobs(): Promise<ProcessingJob[]> {
     try {
+      // FIRST, CHECK FOR STUCK JOBS (PROCESSING FOR >3 HOURS)
+      await this.checkForStuckJobs();
+
       const { data, error } = await this.serviceClient
         .from('processing_jobs')
         .select(`
@@ -88,6 +91,42 @@ export class JobQueueService {
     } catch (error) {
       console.error('ERROR FETCHING PENDING JOBS:', error);
       return [];
+    }
+  }
+
+  /**
+   * CHECK FOR STUCK JOBS AND MARK THEM AS FAILED
+   */
+  private async checkForStuckJobs(): Promise<void> {
+    try {
+      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+      
+      const { data: stuckJobs, error } = await this.serviceClient
+        .from('processing_jobs')
+        .select('*')
+        .eq('status', 'processing')
+        .lt('updated_at', threeHoursAgo);
+
+      if (error) {
+        console.error('ERROR CHECKING FOR STUCK JOBS:', error);
+        return;
+      }
+
+      if (stuckJobs && stuckJobs.length > 0) {
+        console.log(`FOUND ${stuckJobs.length} STUCK JOBS, MARKING AS FAILED`);
+        
+        for (const job of stuckJobs) {
+          await this.updateJobStatus(
+            job.id,
+            'failed',
+            0,
+            'Job stuck in processing for over 3 hours',
+            'Job timeout - processing took too long'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('ERROR IN CHECK FOR STUCK JOBS:', error);
     }
   }
 
