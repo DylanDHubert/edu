@@ -1,14 +1,8 @@
 import OpenAI from 'openai';
 
-// Initialize OpenAI client
+// Initialize OpenAI client (same as working chat system)
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Specific project client for historical threads
-const projectClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  project: 'proj_lNxW2HsF47ntT5fS2ESTf1tW'
 });
 
 interface FileSearchResult {
@@ -90,81 +84,60 @@ export class ChunksExperimentService {
 
       // Step 3: Create and run the assistant with file search results included
       console.log('\n🤖 Running assistant...');
-      let run;
-      let activeClient = client; // Track which client worked
-      
-      try {
-        // Try default client first
-        console.log('🔍 Trying default project for assistant:', this.assistantId);
-        run = await client.beta.threads.runs.createAndPoll(thread.id, {
-          assistant_id: this.assistantId,
-        });
-        console.log('✅ Found assistant in default project');
-        activeClient = client;
-      } catch (error: any) {
-        if (error.status === 404) {
-          console.log('Assistant not found in default project, trying specific project...');
-          
-          // Try specific project client
-          try {
-            run = await projectClient.beta.threads.runs.createAndPoll(thread.id, {
-              assistant_id: this.assistantId,
-            });
-            console.log('✅ Found assistant in specific project');
-            activeClient = projectClient;
-          } catch (projectError: any) {
-            if (projectError.status === 404) {
-              throw new Error(`Assistant ${this.assistantId} not found in either default or specific project`);
-            }
-            throw projectError;
-          }
-        } else {
-          throw error;
-        }
-      }
+      console.log('🔍 Using OpenAI client for assistant:', this.assistantId);
+      const run = await client.beta.threads.runs.createAndPoll(thread.id, {
+        assistant_id: this.assistantId,
+      });
+      console.log('✅ Assistant run created successfully');
 
       // Step 4: Retrieve the run with detailed file search results
       console.log('\n🔍 Retrieving detailed run results...');
       
       let detailedRun: DetailedRun;
       
+      // Retrieve the run details
       try {
-        // First try the documented include parameter
-        detailedRun = await activeClient.beta.threads.runs.retrieve(
-          thread.id, 
-          run.id, 
-          {
-            include: ['step_details.tool_calls[*].file_search.results[*].content']
-          }
-        ) as DetailedRun;
-        console.log('✅ Retrieved with include parameter');
-      } catch (error) {
-        console.log('⚠️  Include parameter failed, trying without...');
-        detailedRun = await activeClient.beta.threads.runs.retrieve(thread.id, run.id) as DetailedRun;
+        // Try with include parameter (might work despite TypeScript warning)
+        detailedRun = await client.beta.threads.runs.retrieve(thread.id, run.id, {
+          include: ['step_details.tool_calls[*].file_search.results[*].content']
+        } as any) as DetailedRun;
+        console.log('✅ Retrieved run with include parameter');
+      } catch (includeError) {
+        console.log('⚠️ Run include parameter failed, trying without...');
+        detailedRun = await client.beta.threads.runs.retrieve(thread.id, run.id) as DetailedRun;
       }
 
       // Also try to get run steps separately
       console.log('\n🔍 Retrieving run steps...');
-      const runSteps = await activeClient.beta.threads.runs.steps.list(thread.id, run.id, {
-        include: ['step_details.tool_calls[*].file_search.results[*].content']
-      });
+      let runSteps;
+      try {
+        // Try with include parameter (might work despite TypeScript warning)
+        runSteps = await client.beta.threads.runs.steps.list(thread.id, run.id, {
+          include: ['step_details.tool_calls[*].file_search.results[*].content']
+        } as any);
+        console.log('✅ Retrieved run steps with include parameter');
+      } catch (includeError) {
+        console.log('⚠️ Include parameter failed, trying without...');
+        // Fallback to basic call
+        runSteps = await client.beta.threads.runs.steps.list(thread.id, run.id);
+      }
       
       console.log(`Found ${runSteps.data.length} run steps`);
 
       // Step 5: Get the assistant's response
       console.log('\n📨 Getting assistant response...');
-      const messages = await activeClient.beta.threads.messages.list(thread.id);
+      const messages = await client.beta.threads.messages.list(thread.id);
       const assistantMessage = messages.data.find(msg => msg.role === 'assistant');
 
       // Step 6: Process and format the results
       console.log('\n📊 Processing results...');
-      const markdownResult = await this.processResults(detailedRun, runSteps, assistantMessage, thread.id, activeClient);
+      const markdownResult = await this.processResults(detailedRun, runSteps, assistantMessage, thread.id, client);
 
       const processingTime = Date.now() - startTime;
 
       // Cleanup: Delete the thread
       console.log('\n🧹 Cleaning up thread...');
-      await activeClient.beta.threads.del(thread.id);
+      await client.beta.threads.del(thread.id);
       console.log('Thread deleted.');
 
       console.log('\n✅ Experiment completed successfully!');
@@ -191,7 +164,7 @@ export class ChunksExperimentService {
     }
   }
 
-  private async processResults(detailedRun: DetailedRun, runSteps: any, assistantMessage: any, threadId: string, activeClient: OpenAI): Promise<string> {
+  private async processResults(detailedRun: DetailedRun, runSteps: any, assistantMessage: any, threadId: string, openaiClient: OpenAI): Promise<string> {
     const results: string[] = [];
     
     // Header
@@ -216,7 +189,7 @@ export class ChunksExperimentService {
             const annotation = content.text.annotations[i];
             if (annotation.file_citation) {
               try {
-                const file = await activeClient.files.retrieve(annotation.file_citation.file_id);
+                const file = await openaiClient.files.retrieve(annotation.file_citation.file_id);
                 results.push(`[${i}] ${file.filename}\n`);
               } catch (error) {
                 results.push(`[${i}] File ID: ${annotation.file_citation.file_id} (could not retrieve filename)\n`);
@@ -249,7 +222,7 @@ export class ChunksExperimentService {
                 // File information
                 if (result.file_id) {
                   try {
-                    const file = await activeClient.files.retrieve(result.file_id);
+                    const file = await openaiClient.files.retrieve(result.file_id);
                     results.push(`**File:** ${file.filename}\n`);
                   } catch (error) {
                     results.push(`**File ID:** ${result.file_id} (could not retrieve filename)\n`);
@@ -298,7 +271,7 @@ export class ChunksExperimentService {
                 // File information
                 if (result.file_id) {
                   try {
-                    const file = await activeClient.files.retrieve(result.file_id);
+                    const file = await openaiClient.files.retrieve(result.file_id);
                     results.push(`**File:** ${file.filename}\n`);
                   } catch (error) {
                     results.push(`**File ID:** ${result.file_id} (could not retrieve filename)\n`);
