@@ -239,4 +239,82 @@ export async function sendMessage(threadId: string, message: string, assistantId
 export async function getThreadMessages(threadId: string) {
   const messages = await client.beta.threads.messages.list(threadId);
   return messages.data;
+}
+
+// DELETE OPENAI ASSISTANT
+export async function deleteAssistant(assistantId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`🤖 DELETING OPENAI ASSISTANT: ${assistantId}`);
+    await client.beta.assistants.del(assistantId);
+    console.log(`✅ SUCCESSFULLY DELETED ASSISTANT: ${assistantId}`);
+    return { success: true };
+  } catch (error: any) {
+    // Handle "already deleted" case gracefully
+    if (error.status === 404) {
+      console.log(`⚠️ ASSISTANT ALREADY DELETED: ${assistantId}`);
+      return { success: true };
+    }
+    console.error(`❌ ERROR DELETING ASSISTANT ${assistantId}:`, error);
+    return { success: false, error: error.message || 'Failed to delete assistant' };
+  }
+}
+
+// DELETE OPENAI VECTOR STORE
+export async function deleteVectorStore(vectorStoreId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`🗃️ DELETING OPENAI VECTOR STORE: ${vectorStoreId}`);
+    await (client as any).vectorStores.del(vectorStoreId);
+    console.log(`✅ SUCCESSFULLY DELETED VECTOR STORE: ${vectorStoreId}`);
+    return { success: true };
+  } catch (error: any) {
+    // Handle "already deleted" case gracefully
+    if (error.status === 404) {
+      console.log(`⚠️ VECTOR STORE ALREADY DELETED: ${vectorStoreId}`);
+      return { success: true };
+    }
+    console.error(`❌ ERROR DELETING VECTOR STORE ${vectorStoreId}:`, error);
+    return { success: false, error: error.message || 'Failed to delete vector store' };
+  }
+}
+
+// DELETE MULTIPLE OPENAI RESOURCES WITH ERROR HANDLING
+export async function deleteOpenAIResources(resources: {
+  assistants: string[];
+  vectorStores: string[];
+}): Promise<{ 
+  success: boolean; 
+  deletedAssistants: string[]; 
+  deletedVectorStores: string[]; 
+  errors: string[] 
+}> {
+  const deletedAssistants: string[] = [];
+  const deletedVectorStores: string[] = [];
+  const errors: string[] = [];
+
+  // DELETE ASSISTANTS FIRST (they reference vector stores)
+  for (const assistantId of resources.assistants) {
+    const result = await deleteAssistant(assistantId);
+    if (result.success) {
+      deletedAssistants.push(assistantId);
+    } else {
+      errors.push(`Assistant ${assistantId}: ${result.error}`);
+    }
+  }
+
+  // DELETE VECTOR STORES SECOND
+  for (const vectorStoreId of resources.vectorStores) {
+    const result = await deleteVectorStore(vectorStoreId);
+    if (result.success) {
+      deletedVectorStores.push(vectorStoreId);
+    } else {
+      errors.push(`Vector Store ${vectorStoreId}: ${result.error}`);
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    deletedAssistants,
+    deletedVectorStores,
+    errors
+  };
 } 

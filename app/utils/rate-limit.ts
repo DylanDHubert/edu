@@ -33,7 +33,7 @@ export const RATE_LIMITS = {
   // CHAT ENDPOINTS
   CHAT: {
     windowMs: 1 * 60 * 1000, // 1 MINUTE
-    maxRequests: 10,
+    maxRequests: 100,
     message: 'Too many chat requests. Please slow down.'
   },
   
