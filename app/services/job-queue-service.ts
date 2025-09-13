@@ -105,7 +105,7 @@ export class JobQueueService {
         .from('processing_jobs')
         .select('*')
         .eq('status', 'processing')
-        .lt('updated_at', threeHoursAgo);
+        .lt('started_at', threeHoursAgo);
 
       if (error) {
         console.error('ERROR CHECKING FOR STUCK JOBS:', error);
@@ -144,8 +144,7 @@ export class JobQueueService {
       console.log(`UPDATING JOB ${jobId}: ${status} (${progress}%) - ${currentStep}`);
       
       const updateData: any = {
-        status,
-        last_heartbeat: new Date().toISOString()
+        status
       };
 
       if (progress !== undefined) updateData.progress = progress;

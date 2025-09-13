@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../utils/supabase/server';
+import { createClient, createServiceClient } from '../../../utils/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -14,12 +14,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Use server-side client to bypass RLS
-    const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
+    // Use service client to bypass RLS
+    const serviceClient = createServiceClient();
 
     // Find the team member invitation
-    const { data: invitation, error: inviteError } = await supabase
+    const { data: invitation, error: inviteError } = await serviceClient
       .from('team_member_invitations')
       .select(`
         *,

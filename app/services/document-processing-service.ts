@@ -292,7 +292,7 @@ export class DocumentProcessingService {
         progress: job.progress,
         error: job.error,
         createdAt: job.created_at,
-        updatedAt: job.updated_at,
+        updatedAt: job.completed_at || job.started_at || job.created_at,
       };
     } catch (error) {
       console.error('ERROR GETTING PROCESSING STATUS:', error);

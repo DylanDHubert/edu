@@ -126,8 +126,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // USE SERVICE CLIENT TO BYPASS RLS FOR TEAM DATA
+    const serviceClient = createServiceClient();
+
     // Get pending invitations for this user's email
-    const { data: invitations, error: invitationsError } = await supabase
+    const { data: invitations, error: invitationsError } = await serviceClient
       .from('team_member_invitations')
       .select(`
         *,
@@ -149,6 +152,9 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // DEBUG: LOG THE INVITATIONS DATA TO SEE WHAT'S BEING RETURNED
+    console.log('DEBUG: Fetched invitations:', JSON.stringify(invitations, null, 2));
 
     return NextResponse.json({
       success: true,

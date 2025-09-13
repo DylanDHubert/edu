@@ -191,6 +191,8 @@ export default function HomePage() {
       
       if (response.ok) {
         const { invitations } = await response.json();
+        // DEBUG: LOG THE INVITATIONS DATA TO SEE WHAT'S BEING RECEIVED
+        console.log('DEBUG: Received invitations:', JSON.stringify(invitations, null, 2));
         setPendingInvitations(invitations || []);
       } else {
         console.error('Failed to load pending invitations');
@@ -543,7 +545,7 @@ export default function HomePage() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <h4 className="text-xl font-semibold text-slate-100">
-                      {invitation.teams.name}
+                      {invitation.teams?.name || 'Unknown Team'}
                     </h4>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       invitation.role === 'manager' 
@@ -554,14 +556,14 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  {invitation.teams.location && (
+                  {invitation.teams?.location && (
                     <p className="text-slate-400 mb-2 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
                       {invitation.teams.location}
                     </p>
                   )}
 
-                  {invitation.teams.description && (
+                  {invitation.teams?.description && (
                     <p className="text-slate-300 text-sm mb-4">
                       {invitation.teams.description}
                     </p>

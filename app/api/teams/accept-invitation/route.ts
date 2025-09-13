@@ -25,8 +25,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // USE SERVICE CLIENT TO BYPASS RLS FOR TEAM DATA
+    const serviceClient = createServiceClient();
+
     // Find the invitation
-    const { data: invitation, error: inviteError } = await supabase
+    const { data: invitation, error: inviteError } = await serviceClient
       .from('team_member_invitations')
       .select(`
         *,
@@ -63,9 +66,6 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
-
-    // Create service client for team membership operations - AVOID RLS CIRCULAR REFERENCE
-    const serviceClient = createServiceClient();
 
     // Check if user is already a member of this team - USE SERVICE CLIENT
     const { data: existingMember } = await serviceClient
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update invitation status
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from('team_member_invitations')
       .update({
         status: 'accepted',
