@@ -255,17 +255,31 @@ function EditAccountsContent() {
             setDeletingAccountId(account.id || null);
             setError(null);
 
-            // DELETE FROM DATABASE
-            const { error: deleteError } = await supabase
-              .from('team_accounts')
-              .delete()
-              .eq('id', account.id);
+            // DELETE FROM DATABASE BY UPDATING WITH FILTERED ACCOUNTS
+            const remainingAccounts = accounts.filter((_, i) => i !== index);
+            const accountsForSubmission = remainingAccounts.map(acc => ({
+              id: acc.id,
+              name: acc.name.trim(),
+              description: acc.description?.trim() || '',
+              assignedPortfolios: acc.assignedPortfolios,
+              portfolioData: acc.portfolioData,
+              accessMisc: acc.accessMisc?.trim() || ''
+            }));
 
-            if (deleteError) {
-              console.error('Error deleting account:', deleteError);
-              setError('Failed to delete account');
-              closeConfirmationModal();
-              return;
+            const response = await fetch('/api/teams/accounts/update', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                teamId: teamId!,
+                accounts: accountsForSubmission
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to delete account');
             }
 
             // REMOVE FROM STATE AFTER SUCCESSFUL DELETION

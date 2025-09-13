@@ -103,6 +103,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // First, clean up completely deleted accounts
+    const accountsBeingSaved = new Set();
+    accounts.forEach((account: any) => {
+      if (account.id) {
+        accountsBeingSaved.add(account.id);
+      }
+    });
+
+    // Get all existing accounts for this team
+    const { data: allExistingAccounts } = await serviceClient
+      .from('team_accounts')
+      .select('id')
+      .eq('team_id', teamId);
+
+    if (allExistingAccounts) {
+      for (const existingAccount of allExistingAccounts) {
+        if (!accountsBeingSaved.has(existingAccount.id)) {
+          // This account was completely deleted - clean up all related data
+          console.log('🗑️ DELETING ACCOUNT AND ALL RELATED DATA:', existingAccount.id);
+          
+          // Delete account portfolios
+          await serviceClient
+            .from('account_portfolios')
+            .delete()
+            .eq('account_id', existingAccount.id);
+
+          // Delete all knowledge for this account
+          await serviceClient
+            .from('team_knowledge')
+            .delete()
+            .eq('account_id', existingAccount.id);
+
+          // Delete the account itself
+          await serviceClient
+            .from('team_accounts')
+            .delete()
+            .eq('id', existingAccount.id);
+        }
+      }
+    }
+
     // Update accounts
     const updatedAccounts = [];
 

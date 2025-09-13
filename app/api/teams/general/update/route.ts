@@ -111,30 +111,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clean up orphaned entries only for surgeons being saved (not all surgeons)
+    // Clean up orphaned surgeon entries
+    // Get list of surgeon names being saved in this request
+    const surgeonsBeingSaved = new Set();
     if (generalKnowledge.surgeons && generalKnowledge.surgeons.length > 0) {
-      // Get list of surgeon names being saved in this request
-      const surgeonsBeingSaved = new Set();
       generalKnowledge.surgeons.forEach((surgeon: any) => {
         if (surgeon.name?.trim()) {
           surgeonsBeingSaved.add(surgeon.name.trim());
         }
       });
+    }
 
-      // Only clean up entries for surgeons being saved in this request
-      for (const surgeonName of surgeonsBeingSaved) {
-        // Get all existing entries for this specific surgeon
-        const { data: existingEntries } = await serviceClient
-          .from('team_knowledge')
-          .select('id, metadata')
-          .eq('team_id', teamId)
-          .eq('category', 'surgeon_info')
-          .eq('title', surgeonName)
-          .is('account_id', null)
-          .is('portfolio_id', null);
+    // Get all existing surgeon entries for this team
+    const { data: allExistingSurgeons } = await serviceClient
+      .from('team_knowledge')
+      .select('id, title, metadata')
+      .eq('team_id', teamId)
+      .eq('category', 'surgeon_info')
+      .is('account_id', null)
+      .is('portfolio_id', null);
 
-        if (existingEntries) {
-          // Build list of procedure_focus values that should exist for this surgeon
+    if (allExistingSurgeons) {
+      for (const entry of allExistingSurgeons) {
+        const surgeonName = entry.title;
+        
+        if (!surgeonsBeingSaved.has(surgeonName)) {
+          // This surgeon was completely deleted - remove all entries
+          await serviceClient
+            .from('team_knowledge')
+            .delete()
+            .eq('id', entry.id);
+        } else {
+          // This surgeon still exists - clean up procedure entries
           const shouldExist = new Set();
           generalKnowledge.surgeons.forEach((surgeon: any) => {
             if (surgeon.name?.trim() === surgeonName) {
@@ -143,15 +151,12 @@ export async function POST(request: NextRequest) {
             }
           });
 
-          // Delete entries for this surgeon that shouldn't exist anymore
-          for (const entry of existingEntries) {
-            const procedureFocus = entry.metadata?.procedure_focus || '';
-            if (!shouldExist.has(procedureFocus)) {
-              await serviceClient
-                .from('team_knowledge')
-                .delete()
-                .eq('id', entry.id);
-            }
+          const procedureFocus = entry.metadata?.procedure_focus || '';
+          if (!shouldExist.has(procedureFocus)) {
+            await serviceClient
+              .from('team_knowledge')
+              .delete()
+              .eq('id', entry.id);
           }
         }
       }
