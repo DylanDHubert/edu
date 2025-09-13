@@ -355,10 +355,7 @@ function EditGeneralContent() {
         teamLocation={team.location}
         userRole={userRole}
         isOriginalManager={isOriginalManager}
-        showBackButton={true}
-        onBackClick={handleSubmit}
-        backText={isSubmitting ? 'SAVING...' : 'SAVE'}
-        backButtonDisabled={isSubmitting || !isFormValid() || deletingSurgeonId !== null}
+        backUrl={`/launcher/team?teamId=${teamId}`}
       />
 
       {/* Main Content */}

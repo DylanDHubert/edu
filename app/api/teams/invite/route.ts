@@ -153,8 +153,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // DEBUG: LOG THE INVITATIONS DATA TO SEE WHAT'S BEING RETURNED
-    console.log('DEBUG: Fetched invitations:', JSON.stringify(invitations, null, 2));
 
     return NextResponse.json({
       success: true,

@@ -580,10 +580,7 @@ function EditPortfoliosContent() {
         teamLocation={team.location}
         userRole={userRole}
         isOriginalManager={isOriginalManager}
-        showBackButton={true}
-        onBackClick={handleSubmit}
-        backText={isSubmitting ? 'SAVING...' : 'SAVE'}
-        backButtonDisabled={isSubmitting || !isFormValid() || deletingPortfolioId !== null}
+        backUrl={`/launcher/team?teamId=${teamId}`}
       />
 
       {/* Main Content */}
