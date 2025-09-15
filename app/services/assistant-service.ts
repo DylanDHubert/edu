@@ -26,6 +26,13 @@ export class AssistantService {
   async createDynamicAssistant(params: CreateAssistantRequest): Promise<AssistantResult> {
     try {
       const { teamId, accountId, portfolioId, userId } = params;
+      
+      if (!userId) {
+        return {
+          success: false,
+          error: 'User ID is required for assistant creation'
+        };
+      }
 
       // Get names for context
       const names = await this.contextService.getNames(teamId, portfolioId);
