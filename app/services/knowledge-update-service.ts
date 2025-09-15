@@ -66,7 +66,9 @@ export class KnowledgeUpdateService {
       const updateResult = await this.vectorService.updateKnowledgeFile(
         vectorStoreId,
         mdResult.filename,
-        mdResult.markdown
+        mdResult.markdown,
+        teamId,
+        portfolioId
       );
 
       if (!updateResult.success || !updateResult.fileId) {

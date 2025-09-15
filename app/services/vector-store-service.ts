@@ -100,24 +100,24 @@ export class VectorStoreService {
 
   /**
    * UPDATE KNOWLEDGE MD FILE IN VECTOR STORE
+   * Uses tracking table to find exact file to replace, never touches PDF files
    */
   async updateKnowledgeFile(
     vectorStoreId: string, 
     filename: string, 
-    markdownContent: string
+    markdownContent: string,
+    teamId: string,
+    portfolioId: string
   ): Promise<{ success: boolean; fileId?: string; error?: string }> {
     try {
-      // Find existing knowledge file by filename pattern
-      const files = await (this.openaiClient as any).vectorStores.files.list(vectorStoreId);
-      const existingFile = files.data.find((file: any) => {
-        // Look for files that match our knowledge filename pattern
-        return filename.includes('knowledge.md');
-      });
-
-      // If we found an existing file, delete it first
-      if (existingFile) {
+      // Get existing knowledge file info from our tracking table
+      const existingInfo = await this.getKnowledgeFileInfo(teamId, portfolioId);
+      
+      // If we have an existing knowledge file tracked, delete it from vector store
+      if (existingInfo && existingInfo.openaiFileId) {
         try {
-          await (this.openaiClient as any).vectorStores.files.del(vectorStoreId, existingFile.id);
+          console.log('🗑️ Deleting existing knowledge file:', existingInfo.filename);
+          await (this.openaiClient as any).vectorStores.files.del(vectorStoreId, existingInfo.openaiFileId);
         } catch (deleteError) {
           console.error('Failed to delete existing knowledge file, continuing with upload:', deleteError);
         }
