@@ -6,6 +6,7 @@ export interface CreateAssistantRequest {
   teamId: string;
   accountId: string;
   portfolioId: string;
+  userId?: string;
 }
 
 export interface CreateAssistantResponse {

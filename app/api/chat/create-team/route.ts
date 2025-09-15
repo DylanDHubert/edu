@@ -1,137 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '../../../utils/supabase/server';
+import { createClient } from '../../../utils/supabase/server';
 import { createThread } from '../../../utils/openai';
 import { cookies } from 'next/headers';
-import OpenAI from 'openai';
-import { createAccountPortfolioKnowledgeText, createGeneralKnowledgeText, filterSurgeonInfoByPortfolio } from '../../../utils/knowledge-generator';
-import { getNotesForTeamContext, formatNotesForContext } from '../../../utils/notes-server';
+import { KnowledgeUpdateService } from '../../../services/knowledge-update-service';
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Function to get team knowledge for context injection
-async function getTeamKnowledgeForContext(
-  supabase: any,
-  teamId: string,
-  accountId: string,
-  portfolioId: string,
-  userId: string
-): Promise<string> {
-  try {
-    // USE SERVICE CLIENT TO BYPASS RLS FOR KNOWLEDGE QUERIES
-    const serviceClient = createServiceClient();
-    
-    // Get team and portfolio names
-    const [teamResult, portfolioResult, accountResult] = await Promise.all([
-      serviceClient.from('teams').select('name').eq('id', teamId).single(),
-      serviceClient.from('team_portfolios').select('name').eq('id', portfolioId).single(),
-      serviceClient.from('team_accounts').select('name').eq('id', accountId).single()
-    ]);
-
-    // Get all knowledge data
-    const [portfolioSpecificKnowledgeResult, accountLevelKnowledgeResult, generalKnowledgeResult] = await Promise.all([
-      // Portfolio-specific knowledge (inventory, instruments, technical) - these have portfolio_id set
-      serviceClient
-        .from('team_knowledge')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('account_id', accountId)
-        .eq('portfolio_id', portfolioId),
-      
-      // Account-level knowledge (access & misc only) - these have portfolio_id = null
-      serviceClient
-        .from('team_knowledge')
-        .select('*')
-        .eq('team_id', teamId)
-        .eq('account_id', accountId)
-        .is('portfolio_id', null),
-      
-      // General team knowledge (surgeon info) - these have both account_id and portfolio_id = null
-      serviceClient
-        .from('team_knowledge')
-        .select('*')
-        .eq('team_id', teamId)
-        .is('portfolio_id', null)
-        .is('account_id', null)
-    ]);
-
-    const allKnowledgeData = [
-      ...(portfolioSpecificKnowledgeResult.data || []), 
-      ...(accountLevelKnowledgeResult.data || []),
-      ...(generalKnowledgeResult.data || [])
-    ];
-
-    // Knowledge data processed
-
-    // Transform knowledge data for text generation
-    const inventory = allKnowledgeData
-      .filter((k: any) => k.category === 'inventory')
-      .map((k: any) => ({ item: k.metadata?.name || k.title || '', quantity: k.metadata?.quantity || 0, notes: '' }));
-
-    const instruments = allKnowledgeData
-      .filter((k: any) => k.category === 'instruments')
-      .map((k: any) => ({
-        name: k.metadata?.name || k.title || '',
-        description: k.metadata?.description || k.content || '',
-        quantity: k.metadata?.quantity ?? null,
-        imageUrl: k.metadata?.image_url || ''
-      }));
-
-    const technical = allKnowledgeData
-      .filter((k: any) => k.category === 'technical')
-      .map((k: any) => ({ title: 'Technical Information', content: k.content || k.metadata?.content || '' }));
-
-    const accessMisc = allKnowledgeData
-      .filter((k: any) => k.category === 'access_misc')
-      .map((k: any) => ({ title: 'Access Information', content: k.content || k.metadata?.content || '' }));
-
-    // Generate account-specific knowledge text
-    let teamKnowledgeText = '';
-    
-    if (inventory.length > 0 || instruments.length > 0 || technical.length > 0 || accessMisc.length > 0) {
-      teamKnowledgeText += createAccountPortfolioKnowledgeText({
-        teamName: teamResult.data?.name || 'Team',
-        accountName: accountResult.data?.name || 'Account',
-        portfolioName: portfolioResult.data?.name || 'Portfolio',
-        knowledge: { inventory, instruments, technical, accessMisc }
-      });
-      teamKnowledgeText += '\n\n';
-    }
-
-    // Generate general team knowledge (surgeon info)
-    const surgeonKnowledgeData = allKnowledgeData.filter((k: any) => k.category === 'surgeon_info');
-    if (surgeonKnowledgeData.length > 0) {
-      const filteredSurgeonInfo = filterSurgeonInfoByPortfolio(surgeonKnowledgeData, portfolioResult.data?.name || '');
-      
-      if (filteredSurgeonInfo.length > 0) {
-        teamKnowledgeText += createGeneralKnowledgeText({
-          teamName: teamResult.data?.name || 'Team',
-          surgeonInfo: filteredSurgeonInfo
-        });
-      }
-    }
-
-    // GET NOTES FOR TEAM CONTEXT
-    const notes = await getNotesForTeamContext(teamId, accountId, portfolioId, userId);
-    const notesContext = formatNotesForContext(notes);
-    
-    // COMBINE TEAM KNOWLEDGE AND NOTES
-    let combinedContext = '';
-    if (teamKnowledgeText.trim()) {
-      combinedContext += `TEAM KNOWLEDGE CONTEXT:\n\n${teamKnowledgeText}\n\n`;
-    }
-    if (notesContext) {
-      combinedContext += notesContext;
-    }
-
-    return combinedContext;
-
-  } catch (error) {
-    console.error('❌ Error generating team knowledge context:', error);
-    return '';
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -172,25 +44,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // CREATE NEW THREAD
-    const thread = await createThread();
-    
-    // INJECT TEAM KNOWLEDGE AS FIRST MESSAGE (HIDDEN FROM USER)
-    const teamKnowledgeContext = await getTeamKnowledgeForContext(supabase, teamId, accountId, portfolioId, user.id);
-    
-    if (teamKnowledgeContext) {
-      // Send team knowledge as a HIDDEN system message
-      // This establishes the context for the entire conversation
-      await client.beta.threads.messages.create(thread.id, {
-        role: 'user',
-        content: teamKnowledgeContext,
-        metadata: {
-          isSystemContext: 'true',
-          hidden: 'true', // HIDDEN FROM USER
-          messageType: 'team_knowledge_context'
-        }
-      });
+    // GET ASSISTANT INFO TO FIND VECTOR STORE ID
+    const { data: assistantData, error: assistantError } = await supabase
+      .from('team_assistants')
+      .select('portfolio_vector_store_id')
+      .eq('assistant_id', assistantId)
+      .single();
+
+    if (assistantError || !assistantData?.portfolio_vector_store_id) {
+      return NextResponse.json(
+        { error: 'Assistant or vector store not found' },
+        { status: 404 }
+      );
     }
+
+    // UPDATE KNOWLEDGE IN VECTOR STORE IF STALE
+    const knowledgeUpdateService = new KnowledgeUpdateService();
+    const updateResult = await knowledgeUpdateService.updateKnowledgeIfStale(
+      teamId,
+      accountId,
+      portfolioId,
+      assistantData.portfolio_vector_store_id,
+      user.id
+    );
+
+    if (!updateResult.success) {
+      console.error('Failed to update knowledge:', updateResult.error);
+      return NextResponse.json(
+        { error: 'Failed to update team knowledge' },
+        { status: 500 }
+      );
+    }
+
+    // CREATE NEW THREAD (NO CONTEXT INJECTION NEEDED - KNOWLEDGE IS IN VECTOR STORE)
+    const thread = await createThread();
     
     // SAVE TO DATABASE - Using team-based schema
     const { data: chatHistory, error: dbError } = await supabase

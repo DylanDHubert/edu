@@ -2,6 +2,7 @@ import { createServiceClient } from '../utils/supabase/server';
 import { OpenAIService } from './openai-service';
 import { ContextGeneratorService } from './context-generator-service';
 import { VectorStoreService } from './vector-store-service';
+import { KnowledgeUpdateService } from './knowledge-update-service';
 import { 
   CreateAssistantRequest, 
   AssistantResult, 
@@ -17,13 +18,14 @@ export class AssistantService {
   private openaiService = new OpenAIService();
   private contextService = new ContextGeneratorService();
   private vectorService = new VectorStoreService();
+  private knowledgeUpdateService = new KnowledgeUpdateService();
 
   /**
    * CREATE DYNAMIC ASSISTANT
    */
   async createDynamicAssistant(params: CreateAssistantRequest): Promise<AssistantResult> {
     try {
-      const { teamId, accountId, portfolioId } = params;
+      const { teamId, accountId, portfolioId, userId } = params;
 
       // Get names for context
       const names = await this.contextService.getNames(teamId, portfolioId);
@@ -42,6 +44,10 @@ export class AssistantService {
         
         if (!isStale) {
           console.log('Using cached assistant:', existingAssistant.assistant_id);
+          
+          // UPDATE KNOWLEDGE MD FILE IN VECTOR STORE IF NEEDED
+          await this.updateKnowledgeIfNeeded(teamId, accountId, portfolioId, existingAssistant.portfolio_vector_store_id, userId);
+          
           return {
             success: true,
             assistantId: existingAssistant.assistant_id
@@ -275,5 +281,38 @@ ${context.knowledgeText}
       .replace('{{TEAM_NAME}}', names.teamName)
       .replace('{{PORTFOLIO_NAME}}', names.portfolioName)
       .replace('{{CONTEXT}}', context);
+  }
+
+  /**
+   * UPDATE KNOWLEDGE MD FILE IF NEEDED
+   */
+  private async updateKnowledgeIfNeeded(
+    teamId: string,
+    accountId: string,
+    portfolioId: string,
+    vectorStoreId: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      const result = await this.knowledgeUpdateService.updateKnowledgeIfStale(
+        teamId,
+        accountId,
+        portfolioId,
+        vectorStoreId,
+        userId
+      );
+      
+      if (result.success && result.wasUpdated) {
+        console.log('Knowledge MD file updated for portfolio:', portfolioId);
+      }
+      
+      if (!result.success) {
+        console.error('Knowledge update failed:', result.error);
+      }
+      
+    } catch (error) {
+      console.error('Error updating knowledge:', error);
+      // Don't fail the assistant creation if knowledge update fails
+    }
   }
 }

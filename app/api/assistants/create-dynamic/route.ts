@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
     const result = await assistantService.createDynamicAssistant({
       teamId,
       accountId,
-      portfolioId
+      portfolioId,
+      userId: user.id
     });
 
     // RETURN RESULT
