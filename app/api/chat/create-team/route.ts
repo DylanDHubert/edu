@@ -45,13 +45,17 @@ export async function POST(request: NextRequest) {
     }
 
     // GET ASSISTANT INFO TO FIND VECTOR STORE ID
+    console.log('🔍 Looking for assistant:', assistantId);
     const { data: assistantData, error: assistantError } = await supabase
       .from('team_assistants')
       .select('portfolio_vector_store_id')
       .eq('assistant_id', assistantId)
       .single();
 
+    console.log('📋 Assistant query result:', { assistantData, assistantError });
+
     if (assistantError || !assistantData?.portfolio_vector_store_id) {
+      console.log('❌ Assistant lookup failed:', { assistantError, assistantData });
       return NextResponse.json(
         { error: 'Assistant or vector store not found' },
         { status: 404 }
