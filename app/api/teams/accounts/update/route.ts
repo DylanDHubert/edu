@@ -282,16 +282,15 @@ async function updatePortfolioSpecificKnowledge(serviceClient: any, teamId: stri
     if (portfolioData.inventory && portfolioData.inventory.length > 0) {
       for (const item of portfolioData.inventory) {
         if (item.name && item.name.trim()) {
-          // Check if this inventory item already exists
-          const { data: existingItem, error: checkError } = await serviceClient
+          // Check if this inventory item already exists (get ALL matches, not just one)
+          const { data: existingItems } = await serviceClient
             .from('team_knowledge')
             .select('id')
             .eq('team_id', teamId)
             .eq('account_id', accountData.id)
             .eq('portfolio_id', portfolioId)
             .eq('category', 'inventory')
-            .eq('title', item.name.trim())
-            .single();
+            .eq('title', item.name.trim());
 
           const knowledgeData = {
             title: item.name.trim(),
@@ -303,12 +302,21 @@ async function updatePortfolioSpecificKnowledge(serviceClient: any, teamId: stri
             updated_at: new Date().toISOString()
           };
 
-          if (existingItem && !checkError) {
-            // UPDATE existing record
+          if (existingItems && existingItems.length > 0) {
+            // UPDATE the first existing record
             await serviceClient
               .from('team_knowledge')
               .update(knowledgeData)
-              .eq('id', existingItem.id);
+              .eq('id', existingItems[0].id);
+            
+            // DELETE any duplicate records (keep only the first one)
+            if (existingItems.length > 1) {
+              const duplicateIds = existingItems.slice(1).map((r: any) => r.id);
+              await serviceClient
+                .from('team_knowledge')
+                .delete()
+                .in('id', duplicateIds);
+            }
           } else {
             // INSERT new record
             await serviceClient
@@ -352,16 +360,15 @@ async function updatePortfolioSpecificKnowledge(serviceClient: any, teamId: stri
             }
           }
 
-          // Check if this instrument already exists
-          const { data: existingInstrument, error: checkError } = await serviceClient
+          // Check if this instrument already exists (get ALL matches, not just one)
+          const { data: existingInstruments } = await serviceClient
             .from('team_knowledge')
             .select('id')
             .eq('team_id', teamId)
             .eq('account_id', accountData.id)
             .eq('portfolio_id', portfolioId)
             .eq('category', 'instruments')
-            .eq('title', instrument.name.trim())
-            .single();
+            .eq('title', instrument.name.trim());
 
           const knowledgeData = {
             title: instrument.name.trim(),
@@ -376,12 +383,21 @@ async function updatePortfolioSpecificKnowledge(serviceClient: any, teamId: stri
             updated_at: new Date().toISOString()
           };
 
-          if (existingInstrument && !checkError) {
-            // UPDATE existing record
+          if (existingInstruments && existingInstruments.length > 0) {
+            // UPDATE the first existing record
             await serviceClient
               .from('team_knowledge')
               .update(knowledgeData)
-              .eq('id', existingInstrument.id);
+              .eq('id', existingInstruments[0].id);
+            
+            // DELETE any duplicate records (keep only the first one)
+            if (existingInstruments.length > 1) {
+              const duplicateIds = existingInstruments.slice(1).map((r: any) => r.id);
+              await serviceClient
+                .from('team_knowledge')
+                .delete()
+                .in('id', duplicateIds);
+            }
           } else {
             // INSERT new record
             await serviceClient
