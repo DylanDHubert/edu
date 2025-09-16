@@ -89,7 +89,6 @@ export interface StoreCitationsRequest {
 
 export interface GetCitationsRequest {
   threadId: string;
-  messageId?: string;
 }
 
 export interface CitationsResult {

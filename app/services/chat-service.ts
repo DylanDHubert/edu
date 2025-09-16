@@ -139,7 +139,7 @@ export class ChatService {
               request.threadId, 
               messageWithContext, 
               request.assistantId,
-              (content: string, citations: string[], step?: string, citationData?: any[]) => {
+              (content: string, citations: string[], step?: string, citationData?: any[], openaiMessageId?: string) => {
                 try {
                   // SEND STREAMING UPDATE WITH SAFE JSON HANDLING
                   const data = JSON.stringify({
@@ -147,7 +147,8 @@ export class ChatService {
                     content,
                     citations,
                     step,
-                    citationData: citationData || []
+                    citationData: citationData || [],
+                    openaiMessageId: openaiMessageId || null
                   });
                   controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                 } catch (jsonError) {
@@ -158,11 +159,13 @@ export class ChatService {
                     content: content.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''), // REMOVE CONTROL CHARACTERS
                     citations: citations || [],
                     step: step || '',
-                    citationData: citationData || []
+                    citationData: citationData || [],
+                    openaiMessageId: openaiMessageId || null
                   });
                   controller.enqueue(encoder.encode(`data: ${safeData}\n\n`));
                 }
-              }
+              },
+              userId
             );
             
             // SEND COMPLETION SIGNAL
@@ -428,29 +431,6 @@ export class ChatService {
    */
   async getMessageCitations(request: GetCitationsRequest, userId: string): Promise<CitationsResult> {
     try {
-      const supabase = await this.getSupabase();
-      let query = supabase
-        .from('message_citations')
-        .select('thread_id, openai_message_id, citation_number, file_id, quote, full_chunk_content, file_name, relevance_score');
-
-      // IF MESSAGE ID IS PROVIDED, GET THREAD ID FROM CITATIONS TABLE
-      if (request.messageId && !request.threadId) {
-        const { data: messageCitation, error: messageError } = await supabase
-          .from('message_citations')
-          .select('thread_id')
-          .eq('openai_message_id', request.messageId)
-          .single();
-
-        if (messageError || !messageCitation) {
-          return {
-            success: false,
-            error: 'Message not found'
-          };
-        }
-
-        request.threadId = messageCitation.thread_id;
-      }
-
       // VERIFY THREAD OWNERSHIP
       const ownershipResult = await this.verifyThreadOwnership(request.threadId, userId);
       if (!ownershipResult.success) {
@@ -460,15 +440,13 @@ export class ChatService {
         };
       }
 
-      // BUILD QUERY
-      query = query.eq('thread_id', request.threadId);
-      
-      // IF SPECIFIC MESSAGE ID IS REQUESTED, FILTER BY IT
-      if (request.messageId) {
-        query = query.eq('openai_message_id', request.messageId);
-      }
-
-      const { data: citations, error: citationsError } = await query.order('openai_message_id, citation_number');
+      // GET ALL CITATIONS FOR THIS THREAD (EXACTLY LIKE RATINGS)
+      const supabase = await this.getSupabase();
+      const { data: citations, error: citationsError } = await supabase
+        .from('message_citations')
+        .select('thread_id, openai_message_id, citation_number, file_id, quote, full_chunk_content, file_name, relevance_score')
+        .eq('thread_id', request.threadId)
+        .order('openai_message_id, citation_number');
 
       if (citationsError) {
         console.error('ERROR LOADING CITATIONS:', citationsError);

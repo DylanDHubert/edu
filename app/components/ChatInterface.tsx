@@ -823,11 +823,12 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     citations = data.citations || [];
                     currentStep = data.step || '';
                     const citationData = data.citationData || [];
+                    const openaiMessageId = data.openaiMessageId;
                     
                     
                     // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                     if (!assistantMessageObj && assistantMessage.trim()) {
-                      const messageId = `assistant-${Date.now()}`;
+                      const messageId = openaiMessageId || `assistant-${Date.now()}`;
                       assistantMessageObj = {
                         id: messageId,
                         role: 'assistant',
@@ -858,6 +859,11 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                       }));
                     } else if (assistantMessageObj) {
                       // UPDATE THE ASSISTANT MESSAGE
+                      // IF WE RECEIVED AN OPENAI MESSAGE ID, UPDATE THE MESSAGE ID
+                      if (openaiMessageId && assistantMessageObj.id !== openaiMessageId) {
+                        assistantMessageObj.id = openaiMessageId;
+                      }
+                      
                         setMessages(prev => prev.map(msg => 
                           msg.id === assistantMessageObj!.id 
                             ? { 
@@ -1137,7 +1143,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                               <button
                                 onClick={() => {
                                   // OPEN SOURCES PAGE IN NEW TAB - CITATIONS WILL BE LOADED FROM DATABASE
-                                  window.open(`/view-sources/${message.id}`, '_blank');
+                                  window.open(`/view-sources/${message.id}?threadId=${currentChat?.thread_id}`, '_blank');
                                 }}
                                 className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
                                 title="View Sources"

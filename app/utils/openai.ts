@@ -2,6 +2,7 @@
 // CLIENT-SIDE CODE SHOULD NOT IMPORT THIS FILE DIRECTLY
 
 import OpenAI from 'openai';
+import { ChatService } from '../services/chat-service';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -98,7 +99,8 @@ export async function sendMessageStreaming(
   threadId: string, 
   message: string, 
   assistantId: string,
-  onUpdate: (content: string, citations: string[], step?: string, citationData?: any[]) => void
+  onUpdate: (content: string, citations: string[], step?: string, citationData?: any[], openaiMessageId?: string) => void,
+  userId: string
 ) {
   try {
     // START STREAMING MESSAGE PROCESSING
@@ -217,7 +219,7 @@ export async function sendMessageStreaming(
             }
           }
           
-          onUpdate(messageContent, extractedCitations, currentStep, citationData);
+          onUpdate(messageContent, extractedCitations, currentStep, citationData, message.id);
         }
       });
 
@@ -298,9 +300,6 @@ export async function sendMessageStreaming(
         
         // CITATION DATA COMPLETE - SEND FINAL UPDATE
         
-        // SEND FINAL UPDATE WITH COMPLETE CITATION DATA
-        onUpdate(messageContent, citations, 'COMPLETE', citationData);
-        
         // STORE CITATIONS IN DATABASE AFTER STREAMING COMPLETES
         if (citationData.length > 0) {
           try {
@@ -309,6 +308,9 @@ export async function sendMessageStreaming(
             if (messages.data.length > 0) {
               const latestMessage = messages.data[0];
               const openaiMessageId = latestMessage.id;
+              
+              // SEND FINAL UPDATE WITH COMPLETE CITATION DATA AND MESSAGE ID
+              onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId);
               
               // PREPARE CITATION DATA FOR DATABASE STORAGE
               const citationsForStorage = citationData.map(citation => ({
@@ -321,11 +323,24 @@ export async function sendMessageStreaming(
               }));
               
               // STORE CITATIONS IN DATABASE
-              await storeCitationsInDatabase(threadId, openaiMessageId, citationsForStorage);
+              await storeCitationsInDatabase(threadId, openaiMessageId, citationsForStorage, userId);
             }
           } catch (error) {
             console.error('ERROR STORING CITATIONS IN DATABASE:', error);
             // DON'T THROW - CITATIONS STORAGE FAILURE SHOULD NOT BREAK THE CHAT
+          }
+        } else {
+          // NO CITATIONS - STILL SEND FINAL UPDATE WITH MESSAGE ID
+          try {
+            const messages = await client.beta.threads.messages.list(threadId, { limit: 1 });
+            if (messages.data.length > 0) {
+              const latestMessage = messages.data[0];
+              const openaiMessageId = latestMessage.id;
+              onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId);
+            }
+          } catch (error) {
+            console.log('Could not get message ID for final update:', error);
+            onUpdate(messageContent, citations, 'COMPLETE', citationData);
           }
         }
       }
@@ -438,25 +453,20 @@ export async function deleteVectorStore(vectorStoreId: string): Promise<{ succes
 }
 
 // STORE CITATIONS IN DATABASE
-async function storeCitationsInDatabase(threadId: string, openaiMessageId: string, citations: any[]) {
+async function storeCitationsInDatabase(threadId: string, openaiMessageId: string, citations: any[], userId: string) {
   try {
     console.log(`📚 STORING ${citations.length} CITATIONS FOR MESSAGE ${openaiMessageId}`);
     
-    // CALL THE CITATIONS API ENDPOINT TO STORE THE DATA
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/chat/citations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        threadId,
-        openaiMessageId,
-        citations
-      })
-    });
+    // USE CHAT SERVICE DIRECTLY INSTEAD OF HTTP REQUEST
+    const chatService = new ChatService();
+    const result = await chatService.storeMessageCitations({
+      threadId,
+      openaiMessageId,
+      citations
+    }, userId);
 
-    if (!response.ok) {
-      throw new Error(`Failed to store citations: ${response.status} ${response.statusText}`);
+    if (!result.success) {
+      throw new Error(`Failed to store citations: ${result.error}`);
     }
 
     console.log(`✅ SUCCESSFULLY STORED CITATIONS FOR MESSAGE ${openaiMessageId}`);

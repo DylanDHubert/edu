@@ -39,8 +39,17 @@ export default function ViewSourcesPage() {
     try {
       setIsLoading(true);
       
-      // FETCH CITATION DATA FROM DATABASE
-      const response = await fetch(`/api/chat/citations?messageId=${messageId}`, {
+      // GET THREAD ID FROM URL PARAMETERS
+      const urlParams = new URLSearchParams(window.location.search);
+      const threadId = urlParams.get('threadId');
+      
+      if (!threadId) {
+        setError('Thread ID is required to load citations');
+        return;
+      }
+      
+      // FETCH ALL CITATIONS FOR THE THREAD (LIKE RATINGS)
+      const response = await fetch(`/api/chat/citations?threadId=${threadId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

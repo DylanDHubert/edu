@@ -50,10 +50,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const threadId = searchParams.get('threadId');
-    const messageId = searchParams.get('messageId');
     
-    if (!threadId && !messageId) {
-      return handleValidationError('Thread ID or Message ID is required');
+    if (!threadId) {
+      return handleValidationError('Thread ID is required');
     }
 
     // VERIFY USER AUTHENTICATION
@@ -62,8 +61,7 @@ export async function GET(request: NextRequest) {
 
     // CREATE GET CITATIONS REQUEST
     const getCitationsRequest: GetCitationsRequest = {
-      threadId: threadId || '', // WILL BE DETERMINED FROM MESSAGE ID IF NOT PROVIDED
-      messageId: messageId || undefined
+      threadId: threadId
     };
 
     // GET CITATIONS
