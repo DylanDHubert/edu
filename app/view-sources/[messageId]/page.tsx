@@ -39,20 +39,33 @@ export default function ViewSourcesPage() {
     try {
       setIsLoading(true);
       
-      // FOR NOW, WE'LL GET THE CITATION DATA FROM LOCAL STORAGE
-      // IN A REAL IMPLEMENTATION, THIS WOULD BE STORED IN THE DATABASE
-      const storedMessages = localStorage.getItem('chatMessages');
-      if (storedMessages) {
-        const messages = JSON.parse(storedMessages);
-        const message = messages.find((msg: any) => msg.id === messageId);
-        
-        if (message && message.citationData) {
-          setCitationData(message.citationData);
+      // FETCH CITATION DATA FROM DATABASE
+      const response = await fetch(`/api/chat/citations?messageId=${messageId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.citations && data.citations[messageId]) {
+          // CONVERT DATABASE FORMAT TO COMPONENT FORMAT
+          const dbCitations = data.citations[messageId];
+          const convertedCitations: CitationData[] = dbCitations.map((citation: any) => ({
+            citationNumber: citation.citation_number,
+            fileId: citation.file_id,
+            quote: citation.quote,
+            fullChunkContent: citation.full_chunk_content,
+            fileName: citation.file_name,
+            relevanceScore: citation.relevance_score
+          }));
+          setCitationData(convertedCitations);
         } else {
           setError('No citation data found for this message');
         }
       } else {
-        setError('No message data found');
+        setError('Failed to load citation data from server');
       }
     } catch (error) {
       console.error('Error loading citation data:', error);

@@ -1,6 +1,18 @@
 -- ADD MESSAGE CITATIONS TABLE FOR PERSISTENT CITATION STORAGE
 -- FOLLOWS THE SAME PATTERN AS MESSAGE_RATINGS TABLE
 
+-- FIRST, ADD UNIQUE CONSTRAINT TO CHAT_HISTORY THREAD_ID (IF NOT EXISTS)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'chat_history_thread_id_unique'
+    ) THEN
+        ALTER TABLE public.chat_history ADD CONSTRAINT chat_history_thread_id_unique UNIQUE (thread_id);
+    END IF;
+END $$;
+
+-- CREATE MESSAGE CITATIONS TABLE
 CREATE TABLE public.message_citations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   thread_id text NOT NULL,

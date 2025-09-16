@@ -44,6 +44,7 @@ CREATE TABLE public.chat_history (
   portfolio_id uuid,
   assistant_id text,
   CONSTRAINT chat_history_pkey PRIMARY KEY (id),
+  CONSTRAINT chat_history_thread_id_unique UNIQUE (thread_id),
   CONSTRAINT chat_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT chat_history_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );

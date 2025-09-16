@@ -7,9 +7,12 @@ import {
   RateMessageRequest, 
   GetRatingsRequest, 
   GetMessagesRequest,
+  StoreCitationsRequest,
+  GetCitationsRequest,
   ChatResult, 
   RatingResult, 
   RatingsResult,
+  CitationsResult,
   ThreadOwnershipResult,
   StreamingUpdate
 } from '../types/chat';
@@ -361,6 +364,146 @@ export class ChatService {
       return {
         success: false,
         error: 'Failed to get messages'
+      };
+    }
+  }
+
+  /**
+   * STORE MESSAGE CITATIONS
+   */
+  async storeMessageCitations(request: StoreCitationsRequest, userId: string): Promise<CitationsResult> {
+    try {
+      // VERIFY THREAD OWNERSHIP
+      const ownershipResult = await this.verifyThreadOwnership(request.threadId, userId);
+      if (!ownershipResult.success) {
+        return {
+          success: false,
+          error: ownershipResult.error
+        };
+      }
+
+      // STORE CITATIONS IN DATABASE
+      const supabase = await this.getSupabase();
+      
+      // PREPARE CITATION DATA FOR INSERTION
+      const citationInserts = request.citations.map(citation => ({
+        thread_id: request.threadId,
+        openai_message_id: request.openaiMessageId,
+        citation_number: citation.citation_number,
+        file_id: citation.file_id,
+        quote: citation.quote || null,
+        full_chunk_content: citation.full_chunk_content || null,
+        file_name: citation.file_name || null,
+        relevance_score: citation.relevance_score || null
+      }));
+
+      const { data: citationData, error: citationError } = await supabase
+        .from('message_citations')
+        .insert(citationInserts)
+        .select();
+
+      if (citationError) {
+        console.error('ERROR SAVING CITATIONS:', citationError);
+        return {
+          success: false,
+          error: 'Failed to save citations'
+        };
+      }
+
+      return {
+        success: true,
+        citations: {} // RETURN EMPTY OBJECT FOR STORAGE OPERATION
+      };
+    } catch (error) {
+      console.error('Error storing citations:', error);
+      return {
+        success: false,
+        error: 'Failed to save citations'
+      };
+    }
+  }
+
+  /**
+   * GET MESSAGE CITATIONS FOR A THREAD OR SPECIFIC MESSAGE
+   */
+  async getMessageCitations(request: GetCitationsRequest, userId: string): Promise<CitationsResult> {
+    try {
+      const supabase = await this.getSupabase();
+      let query = supabase
+        .from('message_citations')
+        .select('thread_id, openai_message_id, citation_number, file_id, quote, full_chunk_content, file_name, relevance_score');
+
+      // IF MESSAGE ID IS PROVIDED, GET THREAD ID FROM CITATIONS TABLE
+      if (request.messageId && !request.threadId) {
+        const { data: messageCitation, error: messageError } = await supabase
+          .from('message_citations')
+          .select('thread_id')
+          .eq('openai_message_id', request.messageId)
+          .single();
+
+        if (messageError || !messageCitation) {
+          return {
+            success: false,
+            error: 'Message not found'
+          };
+        }
+
+        request.threadId = messageCitation.thread_id;
+      }
+
+      // VERIFY THREAD OWNERSHIP
+      const ownershipResult = await this.verifyThreadOwnership(request.threadId, userId);
+      if (!ownershipResult.success) {
+        return {
+          success: false,
+          error: ownershipResult.error
+        };
+      }
+
+      // BUILD QUERY
+      query = query.eq('thread_id', request.threadId);
+      
+      // IF SPECIFIC MESSAGE ID IS REQUESTED, FILTER BY IT
+      if (request.messageId) {
+        query = query.eq('openai_message_id', request.messageId);
+      }
+
+      const { data: citations, error: citationsError } = await query.order('openai_message_id, citation_number');
+
+      if (citationsError) {
+        console.error('ERROR LOADING CITATIONS:', citationsError);
+        return {
+          success: false,
+          error: 'Failed to load citations'
+        };
+      }
+
+      // CONVERT TO OBJECT FOR EASY LOOKUP BY MESSAGE ID
+      const citationsMap = (citations || []).reduce((acc: Record<string, any[]>, citation: any) => {
+        const messageId = citation.openai_message_id;
+        if (!acc[messageId]) {
+          acc[messageId] = [];
+        }
+        acc[messageId].push({
+          citation_number: citation.citation_number,
+          file_id: citation.file_id,
+          quote: citation.quote,
+          full_chunk_content: citation.full_chunk_content,
+          file_name: citation.file_name,
+          relevance_score: citation.relevance_score
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      return {
+        success: true,
+        citations: citationsMap
+      };
+    } catch (error) {
+      console.error('Error loading citations:', error);
+      return {
+        success: false,
+        error: 'Failed to load citations'
       };
     }
   }

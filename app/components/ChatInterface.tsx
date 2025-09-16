@@ -63,6 +63,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [messageRatings, setMessageRatings] = useState<Record<string, any>>({});
+  const [messageCitations, setMessageCitations] = useState<Record<string, any[]>>({});
   const [isRatingMessage, setIsRatingMessage] = useState<string | null>(null);
   const [responseStartTimes, setResponseStartTimes] = useState<Record<string, number>>({});
   const [feedbackModalOpen, setFeedbackModalOpen] = useState<string | null>(null);
@@ -234,6 +235,27 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       }
     } catch (error) {
       console.error('ERROR LOADING RATINGS:', error);
+    }
+  };
+
+  // LOAD MESSAGE CITATIONS FOR CURRENT THREAD
+  const loadMessageCitations = async () => {
+    if (!currentChat?.thread_id) return;
+    
+    try {
+      const response = await fetch(`/api/chat/citations?threadId=${currentChat.thread_id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const { citations } = await response.json();
+        setMessageCitations(citations || {});
+      }
+    } catch (error) {
+      console.error('ERROR LOADING CITATIONS:', error);
     }
   };
 
@@ -449,6 +471,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       
       // LOAD RATINGS FOR THIS THREAD
       await loadMessageRatings();
+      
+      // LOAD CITATIONS FOR THIS THREAD
+      await loadMessageCitations();
     } catch (error) {
       console.error('ERROR LOADING MESSAGES:', error);
       setMessages([]);
@@ -1108,32 +1133,19 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             </div>
                             
                             {/* SEE SOURCES BUTTON */}
-                            {message.citationData && message.citationData.length > 0 && (
+                            {(message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0) ? (
                               <button
                                 onClick={() => {
-                                  // STORE MESSAGE DATA IN LOCAL STORAGE FOR SOURCES PAGE
-                                  const storedMessages = localStorage.getItem('chatMessages') || '[]';
-                                  const messages = JSON.parse(storedMessages);
-                                  const existingIndex = messages.findIndex((msg: any) => msg.id === message.id);
-                                  
-                                  if (existingIndex !== -1) {
-                                    messages[existingIndex] = message;
-                                  } else {
-                                    messages.push(message);
-                                  }
-                                  
-                                  localStorage.setItem('chatMessages', JSON.stringify(messages));
-                                  
-                                  // OPEN SOURCES PAGE IN NEW TAB
+                                  // OPEN SOURCES PAGE IN NEW TAB - CITATIONS WILL BE LOADED FROM DATABASE
                                   window.open(`/view-sources/${message.id}`, '_blank');
                                 }}
                                 className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
                                 title="View Sources"
                               >
                                 <FileText className="w-4 h-4" />
-                                See Sources ({message.citationData.length})
+                                See Sources ({message.citationData?.length || messageCitations[message.id]?.length || 0})
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         )}
                       </div>

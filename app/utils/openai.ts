@@ -129,7 +129,7 @@ export async function sendMessageStreaming(
     const run = client.beta.threads.runs.stream(threadId, {
       assistant_id: assistantId
     })
-      .on('runCreated', (run) => {
+      .on('run', (run) => {
         // CAPTURE RUN ID FOR LATER USE
         runId = run.id;
         // RUN CREATED - ASSISTANT IS STARTING TO PROCESS
@@ -229,7 +229,10 @@ export async function sendMessageStreaming(
     // GET RUN ID FROM THE RUN OBJECT IF NOT CAPTURED
     if (!runId && run) {
       // FALLBACK: TRY TO GET RUN ID FROM RUN OBJECT
-      runId = run.id;
+      const currentRun = run.currentRun();
+      if (currentRun) {
+        runId = currentRun.id;
+      }
     }
 
     // STREAMING COMPLETE - NOW RETRIEVE DETAILED CHUNK CONTENT
@@ -247,7 +250,7 @@ export async function sendMessageStreaming(
         // EXTRACT CHUNK CONTENT FROM RUN STEPS
         for (const step of runSteps.data) {
           // PROCESS EACH RUN STEP
-          if (step.step_details && step.step_details.tool_calls) {
+          if (step.step_details && step.step_details.type === 'tool_calls' && 'tool_calls' in step.step_details) {
             for (const toolCall of step.step_details.tool_calls) {
               // CHECK FOR FILE SEARCH TOOL CALLS
               if (toolCall.type === 'file_search' && toolCall.file_search && toolCall.file_search.results) {
@@ -297,6 +300,34 @@ export async function sendMessageStreaming(
         
         // SEND FINAL UPDATE WITH COMPLETE CITATION DATA
         onUpdate(messageContent, citations, 'COMPLETE', citationData);
+        
+        // STORE CITATIONS IN DATABASE AFTER STREAMING COMPLETES
+        if (citationData.length > 0) {
+          try {
+            // GET THE LATEST MESSAGE ID FROM THE THREAD
+            const messages = await client.beta.threads.messages.list(threadId, { limit: 1 });
+            if (messages.data.length > 0) {
+              const latestMessage = messages.data[0];
+              const openaiMessageId = latestMessage.id;
+              
+              // PREPARE CITATION DATA FOR DATABASE STORAGE
+              const citationsForStorage = citationData.map(citation => ({
+                citation_number: citation.citationNumber,
+                file_id: citation.fileId,
+                quote: citation.quote,
+                full_chunk_content: citation.fullChunkContent,
+                file_name: citation.fileName,
+                relevance_score: citation.relevanceScore
+              }));
+              
+              // STORE CITATIONS IN DATABASE
+              await storeCitationsInDatabase(threadId, openaiMessageId, citationsForStorage);
+            }
+          } catch (error) {
+            console.error('ERROR STORING CITATIONS IN DATABASE:', error);
+            // DON'T THROW - CITATIONS STORAGE FAILURE SHOULD NOT BREAK THE CHAT
+          }
+        }
       }
     } catch (error) {
       console.log('Could not retrieve chunk content from run steps:', error);
@@ -403,6 +434,35 @@ export async function deleteVectorStore(vectorStoreId: string): Promise<{ succes
     }
     console.error(`❌ ERROR DELETING VECTOR STORE ${vectorStoreId}:`, error);
     return { success: false, error: error.message || 'Failed to delete vector store' };
+  }
+}
+
+// STORE CITATIONS IN DATABASE
+async function storeCitationsInDatabase(threadId: string, openaiMessageId: string, citations: any[]) {
+  try {
+    console.log(`📚 STORING ${citations.length} CITATIONS FOR MESSAGE ${openaiMessageId}`);
+    
+    // CALL THE CITATIONS API ENDPOINT TO STORE THE DATA
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/chat/citations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        threadId,
+        openaiMessageId,
+        citations
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to store citations: ${response.status} ${response.statusText}`);
+    }
+
+    console.log(`✅ SUCCESSFULLY STORED CITATIONS FOR MESSAGE ${openaiMessageId}`);
+  } catch (error) {
+    console.error(`❌ ERROR STORING CITATIONS FOR MESSAGE ${openaiMessageId}:`, error);
+    throw error;
   }
 }
 
