@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../utils/supabase/server';
+import { createServiceClient } from '../../../utils/supabase/server';
 import { createThread } from '../../../utils/openai';
 import { cookies } from 'next/headers';
 import { KnowledgeUpdateService } from '../../../services/knowledge-update-service';
@@ -8,6 +9,8 @@ import { KnowledgeUpdateService } from '../../../services/knowledge-update-servi
 export async function POST(request: NextRequest) {
   try {
     const { teamId, accountId, portfolioId, assistantId, title, initialMessage } = await request.json();
+    
+    console.log('🎯 CREATE-TEAM received params:', { teamId, accountId, portfolioId, assistantId, title });
     
     if (!teamId || !accountId || !portfolioId || !assistantId || !title) {
       return NextResponse.json(
@@ -44,9 +47,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GET ASSISTANT INFO TO FIND VECTOR STORE ID
+    // GET ASSISTANT INFO TO FIND VECTOR STORE ID (USE SERVICE CLIENT FOR RLS)
     console.log('🔍 Looking for assistant:', assistantId);
-    const { data: assistantData, error: assistantError } = await supabase
+    const serviceClient = createServiceClient();
+    const { data: assistantData, error: assistantError } = await serviceClient
       .from('team_assistants')
       .select('portfolio_vector_store_id')
       .eq('assistant_id', assistantId)
