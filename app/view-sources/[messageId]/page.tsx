@@ -197,8 +197,25 @@ export default function ViewSourcesPage() {
         </div>
       </div>
 
+      {/* DEVELOPMENT WARNING */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="mb-6 p-3 bg-amber-900/30 border border-amber-700 rounded-md">
+          <div className="flex items-start space-x-2">
+            <svg className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-amber-200 text-sm font-medium mb-1">Development Notice</p>
+              <p className="text-amber-300 text-xs leading-relaxed">
+                The source citation system is currently being improved. The sources shown here may not always reflect exactly what the AI model used to generate its response.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* CONTENT */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         {citationData.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
