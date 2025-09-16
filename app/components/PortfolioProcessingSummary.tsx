@@ -47,10 +47,16 @@ export function PortfolioProcessingSummary({
     return 'text-green-400';
   };
 
-  const getProgressBarColor = () => {
-    if (summary.failed > 0) return 'bg-red-500';
-    if (summary.processing > 0 || summary.pending > 0) return 'bg-yellow-500';
-    return 'bg-green-500';
+  const getProgressBarSegments = () => {
+    const completedPercentage = summary.total === 0 ? 0 : (summary.completed / summary.total) * 100;
+    const failedPercentage = summary.total === 0 ? 0 : (summary.failed / summary.total) * 100;
+    const processingPercentage = summary.total === 0 ? 0 : ((summary.processing + summary.pending) / summary.total) * 100;
+    
+    return {
+      completed: completedPercentage,
+      failed: failedPercentage,
+      processing: processingPercentage
+    };
   };
 
   const getStatusText = () => {
@@ -77,11 +83,30 @@ export function PortfolioProcessingSummary({
       </div>
 
       {/* Progress Bar */}
-      <div className="w-full bg-slate-600 rounded-full h-2 mb-3">
-        <div 
-          className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor()}`}
-          style={{ width: `${getProgressPercentage()}%` }}
-        />
+      <div className="w-full bg-slate-600 rounded-full h-2 mb-3 overflow-hidden">
+        <div className="h-2 flex transition-all duration-300">
+          {/* COMPLETED SEGMENT - GREEN */}
+          {getProgressBarSegments().completed > 0 && (
+            <div 
+              className="bg-green-500"
+              style={{ width: `${getProgressBarSegments().completed}%` }}
+            />
+          )}
+          {/* PROCESSING SEGMENT - YELLOW */}
+          {getProgressBarSegments().processing > 0 && (
+            <div 
+              className="bg-yellow-500"
+              style={{ width: `${getProgressBarSegments().processing}%` }}
+            />
+          )}
+          {/* FAILED SEGMENT - RED */}
+          {getProgressBarSegments().failed > 0 && (
+            <div 
+              className="bg-red-500"
+              style={{ width: `${getProgressBarSegments().failed}%` }}
+            />
+          )}
+        </div>
       </div>
 
       {/* Status Text */}
@@ -105,13 +130,13 @@ export function PortfolioProcessingSummary({
           )}
           {summary.processing > 0 && (
             <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
               {summary.processing} processing
             </span>
           )}
           {summary.pending > 0 && (
             <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
               {summary.pending} pending
             </span>
           )}

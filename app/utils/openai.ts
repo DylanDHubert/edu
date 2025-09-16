@@ -10,17 +10,38 @@ const client = new OpenAI({
 
 
 // CREATE NEW THREAD
-export async function createThread() {
-  return await client.beta.threads.create();
+export async function createThread(initialMessage?: string) {
+  const thread = await client.beta.threads.create();
+  
+  if (initialMessage) {
+    await client.beta.threads.messages.create(thread.id, {
+      role: 'assistant',
+      content: initialMessage,
+      metadata: { 
+        hidden: 'true', 
+        messageType: 'system_context' 
+      }
+    });
+  }
+  
+  return thread;
 }
 
 // STREAMING EVENT HANDLER FOR REAL-TIME RESPONSES
 export class StreamingEventHandler {
   private messageContent = '';
   private citations: string[] = [];
-  private onUpdate: (content: string, citations: string[], step?: string) => void;
+  private citationData: Array<{
+    citationNumber: number;
+    fileId: string;
+    quote: string;
+    fullChunkContent?: string;
+    fileName?: string;
+    relevanceScore?: number;
+  }> = [];
+  private onUpdate: (content: string, citations: string[], step?: string, citationData?: any[]) => void;
 
-  constructor(onUpdate: (content: string, citations: string[], step?: string) => void) {
+  constructor(onUpdate: (content: string, citations: string[], step?: string, citationData?: any[]) => void) {
     this.onUpdate = onUpdate;
   }
 
@@ -77,9 +98,11 @@ export async function sendMessageStreaming(
   threadId: string, 
   message: string, 
   assistantId: string,
-  onUpdate: (content: string, citations: string[], step?: string) => void
+  onUpdate: (content: string, citations: string[], step?: string, citationData?: any[]) => void
 ) {
   try {
+    // START STREAMING MESSAGE PROCESSING
+    
     // ADD MESSAGE TO THREAD
     await client.beta.threads.messages.create(threadId, {
       role: 'user',
@@ -88,6 +111,14 @@ export async function sendMessageStreaming(
 
     let messageContent = '';
     let citations: string[] = [];
+    let citationData: Array<{
+      citationNumber: number;
+      fileId: string;
+      quote: string;
+      fullChunkContent?: string;
+      fileName?: string;
+      relevanceScore?: number;
+    }> = [];
     let currentStep = 'PROCESSING...';
     let runId: string | null = null;
 
@@ -98,9 +129,18 @@ export async function sendMessageStreaming(
     const run = client.beta.threads.runs.stream(threadId, {
       assistant_id: assistantId
     })
+      .on('runCreated', (run) => {
+        // CAPTURE RUN ID FOR LATER USE
+        runId = run.id;
+        // RUN CREATED - ASSISTANT IS STARTING TO PROCESS
+      })
       .on('runStepCreated', (step) => {
         // NEW STEP CREATED
         currentStep = `STEP ${step.step_details?.type || 'PROCESSING'}...`;
+        // CAPTURE RUN ID FROM STEP FOR LATER CHUNK RETRIEVAL
+        if (!runId) {
+          runId = step.run_id;
+        }
         onUpdate(messageContent, citations, currentStep);
       })
       .on('runStepDelta', (delta, snapshot) => {
@@ -138,13 +178,14 @@ export async function sendMessageStreaming(
         }
         onUpdate(messageContent, citations, currentStep);
       })
-      .on('messageDone', (message) => {
+      .on('messageDone', async (message) => {
         // MESSAGE IS COMPLETE
         currentStep = 'COMPLETE';
+        // MESSAGE COMPLETE - EXTRACT CITATIONS FROM ANNOTATIONS
         if (message.content[0].type === 'text') {
           const textContent = message.content[0] as any;
           const annotations = textContent.text.annotations;
-          
+          // PROCESS FILE CITATION ANNOTATIONS
           
           // EXTRACT CITATION DATA AND BUILD CITATIONS ARRAY
           const extractedCitations: string[] = [];
@@ -152,25 +193,113 @@ export async function sendMessageStreaming(
           // REPLACE CITATION PLACEHOLDERS WITH NUMBERED REFERENCES
           for (let index = 0; index < annotations.length; index++) {
             const annotation = annotations[index];
+            // EXTRACT CITATION DATA FROM ANNOTATION
             if (annotation.type === 'file_citation') {
               messageContent = messageContent.replace(annotation.text, `[${index + 1}]`);
               
               // EXTRACT CITATION INFORMATION
               if (annotation.file_citation) {
-                // USE THE ANNOTATION TEXT WHICH CONTAINS THE ACTUAL CITATION INFO
                 const citationInfo = annotation.text || annotation.file_citation.quote || 'Unknown source';
                 extractedCitations.push(`[${index + 1}] ${citationInfo}`);
+                
+                // STORE DETAILED CITATION DATA
+                citationData.push({
+                  citationNumber: index + 1,
+                  fileId: annotation.file_citation.file_id,
+                  quote: annotation.file_citation.quote || citationInfo,
+                  fileName: undefined, // WILL BE FILLED LATER
+                  fullChunkContent: undefined, // WILL BE FILLED LATER
+                  relevanceScore: undefined // WILL BE FILLED LATER
+                });
+                
+                // CITATION DATA ADDED TO ARRAY
               }
             }
           }
           
-          onUpdate(messageContent, extractedCitations, currentStep);
+          onUpdate(messageContent, extractedCitations, currentStep, citationData);
         }
       });
 
     // WAIT FOR COMPLETION
     for await (const event of run) {
       // STREAM EVENTS ARE HANDLED BY THE EVENT LISTENERS
+    }
+
+    // GET RUN ID FROM THE RUN OBJECT IF NOT CAPTURED
+    if (!runId && run) {
+      // FALLBACK: TRY TO GET RUN ID FROM RUN OBJECT
+      runId = run.id;
+    }
+
+    // STREAMING COMPLETE - NOW RETRIEVE DETAILED CHUNK CONTENT
+
+    // AFTER STREAMING IS COMPLETE, GET CHUNK CONTENT
+    try {
+      if (runId) {
+        // GET RUN STEPS WITH FULL CHUNK CONTENT
+        const runSteps = await client.beta.threads.runs.steps.list(threadId, runId, {
+          include: ['step_details.tool_calls[*].file_search.results[*].content']
+        } as any);
+        
+        // MATCH CITATION DATA WITH CHUNK CONTENT FROM RUN STEPS
+        
+        // EXTRACT CHUNK CONTENT FROM RUN STEPS
+        for (const step of runSteps.data) {
+          // PROCESS EACH RUN STEP
+          if (step.step_details && step.step_details.tool_calls) {
+            for (const toolCall of step.step_details.tool_calls) {
+              // CHECK FOR FILE SEARCH TOOL CALLS
+              if (toolCall.type === 'file_search' && toolCall.file_search && toolCall.file_search.results) {
+                // PROCESS FILE SEARCH RESULTS
+                for (const result of toolCall.file_search.results) {
+                  // PROCESS EACH FILE SEARCH RESULT
+                  
+                  // MATCH THIS RESULT TO OUR CITATION DATA
+                  const citationIndex = citationData.findIndex(c => c.fileId === result.file_id);
+                  // MATCH RESULT TO EXISTING CITATION DATA
+                  
+                  if (citationIndex !== -1) {
+                    // GET FILE NAME
+                    try {
+                      const file = await client.files.retrieve(result.file_id);
+                      citationData[citationIndex].fileName = file.filename;
+                      // FILENAME RETRIEVED SUCCESSFULLY
+                    } catch (error) {
+                      console.log('Could not retrieve filename for file:', result.file_id);
+                    }
+                    
+                    // GET CHUNK CONTENT
+                    if (result.content && result.content.length > 0) {
+                      const chunkContent = result.content
+                        .filter((content: any) => content.type === 'text')
+                        .map((content: any) => content.text)
+                        .join('\n\n');
+                      citationData[citationIndex].fullChunkContent = chunkContent;
+                      // CHUNK CONTENT RETRIEVED SUCCESSFULLY
+                    } else {
+                      // NO CONTENT AVAILABLE FOR THIS FILE
+                    }
+                    
+                    // GET RELEVANCE SCORE
+                    if (result.score !== undefined) {
+                      citationData[citationIndex].relevanceScore = result.score;
+                      // RELEVANCE SCORE RETRIEVED
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // CITATION DATA COMPLETE - SEND FINAL UPDATE
+        
+        // SEND FINAL UPDATE WITH COMPLETE CITATION DATA
+        onUpdate(messageContent, citations, 'COMPLETE', citationData);
+      }
+    } catch (error) {
+      console.log('Could not retrieve chunk content from run steps:', error);
     }
   } catch (error) {
     console.error('ERROR IN STREAMING:', error);

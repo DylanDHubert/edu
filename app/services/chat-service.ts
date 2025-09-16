@@ -54,7 +54,7 @@ export class ChatService {
   }
 
   /**
-   * BUILD MESSAGE CONTEXT (NOTES NOW HANDLED IN INITIAL CONTEXT)
+   * BUILD MESSAGE CONTEXT (KNOWLEDGE IS NOW IN VECTOR STORE)
    */
   async buildMessageContext(
     teamId: string, 
@@ -63,8 +63,7 @@ export class ChatService {
     userId: string, 
     message: string
   ): Promise<string> {
-    // NOTES ARE NOW INJECTED IN INITIAL CONTEXT, NOT PER MESSAGE
-    // THIS METHOD IS KEPT FOR POTENTIAL FUTURE USE
+    // KNOWLEDGE IS NOW HANDLED VIA VECTOR STORE, NO CONTEXT INJECTION NEEDED
     return message;
   }
 
@@ -137,14 +136,15 @@ export class ChatService {
               request.threadId, 
               messageWithContext, 
               request.assistantId,
-              (content: string, citations: string[], step?: string) => {
+              (content: string, citations: string[], step?: string, citationData?: any[]) => {
                 try {
                   // SEND STREAMING UPDATE WITH SAFE JSON HANDLING
                   const data = JSON.stringify({
                     type: 'update',
                     content,
                     citations,
-                    step
+                    step,
+                    citationData: citationData || []
                   });
                   controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                 } catch (jsonError) {
@@ -154,7 +154,8 @@ export class ChatService {
                     type: 'update',
                     content: content.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''), // REMOVE CONTROL CHARACTERS
                     citations: citations || [],
-                    step: step || ''
+                    step: step || '',
+                    citationData: citationData || []
                   });
                   controller.enqueue(encoder.encode(`data: ${safeData}\n\n`));
                 }

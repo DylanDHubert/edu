@@ -4,6 +4,11 @@ import { createServiceClient } from '../../../utils/supabase/server';
 import { createThread } from '../../../utils/openai';
 import { cookies } from 'next/headers';
 import { KnowledgeUpdateService } from '../../../services/knowledge-update-service';
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 
 export async function POST(request: NextRequest) {
@@ -84,8 +89,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // CREATE NEW THREAD (NO CONTEXT INJECTION NEEDED - KNOWLEDGE IS IN VECTOR STORE)
-    const thread = await createThread();
+    // CREATE NEW THREAD WITH INITIAL CONTEXT TO PRIME FILE SEARCH BEHAVIOR
+    const initialContext = `I am ready to help with surgical procedures. I will ALWAYS use file search to find relevant information from documents and knowledge sources before responding. This ensures I provide accurate, evidence-based responses.`;
+    const thread = await createThread(initialContext);
+    
+    // ADD VISIBLE WELCOME MESSAGE TO THE THREAD
+    const welcomeMessage = `Hello! I'm your HHB Assistant specializing in surgical procedures. I'm ready to help you with any questions about procedures, equipment, or protocols. I'll search through our knowledge base to provide you with accurate, evidence-based information. What would you like to know?`;
+    
+    await client.beta.threads.messages.create(thread.id, {
+      role: 'assistant',
+      content: welcomeMessage,
+      metadata: { 
+        visible: 'true',
+        messageType: 'welcome_message' 
+      }
+    });
     
     // SAVE TO DATABASE - Using team-based schema
     const { data: chatHistory, error: dbError } = await supabase

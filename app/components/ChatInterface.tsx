@@ -8,6 +8,7 @@ import StandardHeader from "./StandardHeader";
 import FeedbackModal from "./FeedbackModal";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { FileText } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -27,6 +28,14 @@ interface Message {
     };
   }>;
   created_at: number;
+  citationData?: Array<{
+    citationNumber: number;
+    fileId: string;
+    quote: string;
+    fullChunkContent?: string;
+    fileName?: string;
+    relevanceScore?: number;
+  }>;
 }
 
 interface ActiveAssistant {
@@ -59,6 +68,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
   const [feedbackModalOpen, setFeedbackModalOpen] = useState<string | null>(null);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [activeAssistant, setActiveAssistant] = useState<ActiveAssistant | null>(null);
+  const [isStreamingResponse, setIsStreamingResponse] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -371,16 +381,16 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     };
   }, []);
 
-  // LOAD MESSAGES WHEN CHAT CHANGES
+  // LOAD MESSAGES WHEN CHAT CHANGES (BUT NOT DURING STREAMING)
   useEffect(() => {
-    if (currentChat && !isCreatingNewChat) {
+    if (currentChat && !isCreatingNewChat && !isStreamingResponse) {
       loadMessages();
       setPendingChat(null);
     } else if (!currentChat) {
       setMessages([]);
       setPendingChat(null);
     }
-  }, [currentChat, isCreatingNewChat]);
+  }, [currentChat, isCreatingNewChat, isStreamingResponse]);
 
   const loadMessages = async () => {
     if (!currentChat) return;
@@ -417,9 +427,16 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         // Check message metadata
         
         // Filter out ALL hidden context messages regardless of position
-        if (msg.metadata?.hidden === 'true' && msg.metadata?.messageType === 'team_knowledge_context') {
+        if (msg.metadata?.hidden === 'true' && 
+            (msg.metadata?.messageType === 'team_knowledge_context' || 
+             msg.metadata?.messageType === 'system_context')) {
           // Filtering out context message
           return false;
+        }
+        
+        // ALLOW WELCOME MESSAGES TO SHOW
+        if (msg.metadata?.messageType === 'welcome_message') {
+          return true;
         }
         return true;
       });
@@ -511,6 +528,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         
         // NOW SEND THE MESSAGE TO GET ASSISTANT RESPONSE
         try {
+          setIsStreamingResponse(true); // PREVENT MESSAGE RELOAD DURING STREAMING
           const sendResponse = await fetch('/api/chat/send', {
             method: 'POST',
             headers: {
@@ -571,6 +589,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                         assistantMessage = data.content;
                         citations = data.citations || [];
                         currentStep = data.step || '';
+                        const citationData = data.citationData || [];
                         
                         // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                         if (!assistantMessageObj && assistantMessage.trim()) {
@@ -579,7 +598,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             id: messageId,
                             role: 'assistant',
                             content: [{ type: 'text', text: { value: assistantMessage } }],
-                            created_at: Date.now() / 1000
+                            created_at: Date.now() / 1000,
+                            // STORE CITATION DATA FOR SOURCES PAGE
+                            citationData: citationData
                           };
                           setMessages(prev => [...prev, assistantMessageObj!]);
                           // RECORD START TIME FOR RESPONSE TIME CALCULATION
@@ -591,7 +612,12 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                           // UPDATE THE ASSISTANT MESSAGE
                           setMessages(prev => prev.map(msg => 
                             msg.id === assistantMessageObj!.id 
-                              ? { ...msg, content: [{ type: 'text', text: { value: assistantMessage } }] }
+                              ? { 
+                                  ...msg, 
+                                  content: [{ type: 'text', text: { value: assistantMessage } }],
+                                  // UPDATE CITATION DATA
+                                  citationData: citationData
+                                }
                               : msg
                           ));
                         }
@@ -601,9 +627,11 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                       } else if (data.type === 'done') {
                         // STREAMING COMPLETE
                         setCurrentStep('');
+                        setIsStreamingResponse(false); // ALLOW MESSAGE RELOAD AGAIN
                         break;
                       } else if (data.type === 'error') {
                         setCurrentStep('');
+                        setIsStreamingResponse(false); // ALLOW MESSAGE RELOAD AGAIN
                         throw new Error(data.error);
                       }
                     } catch (jsonError) {
@@ -644,6 +672,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         } finally {
           setIsLoading(false);
           setIsCreatingNewChat(false); // ALLOW LOADING MESSAGES AGAIN
+          setIsStreamingResponse(false); // ENSURE STREAMING FLAG IS CLEARED
         }
         
         return;
@@ -707,6 +736,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     }
 
     try {
+      setIsStreamingResponse(true); // PREVENT MESSAGE RELOAD DURING STREAMING
       const response = await fetch('/api/chat/send', {
         method: 'POST',
         headers: {
@@ -767,6 +797,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     assistantMessage = data.content;
                     citations = data.citations || [];
                     currentStep = data.step || '';
+                    const citationData = data.citationData || [];
                     
                     
                     // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
@@ -790,7 +821,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             })) : undefined
                           } 
                         }],
-                        created_at: Date.now() / 1000
+                        created_at: Date.now() / 1000,
+                        // STORE CITATION DATA FOR SOURCES PAGE
+                        citationData: citationData
                       };
                       setMessages(prev => [...prev, assistantMessageObj!]);
                       // RECORD START TIME FOR RESPONSE TIME CALCULATION
@@ -800,28 +833,30 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                       }));
                     } else if (assistantMessageObj) {
                       // UPDATE THE ASSISTANT MESSAGE
-                      setMessages(prev => prev.map(msg => 
-                        msg.id === assistantMessageObj!.id 
-                          ? { 
-                              ...msg, 
-                              content: [{ 
-                                type: 'text', 
-                                text: { 
-                                  value: assistantMessage,
-                                  // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
-                                  annotations: citations.length > 0 ? citations.map((citation, index) => ({
-                                    type: 'file_citation',
-                                    text: `[${index + 1}]`,
-                                    file_citation: {
-                                      file_id: `citation-${index}`,
-                                      quote: citation.replace(`[${index + 1}] `, '')
-                                    }
-                                  })) : undefined
-                                } 
-                              }] 
-                            }
-                          : msg
-                      ));
+                        setMessages(prev => prev.map(msg => 
+                          msg.id === assistantMessageObj!.id 
+                            ? { 
+                                ...msg, 
+                                content: [{ 
+                                  type: 'text', 
+                                  text: { 
+                                    value: assistantMessage,
+                                    // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
+                                    annotations: citations.length > 0 ? citations.map((citation, index) => ({
+                                      type: 'file_citation',
+                                      text: `[${index + 1}]`,
+                                      file_citation: {
+                                        file_id: `citation-${index}`,
+                                        quote: citation.replace(`[${index + 1}] `, '')
+                                      }
+                                    })) : undefined
+                                  } 
+                                }],
+                                // UPDATE CITATION DATA
+                                citationData: citationData
+                              }
+                            : msg
+                        ));
                     }
                     
                     // UPDATE CURRENT STEP
@@ -829,9 +864,11 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                   } else if (data.type === 'done') {
                     // STREAMING COMPLETE
                     setCurrentStep('');
+                    setIsStreamingResponse(false); // ALLOW MESSAGE RELOAD AGAIN
                     break;
                   } else if (data.type === 'error') {
                     setCurrentStep('');
+                    setIsStreamingResponse(false); // ALLOW MESSAGE RELOAD AGAIN
                     throw new Error(data.error);
                   }
                 } catch (jsonError) {
@@ -871,6 +908,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      setIsStreamingResponse(false); // ENSURE STREAMING FLAG IS CLEARED
       abortControllerRef.current = null;
       clearTimeout(timeoutId);
     }
@@ -927,7 +965,27 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8">
-            {/* EMPTY STATE - NO MESSAGE TO AVOID FLASHING */}
+            {/* WELCOME MESSAGE FOR EMPTY CHAT - ONLY SHOW WHEN NO CHAT IS SELECTED */}
+            {!currentChat && (
+              <div className="flex justify-start">
+                <div className="bg-slate-700 text-slate-100 rounded-lg px-4 py-3 max-w-[85%] lg:max-w-3xl">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">HHB</span>
+                    </div>
+                    <span className="text-slate-300 text-sm font-medium">HHB Assistant</span>
+                  </div>
+                  <p className="text-slate-100">
+                    Hello! I'm your HHB Assistant specializing in <strong>{activeAssistant?.portfolioName}</strong> procedures. 
+                    I'm ready to help you with any questions about surgical procedures, equipment, or protocols. 
+                    I'll search through our knowledge base to provide you with accurate, evidence-based information.
+                  </p>
+                  <p className="text-slate-400 text-sm mt-2">
+                    What would you like to know?
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           messages.map((message) => (
@@ -1048,6 +1106,34 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                                 <span className="text-xs text-slate-500">SAVING...</span>
                               )}
                             </div>
+                            
+                            {/* SEE SOURCES BUTTON */}
+                            {message.citationData && message.citationData.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  // STORE MESSAGE DATA IN LOCAL STORAGE FOR SOURCES PAGE
+                                  const storedMessages = localStorage.getItem('chatMessages') || '[]';
+                                  const messages = JSON.parse(storedMessages);
+                                  const existingIndex = messages.findIndex((msg: any) => msg.id === message.id);
+                                  
+                                  if (existingIndex !== -1) {
+                                    messages[existingIndex] = message;
+                                  } else {
+                                    messages.push(message);
+                                  }
+                                  
+                                  localStorage.setItem('chatMessages', JSON.stringify(messages));
+                                  
+                                  // OPEN SOURCES PAGE IN NEW TAB
+                                  window.open(`/view-sources/${message.id}`, '_blank');
+                                }}
+                                className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                                title="View Sources"
+                              >
+                                <FileText className="w-4 h-4" />
+                                See Sources ({message.citationData.length})
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

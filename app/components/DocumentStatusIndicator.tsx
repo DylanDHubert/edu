@@ -27,7 +27,7 @@ export function DocumentStatusIndicator({
     }
   };
 
-  const getSquareColor = () => {
+  const getStatusColor = () => {
     switch (status) {
       case 'completed':
         return 'bg-green-500';
@@ -40,7 +40,7 @@ export function DocumentStatusIndicator({
     }
   };
 
-  const getSquareAnimation = () => {
+  const getStatusAnimation = () => {
     switch (status) {
       case 'pending':
       case 'processing':
@@ -68,9 +68,9 @@ export function DocumentStatusIndicator({
 
   return (
     <div className="flex items-center gap-1">
-      {/* Status Square */}
+      {/* Status Circle */}
       <div 
-        className={`w-3 h-3 rounded-sm transition-all duration-300 ${getSquareColor()} ${getSquareAnimation()}`}
+        className={`w-3 h-3 rounded-full transition-all duration-300 ${getStatusColor()} ${getStatusAnimation()}`}
         title={getStatusText()}
       />
 

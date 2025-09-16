@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useChat } from "../contexts/ChatContext";
 import NotesSection from "./NotesSection";
 import AssistantSelectModal from "./AssistantSelectModal";
+import ConfirmationModal from "./ConfirmationModal";
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -32,6 +33,22 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
   const [activeAssistant, setActiveAssistant] = useState<any>(null);
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
+  
+  // CONFIRMATION MODAL STATE
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'danger'
+  });
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
 
   // Load active assistant from localStorage
   useEffect(() => {
@@ -70,11 +87,50 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
     };
   }, []);
 
+  // CONFIRMATION MODAL HELPERS
+  const showConfirmationModal = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    variant: 'danger' | 'warning' | 'info' = 'danger'
+  ) => {
+    setConfirmationModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      variant
+    });
+  };
+
+  const closeConfirmationModal = () => {
+    setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+  };
+
   const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // PREVENT CHAT SELECTION WHEN CLICKING DELETE
-    if (confirm('ARE YOU SURE YOU WANT TO DELETE THIS CHAT?')) {
-      await deleteChat(chatId);
-    }
+    
+    // FIND THE CHAT TO GET ITS TITLE
+    const chatToDelete = chatHistory.find(chat => chat.id === chatId);
+    const chatTitle = chatToDelete?.title || 'this chat';
+    
+    showConfirmationModal(
+      'Delete Chat',
+      `Are you sure you want to delete "${chatTitle}"? This will permanently remove all messages and cannot be undone.`,
+      async () => {
+        try {
+          setIsDeletingChat(true);
+          await deleteChat(chatId);
+          closeConfirmationModal();
+        } catch (error) {
+          console.error('Error deleting chat:', error);
+          // Could add error notification here
+        } finally {
+          setIsDeletingChat(false);
+        }
+      },
+      'danger'
+    );
   };
 
   const handleNewChat = async () => {
@@ -230,7 +286,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
                         {/* TEAM CONTEXT BADGE */}
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs px-2 py-1 rounded bg-blue-500 text-white">
-                            TEAM CHAT
+                            {activeAssistant?.portfolioName?.toUpperCase() || 'TEAM CHAT'}
                           </span>
                         </div>
 
@@ -301,6 +357,18 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
         isOpen={isAssistantModalOpen}
         onClose={() => setIsAssistantModalOpen(false)}
         currentAssistant={activeAssistant}
+      />
+
+      {/* CONFIRMATION MODAL */}
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={closeConfirmationModal}
+        onConfirm={confirmationModal.onConfirm}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        variant={confirmationModal.variant}
+        isLoading={isDeletingChat}
+        loadingText="Deleting chat..."
       />
     </>
   );

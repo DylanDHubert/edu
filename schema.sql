@@ -69,6 +69,20 @@ CREATE TABLE public.message_ratings (
   CONSTRAINT message_ratings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT message_ratings_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
+CREATE TABLE public.message_citations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id text NOT NULL,
+  openai_message_id text NOT NULL,
+  citation_number integer NOT NULL,
+  file_id text NOT NULL,
+  quote text,
+  full_chunk_content text,
+  file_name text,
+  relevance_score decimal,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT message_citations_pkey PRIMARY KEY (id),
+  CONSTRAINT message_citations_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.chat_history(thread_id) ON DELETE CASCADE
+);
 CREATE TABLE public.note_tags (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   note_id uuid,
