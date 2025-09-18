@@ -45,7 +45,7 @@ export class InventoryVectorService {
       }
 
       // Get current files in the vector store
-      const vectorStoreFiles = await openaiClient.beta.vectorStores.files.list(vectorStoreId);
+      const vectorStoreFiles = await (openaiClient as any).vectorStores.files.list(vectorStoreId);
       const existingFileIds = new Set(vectorStoreFiles.data.map(file => file.id));
 
       const addedFiles: string[] = [];
@@ -54,7 +54,7 @@ export class InventoryVectorService {
       for (const inventoryDoc of inventoryDocuments) {
         if (!existingFileIds.has(inventoryDoc.openai_file_id)) {
           try {
-            await openaiClient.beta.vectorStores.files.create(vectorStoreId, {
+            await (openaiClient as any).vectorStores.files.create(vectorStoreId, {
               file_id: inventoryDoc.openai_file_id
             });
             
@@ -128,7 +128,7 @@ export class InventoryVectorService {
       }
 
       // Check if this file exists in the vector store
-      const vectorStoreFiles = await openaiClient.beta.vectorStores.files.list(vectorStoreId);
+      const vectorStoreFiles = await (openaiClient as any).vectorStores.files.list(vectorStoreId);
       return vectorStoreFiles.data.some(file => file.id === latestInventory.openai_file_id);
 
     } catch (error) {
