@@ -9,7 +9,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import { Save, ChevronDown, ChevronRight, Upload, Trash2, FileSpreadsheet } from "lucide-react";
 import { uploadInventoryFilesToSupabase, processUploadedInventoryFiles } from "../../utils/inventory-upload";
 import LoadingScreen from "../../components/LoadingScreen";
-import { ProcessingDocumentsSection } from "../../components/ProcessingDocumentsSection";
+import { InventoryProcessingSection } from "../../components/InventoryProcessingSection";
 
 interface InventoryDocument {
   id: string;
@@ -398,19 +398,12 @@ function EditInventoryContent() {
         </div>
 
         {/* Processing Status Section */}
-        {inventoryDocuments.some(doc => 
-          doc.openai_file_id === null || 
-          doc.openai_file_id === 'processing' || 
-          doc.openai_file_id === 'failed'
-        ) && (
-          <div className="mt-6">
-            <ProcessingDocumentsSection 
-              teamId={teamId!}
-              portfolioId="inventory" // Special portfolio ID for inventory
-              onDocumentCompleted={() => loadExistingData()}
-            />
-          </div>
-        )}
+        <div className="mt-6">
+          <InventoryProcessingSection 
+            teamId={teamId!}
+            onDocumentCompleted={() => loadExistingData()}
+          />
+        </div>
       </div>
 
       {/* Confirmation Modal */}
