@@ -9,6 +9,15 @@ import OpenAI from 'openai';
 import { rateLimitMiddleware, RATE_LIMITS } from '../../../utils/rate-limit';
 import { sanitizeInput } from '../../../utils/security';
 
+// TYPE DEFINITION FOR SEARCH CHUNKS RESULT
+interface SearchChunkResult {
+  chunk_text: string;
+  chunk_summary: string;
+  page_number: number;
+  document_name: string;
+  similarity: number;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // APPLY RATE LIMITING FOR CHAT ENDPOINT
@@ -98,7 +107,7 @@ export async function POST(request: NextRequest) {
     console.log('SAFE MODE: FOUND', chunks?.length || 0, 'RELEVANT CHUNKS');
 
     // FORMAT RESULTS WITH ADDITIONAL METADATA
-    const formattedSources = (chunks || []).map((chunk, index) => ({
+    const formattedSources = (chunks || []).map((chunk: SearchChunkResult, index: number) => ({
       rank: index + 1,
       chunk_text: chunk.chunk_text,
       chunk_summary: chunk.chunk_summary,
