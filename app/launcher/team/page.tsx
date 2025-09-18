@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
-import { FolderOpen, Building2, BookOpen, Users, BrainCog, Trash2, AlertTriangle } from "lucide-react";
+import { FolderOpen, Building2, BookOpen, Users, BrainCog, Trash2, AlertTriangle, Shield, Search } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
 import LoadingScreen from "../../components/LoadingScreen";
 
@@ -97,6 +97,16 @@ function TeamDashboardContent() {
   const handleStartChat = () => {
     // Go to account/portfolio selection for chat
     router.push(`/launcher/select?teamId=${teamId}`);
+  };
+
+  const handleSafeMode = () => {
+    // Go to safe mode upload page
+    router.push(`/safe-mode/upload?teamId=${teamId}`);
+  };
+
+  const handleSafeModeSearch = () => {
+    // Go to safe mode search page
+    router.push(`/safe-mode/search?teamId=${teamId}`);
   };
 
   const handleEditTeamDetails = () => {
@@ -276,7 +286,7 @@ function TeamDashboardContent() {
           <div className="space-y-6">
             {/* Actions Sidebar */}
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {/* Start Chat Button - Always visible */}
                 <button
                   onClick={handleStartChat}
@@ -284,6 +294,15 @@ function TeamDashboardContent() {
                 >
                   <BrainCog className="w-5 h-5 flex-shrink-0" />
                   <span className="flex-1 text-center">Start Chat</span>
+                </button>
+
+                {/* Safe Mode Button - Always visible */}
+                <button
+                  onClick={handleSafeMode}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                >
+                  <Shield className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 text-center">Safe Mode</span>
                 </button>
 
                 {/* Management Section - Only for managers */}

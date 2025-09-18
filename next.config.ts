@@ -3,6 +3,21 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   async headers() {
     return [
+      // ALLOW PDF FILES TO BE EMBEDDED IN IFRAMES
+      {
+        source: '/(.*\\.pdf)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          }
+        ]
+      },
+      // DEFAULT SECURITY HEADERS FOR ALL OTHER FILES
       {
         source: '/(.*)',
         headers: [
