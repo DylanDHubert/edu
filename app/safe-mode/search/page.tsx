@@ -23,6 +23,8 @@ interface SearchResult {
   similarity_score: number;
   relevance_percentage: number;
   document_id?: string;
+  screenshot_path?: string;
+  screenshot_filename?: string;
 }
 
 function SafeModeSearchContent() {
@@ -161,15 +163,26 @@ function SafeModeSearchContent() {
     }
   };
 
-  const handleViewPDFPage = (pageNumber: number, documentName: string) => {
-    // FOR NOW: USE THE TESTDATA.PDF
-    // LATER: THIS WILL BE DYNAMIC BASED ON THE ACTUAL PDF STORED IN SUPABASE
-    const pdfUrl = `${window.location.origin}/safemode_testdata.pdf`;
-    
-    console.log('SAFE MODE: OPENING PDF:', pdfUrl, 'PAGE:', pageNumber);
-    
-    // OPEN PDF IN NEW TAB WITH PAGE ANCHOR - THIS WORKS RELIABLY
-    window.open(`${pdfUrl}#page=${pageNumber}`, '_blank');
+  const handleViewPDFPage = (pageNumber: number, documentName: string, documentId?: string) => {
+    if (documentId && teamId && selectedPortfolio) {
+      // USE REAL PDF FROM SUPABASE STORAGE VIA THUMBNAIL API
+      const pdfUrl = `${window.location.origin}/api/thumbnails/pdf/${teamId}/${selectedPortfolio}/${documentId}`;
+      console.log('SAFE MODE: OPENING REAL PDF:', pdfUrl, 'PAGE:', pageNumber);
+      window.open(`${pdfUrl}#page=${pageNumber}`, '_blank');
+    } else {
+      // FALLBACK TO TEST PDF
+      const pdfUrl = `${window.location.origin}/safemode_testdata.pdf`;
+      console.log('SAFE MODE: OPENING TEST PDF:', pdfUrl, 'PAGE:', pageNumber);
+      window.open(`${pdfUrl}#page=${pageNumber}`, '_blank');
+    }
+  };
+
+  const getScreenshotUrl = (documentId: string, pageNumber: number) => {
+    // CONSTRUCT THUMBNAIL API URL FOR SCREENSHOT
+    if (teamId && selectedPortfolio) {
+      return `${window.location.origin}/api/thumbnails/screenshot/${teamId}/${selectedPortfolio}/${documentId}/${pageNumber}`;
+    }
+    return null;
   };
 
 
@@ -205,7 +218,7 @@ function SafeModeSearchContent() {
               <Shield className="w-8 h-8 text-green-500" />
               <div>
                 <h1 className="text-3xl font-bold">Safe Mode Search</h1>
-                <p className="text-slate-400">Search uploaded documents without AI-generated responses</p>
+                <p className="text-slate-400">Search portfolio documents without AI-generated responses</p>
               </div>
             </div>
           </div>
@@ -322,7 +335,7 @@ function SafeModeSearchContent() {
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-slate-500">Page {result.page_number}</span>
                                 <button
-                                  onClick={() => handleViewPDFPage(result.page_number, result.document_name)}
+                                  onClick={() => handleViewPDFPage(result.page_number, result.document_name, result.document_id)}
                                   className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                                   title="View PDF Page"
                                 >
@@ -341,6 +354,26 @@ function SafeModeSearchContent() {
                             </div>
                           </div>
                         </div>
+
+                        {/* SCREENSHOT THUMBNAIL */}
+                        {result.document_id && (
+                          <div className="mb-4">
+                            <h4 className="text-sm font-medium text-slate-300 mb-2">Page Preview</h4>
+                            <div className="bg-slate-700 rounded-md p-3">
+                              <img
+                                src={getScreenshotUrl(result.document_id, result.page_number) || ''}
+                                alt={`Page ${result.page_number} of ${result.document_name}`}
+                                className="max-w-full h-auto max-h-48 rounded border border-slate-600 cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => handleViewPDFPage(result.page_number, result.document_name, result.document_id)}
+                                title="Click to view full PDF page"
+                                onError={(e) => {
+                                  console.log('Screenshot failed to load for document:', result.document_id, 'page:', result.page_number);
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
 
 
                       {/* SUMMARY */}

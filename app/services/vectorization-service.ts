@@ -4,6 +4,7 @@
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import OpenAI from 'openai';
 import { createServiceClient } from '../utils/supabase/server';
+import { ScreenshotPath } from './llamaparse-service';
 
 interface Chunk {
   chunk_text: string;
@@ -28,14 +29,13 @@ export class VectorizationService {
     const allChunks: Chunk[] = [];
     let globalChunkIndex = 1;
     
-    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
-      const pageContent = pages[pageIndex];
-      const pageChunks = await this.chunkPageWithOverlap(pageContent, pageIndex + 1, globalChunkIndex);
+    for (const page of pages) {
+      const pageChunks = await this.chunkPageWithOverlap(page.content, page.pageNumber, globalChunkIndex);
       
       allChunks.push(...pageChunks);
       globalChunkIndex += pageChunks.length;
       
-      console.log('SAFE MODE: PROCESSED PAGE', pageIndex + 1, '- CREATED', pageChunks.length, 'CHUNKS');
+      console.log('SAFE MODE: PROCESSED PAGE', page.pageNumber, '- CREATED', pageChunks.length, 'CHUNKS');
     }
     
     console.log('SAFE MODE: TOTAL CHUNKS CREATED:', allChunks.length);
@@ -53,13 +53,88 @@ export class VectorizationService {
     
     console.log('SAFE MODE: VECTORIZATION COMPLETE FOR DOCUMENT', documentId);
   }
-  
-  private splitByPageBreaks(content: string): string[] {
-    // SPLIT BY <<{page_number}>> PATTERN
-    const pageBreakPattern = /\n<<\d+>>\n/g;
-    const pages = content.split(pageBreakPattern);
+
+  /**
+   * VECTORIZE MARKDOWN WITH SCREENSHOT SUPPORT
+   */
+  async vectorizeWithScreenshots(documentId: string, markdownContent: string, screenshotPaths: ScreenshotPath[]): Promise<void> {
+    console.log('SAFE MODE: STARTING VECTORIZATION WITH SCREENSHOTS FOR DOCUMENT', documentId);
     
-    return pages.filter(page => page.trim().length > 0);
+    // 1. SPLIT BY PAGE BREAKS (<<{page_number}>>)
+    const pages = this.splitByPageBreaks(markdownContent);
+    console.log('SAFE MODE: FOUND', pages.length, 'PAGES');
+    console.log('SAFE MODE: SCREENSHOTS AVAILABLE:', screenshotPaths.length);
+    
+    // 2. PROCESS EACH PAGE WITH SCREENSHOT REFERENCE
+    const allChunks: Chunk[] = [];
+    let globalChunkIndex = 1;
+    
+    for (const page of pages) {
+      const screenshotPath = screenshotPaths.find(s => s.pageNumber === page.pageNumber);
+      
+      const pageChunks = await this.chunkPageWithOverlap(page.content, page.pageNumber, globalChunkIndex);
+      
+      // 3. ADD SCREENSHOT METADATA TO EACH CHUNK
+      const chunksWithScreenshots = pageChunks.map(chunk => ({
+        ...chunk,
+        metadata: {
+          ...chunk.metadata,
+          screenshot_path: screenshotPath?.path || null,
+          screenshot_filename: screenshotPath?.filename || null
+        }
+      }));
+      
+      allChunks.push(...chunksWithScreenshots);
+      globalChunkIndex += pageChunks.length;
+      
+      console.log('SAFE MODE: PROCESSED PAGE', page.pageNumber, '- CREATED', pageChunks.length, 'CHUNKS', 
+                  screenshotPath ? 'WITH SCREENSHOT' : 'NO SCREENSHOT');
+    }
+    
+    console.log('SAFE MODE: TOTAL CHUNKS CREATED:', allChunks.length);
+    
+    // 4. GENERATE SUMMARIES AND EMBEDDINGS
+    console.log('SAFE MODE: GENERATING SUMMARIES...');
+    const summaries = await this.generateSummaries(allChunks);
+    
+    console.log('SAFE MODE: CREATING EMBEDDINGS...');
+    const embeddings = await this.createEmbeddings(allChunks);
+    
+    // 5. STORE IN DATABASE
+    console.log('SAFE MODE: STORING CHUNKS IN DATABASE...');
+    await this.storeChunks(documentId, allChunks, summaries, embeddings);
+    
+    console.log('SAFE MODE: VECTORIZATION WITH SCREENSHOTS COMPLETE FOR DOCUMENT', documentId);
+  }
+  
+  private splitByPageBreaks(content: string): { content: string; pageNumber: number }[] {
+    // SPLIT BY <<{page_number}>> PATTERN AND PRESERVE PAGE NUMBERS
+    const pageBreakPattern = /\r?\n<<(\d+)>>\r?\n/g;
+    const parts = content.split(pageBreakPattern);
+    
+    const pages: { content: string; pageNumber: number }[] = [];
+    
+    // FIRST PART (BEFORE ANY PAGE BREAKS) IS PAGE 1
+    if (parts[0] && parts[0].trim().length > 0) {
+      pages.push({ content: parts[0], pageNumber: 1 });
+    }
+    
+    // PROCESS REMAINING PARTS (PAGE NUMBERS AND CONTENT ALTERNATE)
+    for (let i = 1; i < parts.length; i += 2) {
+      const pageNumber = parseInt(parts[i]);
+      const pageContent = parts[i + 1];
+      
+      if (pageNumber && pageContent && pageContent.trim().length > 0) {
+        pages.push({ content: pageContent, pageNumber });
+      }
+    }
+    
+    console.log('🔍 PAGE SPLITTING DEBUG:');
+    console.log('  - Total parts:', parts.length);
+    console.log('  - Pages created:', pages.length);
+    console.log('  - Page numbers:', pages.map(p => p.pageNumber));
+    
+    return pages;
   }
   
   private async chunkPageWithOverlap(pageContent: string, pageNumber: number, startChunkIndex: number): Promise<Chunk[]> {

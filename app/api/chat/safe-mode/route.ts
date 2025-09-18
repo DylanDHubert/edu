@@ -16,6 +16,9 @@ interface SearchChunkResult {
   page_number: number;
   document_name: string;
   similarity: number;
+  screenshot_path?: string;
+  screenshot_filename?: string;
+  document_id?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -106,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     console.log('SAFE MODE: FOUND', chunks?.length || 0, 'RELEVANT CHUNKS');
 
-    // FORMAT RESULTS WITH ADDITIONAL METADATA
+    // FORMAT RESULTS WITH ADDITIONAL METADATA INCLUDING SCREENSHOTS
     const formattedSources = (chunks || []).map((chunk: SearchChunkResult, index: number) => ({
       rank: index + 1,
       chunk_text: chunk.chunk_text,
@@ -114,7 +117,10 @@ export async function POST(request: NextRequest) {
       page_number: chunk.page_number,
       document_name: chunk.document_name,
       similarity_score: Math.round(chunk.similarity * 100) / 100, // ROUND TO 2 DECIMAL PLACES
-      relevance_percentage: Math.round(chunk.similarity * 100) // CONVERT TO PERCENTAGE
+      relevance_percentage: Math.round(chunk.similarity * 100), // CONVERT TO PERCENTAGE
+      screenshot_path: chunk.screenshot_path || null,
+      screenshot_filename: chunk.screenshot_filename || null,
+      document_id: chunk.document_id || null
     }));
 
     // RETURN RESULTS
