@@ -43,7 +43,33 @@ export async function GET(
     console.log('  📄 Decoded filename:', decodedFilename);
     console.log('  📏 Path segments:', filename);
     
-    if (filename.length >= 3 && filename[1] === 'instruments') {
+    if (filename.length >= 7 && filename[0] === 'teams' && filename[2] === 'portfolios' && filename[4] === 'screenshots') {
+      // SCREENSHOT: /api/images/teams/{teamId}/portfolios/{portfolioId}/screenshots/{documentId}/page_X.jpg
+      imageType = 'DOCUMENT SCREENSHOT';
+      const teamId = filename[1];
+      const portfolioId = filename[3];
+      const documentId = filename[5];
+      const pageFilename = filename[6];
+      filePath = `teams/${teamId}/portfolios/${portfolioId}/screenshots/${documentId}/${pageFilename}`;
+      bucketName = 'user_note_images'; // SAME BUCKET AS OTHER IMAGES
+      
+      // VERIFY USER HAS ACCESS TO THIS TEAM/PORTFOLIO
+      const { data: teamMember, error: memberError } = await supabase
+        .from('team_members')
+        .select('role')
+        .eq('team_id', teamId)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+        
+      if (memberError || !teamMember) {
+        return NextResponse.json(
+          { error: 'Access denied to this team' },
+          { status: 403 }
+        );
+      }
+      
+    } else if (filename.length >= 3 && filename[1] === 'instruments') {
       // TEAM IMAGE: /api/images/{teamId}/instruments/{filename}
       imageType = 'TEAM INSTRUMENT IMAGE';
       const teamId = filename[0];
@@ -61,10 +87,15 @@ export async function GET(
     } else {
       // INVALID PATH - return error
       return NextResponse.json(
-        { error: 'Invalid image path format. Expected: /api/images/{userId}/{filename} or /api/images/{teamId}/instruments/{filename}' },
+        { error: 'Invalid image path format. Expected: /api/images/{userId}/{filename}, /api/images/{teamId}/instruments/{filename}, or /api/images/teams/{teamId}/portfolios/{portfolioId}/screenshots/{documentId}/page_X.jpg' },
         { status: 400 }
       );
     }
+    
+    console.log('🔍 FETCHING IMAGE:');
+    console.log('  📦 Bucket:', bucketName);
+    console.log('  📁 File path:', filePath);
+    console.log('  🏷️ Image type:', imageType);
     
     // FETCH THE IMAGE FROM SUPABASE STORAGE
     const { data, error } = await supabase.storage
@@ -72,6 +103,7 @@ export async function GET(
       .download(filePath);
 
     if (error) {
+      console.error('❌ STORAGE ERROR:', error);
       return NextResponse.json(
         { error: 'Image not found', details: error.message },
         { status: 404 }

@@ -191,7 +191,8 @@ export default function InviteModal({ isOpen, onClose, teamId, teamName, onInvit
               value={formData.role}
               onChange={handleInputChange}
               disabled={isSubmitting}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 appearance-none"
+              style={{ backgroundImage: 'none' }}
             >
               <option value="member">Member</option>
               <option value="manager">Manager</option>
