@@ -3,6 +3,7 @@ import { OpenAIService } from './openai-service';
 import { ContextGeneratorService } from './context-generator-service';
 import { VectorStoreService } from './vector-store-service';
 import { KnowledgeUpdateService } from './knowledge-update-service';
+import { InventoryVectorService } from './inventory-vector-service';
 import { 
   CreateAssistantRequest, 
   AssistantResult, 
@@ -19,6 +20,7 @@ export class AssistantService {
   private contextService = new ContextGeneratorService();
   private vectorService = new VectorStoreService();
   private knowledgeUpdateService = new KnowledgeUpdateService();
+  private inventoryService = new InventoryVectorService();
 
   /**
    * CREATE DYNAMIC ASSISTANT
@@ -54,6 +56,14 @@ export class AssistantService {
           
           // UPDATE KNOWLEDGE MD FILE IN VECTOR STORE IF NEEDED
           await this.updateKnowledgeIfNeeded(teamId, accountId, portfolioId, existingAssistant.portfolio_vector_store_id, userId);
+          
+          // ENSURE INVENTORY FILES ARE ADDED TO VECTOR STORE
+          console.log('🧪 DEBUG: Adding inventory to existing assistant vector store:', existingAssistant.portfolio_vector_store_id);
+          const inventoryResult = await this.inventoryService.ensureInventoryInVectorStore(
+            existingAssistant.portfolio_vector_store_id,
+            teamId
+          );
+          console.log('🧪 DEBUG: Inventory service result for existing assistant:', inventoryResult);
           
           return {
             success: true,

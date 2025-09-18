@@ -16,6 +16,7 @@ export class InventoryVectorService {
     addedFiles: string[];
     error?: string;
   }> {
+    console.log('🧪 DEBUG: InventoryVectorService called with:', { vectorStoreId, teamId });
     try {
       // Get all completed inventory documents for this team
       const { data: inventoryDocuments, error: inventoryError } = await this.serviceClient
@@ -28,7 +29,7 @@ export class InventoryVectorService {
         .not('openai_file_id', 'eq', 'failed');
 
       if (inventoryError) {
-        console.error('Error fetching inventory documents:', inventoryError);
+        console.error('❌ Error fetching inventory documents:', inventoryError);
         return {
           success: false,
           addedFiles: [],
@@ -36,8 +37,10 @@ export class InventoryVectorService {
         };
       }
 
+      console.log('🧪 DEBUG: Found inventory documents:', inventoryDocuments?.length || 0);
+
       if (!inventoryDocuments || inventoryDocuments.length === 0) {
-        // No inventory documents to add
+        console.log('ℹ️ No inventory documents found for team');
         return {
           success: true,
           addedFiles: []
@@ -45,25 +48,32 @@ export class InventoryVectorService {
       }
 
       // Get current files in the vector store
+      console.log('🧪 DEBUG: Checking vector store files for:', vectorStoreId);
       const vectorStoreFiles = await (openaiClient as any).vectorStores.files.list(vectorStoreId);
       const existingFileIds = new Set(vectorStoreFiles.data.map((file: any) => file.id));
+      console.log('🧪 DEBUG: Vector store has', existingFileIds.size, 'existing files');
 
       const addedFiles: string[] = [];
 
       // Add each inventory file that's not already in the vector store
       for (const inventoryDoc of inventoryDocuments) {
+        console.log('🧪 DEBUG: Checking inventory file:', inventoryDoc.original_name, 'with ID:', inventoryDoc.openai_file_id);
+        
         if (!existingFileIds.has(inventoryDoc.openai_file_id)) {
+          console.log('🧪 DEBUG: File not in vector store, adding:', inventoryDoc.original_name);
           try {
             await (openaiClient as any).vectorStores.files.create(vectorStoreId, {
               file_id: inventoryDoc.openai_file_id
             });
             
             addedFiles.push(inventoryDoc.openai_file_id);
-            console.log(`Added inventory file to vector store: ${inventoryDoc.original_name} (${inventoryDoc.openai_file_id})`);
+            console.log(`✅ Added inventory file to vector store: ${inventoryDoc.original_name} (${inventoryDoc.openai_file_id})`);
           } catch (addError) {
-            console.error(`Failed to add inventory file ${inventoryDoc.original_name} to vector store:`, addError);
+            console.error(`❌ Failed to add inventory file ${inventoryDoc.original_name} to vector store:`, addError);
             // Continue with other files even if one fails
           }
+        } else {
+          console.log('ℹ️ File already in vector store:', inventoryDoc.original_name);
         }
       }
 
