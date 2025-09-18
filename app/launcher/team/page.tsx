@@ -100,13 +100,8 @@ function TeamDashboardContent() {
   };
 
   const handleSafeMode = () => {
-    // Go to safe mode upload page
-    router.push(`/safe-mode/upload?teamId=${teamId}`);
-  };
-
-  const handleSafeModeSearch = () => {
     // Go to safe mode search page
-    router.push(`/safe-mode/search?teamId=${teamId}`);
+    router.push(`/safemode?teamId=${teamId}`);
   };
 
   const handleEditTeamDetails = () => {
