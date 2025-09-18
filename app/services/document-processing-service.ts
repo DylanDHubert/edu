@@ -5,7 +5,7 @@ import OpenAI from 'openai';
 export interface ProcessingJob {
   id: string;
   teamId: string;
-  portfolioId: string;
+  portfolioId: string | null;
   documentId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;

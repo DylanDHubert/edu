@@ -4,7 +4,7 @@ export interface ProcessingJob {
   id: string;
   document_id: string;
   team_id: string;
-  portfolio_id: string;
+  portfolio_id: string | null;
   llamaparse_job_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
@@ -26,7 +26,7 @@ export class JobQueueService {
   async createJob(
     documentId: string, 
     teamId: string, 
-    portfolioId: string, 
+    portfolioId: string | null, 
     llamaparseJobId: string
   ): Promise<string> {
     try {
