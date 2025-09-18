@@ -7,7 +7,6 @@ import { createClient } from "../../utils/supabase/client";
 import { Shield, Search, FileText, ArrowLeft, Copy, CheckCircle, ExternalLink } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
 import LoadingScreen from "../../components/LoadingScreen";
-import PDFPageImage from "../../components/PDFPageImage";
 
 interface Portfolio {
   id: string;
@@ -343,21 +342,6 @@ function SafeModeSearchContent() {
                           </div>
                         </div>
 
-                        {/* PAGE IMAGE PREVIEW */}
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium text-slate-300">Page Preview</h4>
-                          </div>
-                          <div className="bg-slate-700 rounded-md p-2">
-                            <PDFPageImage
-                              pdfUrl={`${window.location.origin}/safemode_testdata.pdf`}
-                              pageNumber={result.page_number}
-                              width={300}
-                              height={400}
-                              className=""
-                            />
-                          </div>
-                        </div>
 
                       {/* SUMMARY */}
                       <div className="mb-4">
