@@ -44,7 +44,7 @@ export async function uploadInventoryFilesToSupabase(
       const allowedExtensions = ['.xlsx', '.xls', '.csv'];
       const fileExtension = file.name.toLowerCase().match(/\.(xlsx|xls|csv)$/)?.[0];
       
-      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+      if (!allowedTypes.includes(file.type) && !fileExtension) {
         progress[i].status = 'error';
         progress[i].error = 'Only Excel (.xlsx, .xls) and CSV files are allowed';
         onProgress?.(progress);
