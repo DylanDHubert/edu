@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
     // CREATE NEW THREAD WITH INITIAL CONTEXT TO PRIME FILE SEARCH BEHAVIOR
     const initialContext = `I am ready to help with surgical procedures. I will ALWAYS use file search to find relevant information from documents and knowledge sources before responding. This ensures I provide accurate, evidence-based responses.`;
     const thread = await createThread(initialContext);
