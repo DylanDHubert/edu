@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     // CALCULATE SUMMARY STATISTICS
     const totalDocuments = documentsWithStatus.length;
     const completedDocuments = documentsWithStatus.filter(doc => doc.status === 'completed').length;
-    const pendingDocuments = documentsWithStatus.filter(doc => doc.status === 'pending');
+    const pendingDocuments = documentsWithStatus.filter(doc => doc.status === 'pending').length;
     const processingDocuments = documentsWithStatus.filter(doc => doc.status === 'processing').length;
     const failedDocuments = documentsWithStatus.filter(doc => doc.status === 'failed').length;
 
