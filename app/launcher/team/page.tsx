@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
-import { FolderOpen, Building2, BookOpen, Users, BrainCog, Trash2, AlertTriangle } from "lucide-react";
+import { FolderOpen, Building2, BookOpen, Users, BrainCog, Trash2, AlertTriangle, ClipboardList } from "lucide-react";
 import StandardHeader from "../../components/StandardHeader";
 import LoadingScreen from "../../components/LoadingScreen";
 
@@ -117,6 +117,11 @@ function TeamDashboardContent() {
   const handleManageMembers = () => {
     // Go to member management page
     router.push(`/edit/members?teamId=${teamId}`);
+  };
+
+  const handleManageInventory = () => {
+    // Go to inventory management page
+    router.push(`/edit/inventory?teamId=${teamId}`);
   };
 
   const handleDeleteTeam = () => {
@@ -315,6 +320,14 @@ function TeamDashboardContent() {
                         >
                           <BookOpen className="w-5 h-5 flex-shrink-0" />
                           <span className="flex-1 text-center">Surgeons</span>
+                        </button>
+                        
+                        <button
+                          onClick={handleManageInventory}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                        >
+                          <ClipboardList className="w-5 h-5 flex-shrink-0" />
+                          <span className="flex-1 text-center">Inventory</span>
                         </button>
                       </div>
                     </div>

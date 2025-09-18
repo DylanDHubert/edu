@@ -4,6 +4,7 @@ import { createServiceClient } from '../../../utils/supabase/server';
 import { createThread } from '../../../utils/openai';
 import { cookies } from 'next/headers';
 import { KnowledgeUpdateService } from '../../../services/knowledge-update-service';
+import { InventoryVectorService } from '../../../services/inventory-vector-service';
 import OpenAI from 'openai';
 
 const client = new OpenAI({
@@ -87,6 +88,20 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to update team knowledge' },
         { status: 500 }
       );
+    }
+
+    // ENSURE INVENTORY FILES ARE ADDED TO VECTOR STORE
+    const inventoryService = new InventoryVectorService();
+    const inventoryResult = await inventoryService.ensureInventoryInVectorStore(
+      assistantData.portfolio_vector_store_id,
+      teamId
+    );
+
+    if (!inventoryResult.success) {
+      console.error('Failed to ensure inventory in vector store:', inventoryResult.error);
+      // Don't fail chat creation if inventory update fails, just log it
+    } else if (inventoryResult.addedFiles.length > 0) {
+      console.log(`Added ${inventoryResult.addedFiles.length} inventory files to vector store`);
     }
 
     // CREATE NEW THREAD WITH INITIAL CONTEXT TO PRIME FILE SEARCH BEHAVIOR
