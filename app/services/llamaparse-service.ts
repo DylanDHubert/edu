@@ -54,7 +54,7 @@ export class LlamaParseService {
       // CREATE FORM DATA WITH SCREENSHOTS + PAGE SEPARATORS + TECHNICAL PRESET
       const formData = new FormData();
       formData.append('file', new Blob([new Uint8Array(pdfBuffer)]), filename);
-      formData.append('preset', 'technicalDocumentation');
+      // formData.append('preset', 'technicalDocumentation'); // COMMENTED OUT
       formData.append('take_screenshot', 'true');
       formData.append('page_separator', '\n<<{pageNumber}>>\n');
 

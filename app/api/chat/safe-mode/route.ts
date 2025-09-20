@@ -109,8 +109,28 @@ export async function POST(request: NextRequest) {
 
     console.log('SAFE MODE: FOUND', chunks?.length || 0, 'RELEVANT CHUNKS');
 
+    // DEDUPLICATE BY PAGE NUMBER - KEEP HIGHEST SCORING CHUNK PER PAGE
+    const pageMap = new Map<number, SearchChunkResult>();
+    
+    (chunks || []).forEach((chunk: SearchChunkResult) => {
+      const pageNumber = chunk.page_number;
+      const existingChunk = pageMap.get(pageNumber);
+      
+      // KEEP THE CHUNK WITH HIGHER SIMILARITY SCORE
+      if (!existingChunk || chunk.similarity > existingChunk.similarity) {
+        pageMap.set(pageNumber, chunk);
+      }
+    });
+    
+    // CONVERT TO ARRAY AND SORT BY SIMILARITY (DESCENDING)
+    const deduplicatedChunks = Array.from(pageMap.values())
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5); // TOP 5 PAGES MAX
+    
+    console.log('SAFE MODE: DEDUPLICATED TO', deduplicatedChunks.length, 'UNIQUE PAGES');
+
     // FORMAT RESULTS WITH ADDITIONAL METADATA INCLUDING SCREENSHOTS
-    const formattedSources = (chunks || []).map((chunk: SearchChunkResult, index: number) => ({
+    const formattedSources = deduplicatedChunks.map((chunk: SearchChunkResult, index: number) => ({
       rank: index + 1,
       chunk_text: chunk.chunk_text,
       chunk_summary: chunk.chunk_summary,
