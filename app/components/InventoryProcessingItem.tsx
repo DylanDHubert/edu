@@ -43,8 +43,15 @@ export function InventoryProcessingItem({ document, onRetry }: InventoryProcessi
   }, [document.openai_file_id]);
 
   const formatFileSize = (bytes: number) => {
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(1)} MB`;
+    if (bytes < 1024 * 1024) {
+      // Less than 1MB - show in KB
+      const kb = bytes / 1024;
+      return `${kb.toFixed(1)} KB`;
+    } else {
+      // 1MB or more - show in MB
+      const mb = bytes / (1024 * 1024);
+      return `${mb.toFixed(1)} MB`;
+    }
   };
 
   const getStatusColor = () => {
