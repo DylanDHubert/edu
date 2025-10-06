@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { createClient } from '../utils/supabase/client';
 
 // Import react-pdf styles (these are bundled with react-pdf)
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -30,9 +29,7 @@ export default function PDFViewer({
   const [retryCount, setRetryCount] = useState<number>(0);
   const [documentName, setDocumentName] = useState<string>('');
 
-  const supabase = useMemo(() => createClient(), []);
-
-  // Fetch signed URL for the PDF
+  // Fetch signed URL for the PDF via API route
   useEffect(() => {
     let urlRefreshInterval: NodeJS.Timeout;
 
@@ -40,37 +37,22 @@ export default function PDFViewer({
       try {
         console.log(`📄 FETCHING PDF: Document ID ${docId}`);
         
-        // Get document info from database
-        const { data: document, error: docError } = await supabase
-          .from('team_documents')
-          .select('file_path, original_name, team_id, portfolio_id')
-          .eq('id', docId)
-          .single();
-
-        if (docError || !document) {
-          console.error('❌ DOCUMENT NOT FOUND:', docError);
-          setError('Document not found');
+        // Call API route to get document info and signed URL
+        const response = await fetch(`/api/documents/${docId}/signed-url`);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('❌ API ERROR:', errorData);
+          setError(errorData.error || 'Failed to load document');
           setLoading(false);
           return;
         }
 
-        console.log(`✅ FOUND DOCUMENT: ${document.original_name} at ${document.file_path}`);
-        setDocumentName(document.original_name);
-
-        // Generate signed URL from Supabase Storage
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from('team-documents')
-          .createSignedUrl(document.file_path, 3600); // 1 hour expiry
-
-        if (signedUrlError || !signedUrlData) {
-          console.error('❌ SIGNED URL ERROR:', signedUrlError);
-          setError('Failed to generate PDF access URL');
-          setLoading(false);
-          return;
-        }
-
-        console.log(`🔗 SIGNED URL GENERATED: ${signedUrlData.signedUrl.substring(0, 50)}...`);
-        setPdfUrl(signedUrlData.signedUrl);
+        const data = await response.json();
+        console.log(`✅ FOUND DOCUMENT: ${data.documentName}`);
+        
+        setDocumentName(data.documentName);
+        setPdfUrl(data.signedUrl);
         setLoading(false);
 
       } catch (err: any) {
@@ -86,7 +68,7 @@ export default function PDFViewer({
     urlRefreshInterval = setInterval(getSignedUrl, 50 * 60 * 1000);
 
     return () => clearInterval(urlRefreshInterval);
-  }, [supabase, docId]);
+  }, [docId]);
 
   // Handle PDF load success
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
