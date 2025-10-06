@@ -546,6 +546,67 @@ export default function AdminDashboard() {
     }
   };
 
+  const handlePdfTest = async () => {
+    const docIdInput = document.getElementById('pdfTestDocId') as HTMLInputElement;
+    const pageInput = document.getElementById('pdfTestPageNumber') as HTMLInputElement;
+    const resultDiv = document.getElementById('pdfTestResult') as HTMLDivElement;
+    const resultContent = document.getElementById('pdfTestResultContent') as HTMLDivElement;
+    
+    const docId = docIdInput.value.trim();
+    const pageNumber = pageInput.value.trim();
+    
+    if (!docId || !pageNumber) {
+      resultContent.innerHTML = '<span class="text-red-400">Please enter both Document ID and Page Number</span>';
+      resultDiv.classList.remove('hidden');
+      return;
+    }
+    
+    try {
+      resultContent.innerHTML = '<span class="text-blue-400">Testing PDF opening...</span>';
+      resultDiv.classList.remove('hidden');
+      
+      // Test the PDF serving endpoint
+      const testUrl = `/api/documents/${docId}/pdf?page=${pageNumber}`;
+      console.log('🧪 Testing PDF URL:', testUrl);
+      
+      // Open the PDF in a new tab
+      const newWindow = window.open(testUrl, '_blank');
+      
+      if (newWindow) {
+        resultContent.innerHTML = `
+          <div class="text-green-400 mb-2">✅ PDF opened successfully!</div>
+          <div class="text-slate-300 text-sm">
+            <strong>URL:</strong> <code class="bg-slate-600 px-1 rounded">${testUrl}</code><br>
+            <strong>Document ID:</strong> ${docId}<br>
+            <strong>Page Number:</strong> ${pageNumber}<br>
+            <strong>Status:</strong> New tab opened
+          </div>
+        `;
+      } else {
+        resultContent.innerHTML = `
+          <div class="text-yellow-400 mb-2">⚠️ Popup blocked or failed to open</div>
+          <div class="text-slate-300 text-sm">
+            <strong>URL:</strong> <code class="bg-slate-600 px-1 rounded">${testUrl}</code><br>
+            <strong>Document ID:</strong> ${docId}<br>
+            <strong>Page Number:</strong> ${pageNumber}<br>
+            <strong>Status:</strong> Popup may be blocked by browser
+          </div>
+        `;
+      }
+      
+    } catch (error: any) {
+      console.error('❌ PDF test failed:', error);
+      resultContent.innerHTML = `
+        <div class="text-red-400 mb-2">❌ PDF test failed</div>
+        <div class="text-slate-300 text-sm">
+          <strong>Error:</strong> ${error.message || 'Unknown error'}<br>
+          <strong>Document ID:</strong> ${docId}<br>
+          <strong>Page Number:</strong> ${pageNumber}
+        </div>
+      `;
+    }
+  };
+
   const handleTabChange = (tab: TabType) => {
     // Cancel all ongoing requests before switching tabs
     console.log(`🔄 Switching from ${activeTab} to ${tab} tab - cancelling previous requests`);
@@ -1112,6 +1173,61 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+
+            {/* PDF Page Opening Test */}
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+              <h3 className="text-slate-100 font-medium mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                PDF Page Opening Test
+              </h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Test the PDF serving endpoint to verify page anchors work correctly.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Document ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter document ID"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    id="pdfTestDocId"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Page Number
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Enter page number"
+                    min="1"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    id="pdfTestPageNumber"
+                  />
+                </div>
+                
+                <div className="flex items-end">
+                  <button
+                    onClick={handlePdfTest}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Play className="w-4 h-4" />
+                    Test PDF Opening
+                  </button>
+                </div>
+              </div>
+              
+              <div id="pdfTestResult" className="mt-4 hidden">
+                <div className="bg-slate-700 rounded p-4">
+                  <div className="text-slate-100 font-medium mb-2">Test Result:</div>
+                  <div id="pdfTestResultContent" className="text-slate-300 text-sm"></div>
+                </div>
+              </div>
+            </div>
 
             {/* Test Query Cards */}
             <div className="space-y-4">
