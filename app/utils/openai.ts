@@ -99,7 +99,7 @@ export async function sendMessageStreaming(
   threadId: string, 
   message: string, 
   assistantId: string,
-  onUpdate: (content: string, citations: string[], step?: string, citationData?: any[], openaiMessageId?: string) => void,
+  onUpdate: (content: string, citations: string[], step?: string, citationData?: any[], openaiMessageId?: string, sources?: any[]) => void,
   userId: string
 ) {
   try {
@@ -324,6 +324,21 @@ export async function sendMessageStreaming(
               
               // STORE CITATIONS IN DATABASE
               await storeCitationsInDatabase(threadId, openaiMessageId, citationsForStorage, userId);
+              
+              // EXTRACT SOURCES FOR PAGE CITATIONS
+              try {
+                const { SourceExtractionService } = await import('../services/source-extraction-service');
+                const sourceService = new SourceExtractionService();
+                const sources = await sourceService.extractSourcesFromRun(threadId, runId);
+                
+                // Send sources in final update
+                onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId, sources);
+                console.log(`SOURCES EXTRACTED: ${sources.length} sources found`);
+              } catch (sourceError) {
+                console.error('ERROR EXTRACTING SOURCES:', sourceError);
+                // Continue without sources if extraction fails
+                onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId);
+              }
             }
           } catch (error) {
             console.error('ERROR STORING CITATIONS IN DATABASE:', error);
@@ -403,6 +418,27 @@ export async function sendMessage(threadId: string, message: string, assistantId
 
     // GET MESSAGES
     const messages = await client.beta.threads.messages.list(threadId);
+    
+    // EXTRACT SOURCES FROM RUN STEPS (for source citations)
+    try {
+      const { SourceExtractionService } = await import('../services/source-extraction-service');
+      const sourceService = new SourceExtractionService();
+      const sources = await sourceService.extractSourcesFromRun(threadId, run.id);
+      
+      // Add sources to the last assistant message
+      if (messages.data.length > 0) {
+        const lastMessage = messages.data[0];
+        if (lastMessage.role === 'assistant') {
+          // Add sources as metadata to the message
+          (lastMessage as any).sources = sources;
+          console.log(`SOURCES EXTRACTED: ${sources.length} sources found`);
+        }
+      }
+    } catch (sourceError) {
+      console.error('ERROR EXTRACTING SOURCES:', sourceError);
+      // Continue without sources if extraction fails
+    }
+    
     return messages.data;
   } catch (error) {
     console.error('ERROR IN SENDMESSAGE:', error);
