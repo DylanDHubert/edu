@@ -623,6 +623,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                         currentStep = data.step || '';
                         const citationData = data.citationData || [];
                         const sources = data.sources || [];
+                        console.log(`🎯 CHAT INTERFACE RECEIVED SOURCES:`, sources);
                         
                         // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                         if (!assistantMessageObj && assistantMessage.trim()) {
@@ -637,6 +638,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             // STORE SOURCES FOR PAGE CITATIONS
                             sources: sources
                           };
+                          console.log(`💾 CREATING MESSAGE WITH SOURCES:`, assistantMessageObj.sources);
                           setMessages(prev => [...prev, assistantMessageObj!]);
                           // RECORD START TIME FOR RESPONSE TIME CALCULATION
                           setResponseStartTimes(prev => ({
@@ -657,6 +659,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                                 }
                               : msg
                           ));
+                          console.log(`🔄 UPDATING MESSAGE WITH SOURCES:`, sources);
                         }
                         
                         // UPDATE CURRENT STEP
@@ -1156,6 +1159,10 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             </div>
                             
                             {/* SOURCES DISPLAY */}
+                            {(() => {
+                              console.log(`🔍 CHECKING SOURCES FOR MESSAGE ${message.id}:`, message.sources);
+                              return null;
+                            })()}
                             {message.sources && message.sources.length > 0 ? (
                               <SourcesDisplay sources={message.sources} />
                             ) : (message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0) ? (

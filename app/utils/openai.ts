@@ -327,13 +327,15 @@ export async function sendMessageStreaming(
               
               // EXTRACT SOURCES FOR PAGE CITATIONS
               try {
+                console.log(`🚀 STARTING SOURCE EXTRACTION for thread ${threadId}, run ${runId}`);
                 const { SourceExtractionService } = await import('../services/source-extraction-service');
                 const sourceService = new SourceExtractionService();
                 const sources = await sourceService.extractSourcesFromRun(threadId, runId);
                 
+                console.log(`📤 SENDING SOURCES TO FRONTEND:`, sources);
                 // Send sources in final update
                 onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId, sources);
-                console.log(`SOURCES EXTRACTED: ${sources.length} sources found`);
+                console.log(`✅ SOURCES SENT: ${sources.length} sources found`);
               } catch (sourceError) {
                 console.error('ERROR EXTRACTING SOURCES:', sourceError);
                 // Continue without sources if extraction fails

@@ -20,14 +20,14 @@ export class SourceExtractionService {
     runId: string
   ): Promise<SourceInfo[]> {
     try {
-      console.log(`EXTRACTING SOURCES: Thread ${threadId}, Run ${runId}`);
+      console.log(`🔍 EXTRACTING SOURCES: Thread ${threadId}, Run ${runId}`);
       
       // Get run steps with chunk content (using existing analytics code)
       const runSteps = await this.openaiClient.beta.threads.runs.steps.list(threadId, runId, {
         include: ['step_details.tool_calls[*].file_search.results[*].content']
       } as any);
       
-      console.log(`FOUND ${runSteps.data.length} RUN STEPS`);
+      console.log(`📊 FOUND ${runSteps.data.length} RUN STEPS`);
       
       const sources: SourceInfo[] = [];
       
@@ -36,16 +36,18 @@ export class SourceExtractionService {
         if (step.step_details && 'tool_calls' in step.step_details && step.step_details.tool_calls) {
           for (const toolCall of step.step_details.tool_calls) {
             if (toolCall.type === 'file_search' && toolCall.file_search && toolCall.file_search.results) {
-              console.log(`PROCESSING ${toolCall.file_search.results.length} FILE SEARCH RESULTS`);
+              console.log(`🔎 PROCESSING ${toolCall.file_search.results.length} FILE SEARCH RESULTS`);
               
               for (const result of toolCall.file_search.results) {
                 if (result.content && result.content.length > 0) {
                   // Extract page numbers from chunk content
                   const pageNumbers = this.extractPageNumbersFromChunk(result.content);
+                  console.log(`📄 CHUNK ${result.file_id}: Found ${pageNumbers.length} page numbers:`, pageNumbers);
                   
                   if (pageNumbers.length > 0) {
                     // Get document info for this file
                     const documentInfo = await this.getDocumentInfo(result.file_id);
+                    console.log(`📋 DOCUMENT INFO for ${result.file_id}:`, documentInfo);
                     
                     if (documentInfo) {
                       // Create source entries for each page number found
@@ -74,7 +76,7 @@ export class SourceExtractionService {
         .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
         .slice(0, 5);
       
-      console.log(`EXTRACTED ${topSources.length} SOURCES:`, topSources.map(s => `${s.documentName} - Page ${s.pageNumber}`));
+      console.log(`✅ EXTRACTED ${topSources.length} SOURCES:`, topSources.map(s => `${s.documentName} - Page ${s.pageNumber}`));
       
       return topSources;
       

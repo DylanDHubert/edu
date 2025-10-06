@@ -12,7 +12,10 @@ interface SourcesDisplayProps {
 }
 
 export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
+  console.log(`🎨 SOURCES DISPLAY RENDERED with:`, sources);
+  
   if (!sources || sources.length === 0) {
+    console.log(`❌ NO SOURCES TO DISPLAY`);
     return null;
   }
 
