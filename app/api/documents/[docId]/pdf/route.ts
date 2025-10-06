@@ -30,18 +30,21 @@ export async function GET(
     
     console.log(`FOUND DOCUMENT: ${document.original_name} at ${document.file_path}`);
     
-    // Construct the Supabase Storage public URL
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) {
-      console.error('SUPABASE URL NOT CONFIGURED');
+    // Generate a signed URL for the PDF (works with private buckets)
+    const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
+      .from('team-documents')
+      .createSignedUrl(document.file_path, 3600); // 1 hour expiry
+    
+    if (signedUrlError || !signedUrlData) {
+      console.error('SIGNED URL ERROR:', signedUrlError);
       return NextResponse.json(
-        { error: 'Storage configuration error' },
+        { error: 'Failed to generate PDF access URL' },
         { status: 500 }
       );
     }
     
-    // Build the public URL with page anchor
-    let redirectUrl = `${supabaseUrl}/storage/v1/object/public/team-documents/${document.file_path}`;
+    // Build the signed URL with page anchor
+    let redirectUrl = signedUrlData.signedUrl;
     if (page) {
       redirectUrl += `#page=${page}`;
     }
@@ -50,10 +53,10 @@ export async function GET(
     console.log(`   Document ID: ${docId}`);
     console.log(`   Page Requested: ${page}`);
     console.log(`   File Path: ${document.file_path}`);
-    console.log(`   Supabase URL: ${supabaseUrl}`);
+    console.log(`   Signed URL: ${signedUrlData.signedUrl}`);
     console.log(`   Final Redirect URL: ${redirectUrl}`);
     
-    // Redirect to the Supabase Storage URL with page anchor
+    // Redirect to the signed URL with page anchor
     return NextResponse.redirect(redirectUrl);
     
   } catch (error) {
