@@ -43,10 +43,11 @@ export async function GET(
       );
     }
     
-    // Build the signed URL with page anchor
+    // Build the signed URL with PDF.js viewer for better page navigation
     let redirectUrl = signedUrlData.signedUrl;
     if (page) {
-      redirectUrl += `#page=${page}`;
+      // Use PDF.js viewer with page parameter (more reliable than #page anchor)
+      redirectUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(signedUrlData.signedUrl)}&page=${page}`;
     }
     
     console.log(`🔍 PDF DEBUG INFO:`);
