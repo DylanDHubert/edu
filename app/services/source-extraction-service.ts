@@ -33,7 +33,7 @@ export class SourceExtractionService {
       
       // Process each run step
       for (const step of runSteps.data) {
-        if (step.step_details && step.step_details.tool_calls) {
+        if (step.step_details && 'tool_calls' in step.step_details && step.step_details.tool_calls) {
           for (const toolCall of step.step_details.tool_calls) {
             if (toolCall.type === 'file_search' && toolCall.file_search && toolCall.file_search.results) {
               console.log(`PROCESSING ${toolCall.file_search.results.length} FILE SEARCH RESULTS`);
