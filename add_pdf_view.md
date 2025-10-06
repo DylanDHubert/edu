@@ -362,3 +362,48 @@ After implementation, you should see:
 ✅ User confidence increases (can verify answers)  
 ✅ Fewer "is this correct?" follow-up questions  
 
+---
+
+## UPDATED IMPLEMENTATION: React Component Approach
+
+**Date:** Oct 6, 2025
+
+### Problem with Original Plan
+The original plan to redirect to PDF.js viewer with signed URLs failed because:
+- PDF.js's URL parser treats ALL ampersands as parameter separators
+- Supabase signed URLs contain `?token=abc&expires=123&signature=xyz`
+- PDF.js corrupts the signed URL, invalidating authentication
+- Page anchors (`#page=N`) don't work because the PDF fails to load first
+
+### New Solution: Client-Side React Component
+Instead of redirecting to external PDF.js viewer, we:
+1. **Created `PDFViewer.tsx` component** - Client-side PDF rendering with react-pdf
+2. **Pass page as prop** - `<PDFViewer docId="..." initialPage={5} />` (not URL param)
+3. **Generate signed URLs internally** - Component fetches from Supabase, auto-refreshes
+4. **State-based navigation** - React state manages current page, not URL fragments
+5. **Modal display** - Opens in modal instead of new tab, better UX
+
+### Implementation Summary
+```
+✅ Installed react-pdf + pdfjs-dist
+✅ Created app/components/PDFViewer.tsx (modal with signed URL handling)
+✅ Updated app/components/SourcesDisplay.tsx (clickable buttons open modal)
+✅ Updated app/admin/dashboard/page.tsx (PDF test section uses component)
+✅ All linter errors resolved
+```
+
+### How It Works Now
+1. User asks question → OpenAI returns chunks with `--- Page N ---` markers
+2. Backend extracts sources: `[{ docId, documentName, pageNumber }]`
+3. Frontend shows sources as clickable links
+4. Click source → Opens `PDFViewer` modal with `docId` + `initialPage`
+5. Component fetches document info + signed URL from Supabase
+6. react-pdf renders PDF, jumps to `initialPage` via React state
+7. User can navigate with Previous/Next buttons or arrow keys
+
+### Testing
+Use analytics dashboard test section:
+- Document ID: `0b8853cc-2e26-4191-805c-00935cf22db8`
+- Try different page numbers (1, 2, 3, etc.)
+- PDF should open in modal at exact page
+

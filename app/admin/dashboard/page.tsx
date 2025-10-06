@@ -6,8 +6,15 @@ import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { BarChart3, MessageSquare, FileText, Download, Filter, RefreshCw, Calendar, AlertTriangle, ChevronDown, ChevronRight, Play } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
+import dynamic from 'next/dynamic';
 import StandardHeader from "../../components/StandardHeader";
 import LoadingScreen from "../../components/LoadingScreen";
+
+// Dynamically import PDFViewer to avoid SSR issues
+const PDFViewer = dynamic(() => import('../../components/PDFViewer'), {
+  ssr: false,
+  loading: () => <div className="text-center p-4">Loading PDF viewer...</div>,
+});
 
 interface ChatAnalyticsData {
   user_email: string;
@@ -546,73 +553,23 @@ export default function AdminDashboard() {
     }
   };
 
-  const handlePdfTest = async () => {
-    const docIdInput = document.getElementById('pdfTestDocId') as HTMLInputElement;
-    const pageInput = document.getElementById('pdfTestPageNumber') as HTMLInputElement;
-    const resultDiv = document.getElementById('pdfTestResult') as HTMLDivElement;
-    const resultContent = document.getElementById('pdfTestResultContent') as HTMLDivElement;
-    
-    const docId = docIdInput.value.trim();
-    const pageNumber = pageInput.value.trim();
-    
-    if (!docId || !pageNumber) {
-      resultContent.innerHTML = '<span class="text-red-400">Please enter both Document ID and Page Number</span>';
-      resultDiv.classList.remove('hidden');
+  // PDF Test state
+  const [pdfTestDocId, setPdfTestDocId] = useState<string>('');
+  const [pdfTestPage, setPdfTestPage] = useState<number>(1);
+  const [showPdfViewer, setShowPdfViewer] = useState<boolean>(false);
+
+  const handlePdfTest = () => {
+    if (!pdfTestDocId || !pdfTestPage) {
+      alert('Please enter both Document ID and Page Number');
       return;
     }
     
-    try {
-      resultContent.innerHTML = '<span class="text-blue-400">Testing PDF opening...</span>';
-      resultDiv.classList.remove('hidden');
-      
-      // Test the PDF serving endpoint
-      const testUrl = `/api/documents/${docId}/pdf?page=${pageNumber}`;
-      console.log('🧪 Testing PDF URL:', testUrl);
-      console.log('🔍 Debug Info:');
-      console.log('   Document ID:', docId);
-      console.log('   Page Number:', pageNumber);
-      console.log('   Full URL:', window.location.origin + testUrl);
-      
-      // Open the PDF in a new tab
-      const newWindow = window.open(testUrl, '_blank');
-      
-      if (newWindow) {
-        resultContent.innerHTML = `
-          <div class="text-green-400 mb-2">✅ PDF opened successfully!</div>
-          <div class="text-slate-300 text-sm">
-            <strong>URL:</strong> <code class="bg-slate-600 px-1 rounded">${testUrl}</code><br>
-            <strong>Document ID:</strong> ${docId}<br>
-            <strong>Page Number:</strong> ${pageNumber}<br>
-            <strong>Status:</strong> New tab opened<br>
-            <br>
-            <div class="text-yellow-400 text-xs">
-              <strong>Debug:</strong> Check the Network tab in Developer Tools to see the redirect URL
-            </div>
-          </div>
-        `;
-      } else {
-        resultContent.innerHTML = `
-          <div class="text-yellow-400 mb-2">⚠️ Popup blocked or failed to open</div>
-          <div class="text-slate-300 text-sm">
-            <strong>URL:</strong> <code class="bg-slate-600 px-1 rounded">${testUrl}</code><br>
-            <strong>Document ID:</strong> ${docId}<br>
-            <strong>Page Number:</strong> ${pageNumber}<br>
-            <strong>Status:</strong> Popup may be blocked by browser
-          </div>
-        `;
-      }
-      
-    } catch (error: any) {
-      console.error('❌ PDF test failed:', error);
-      resultContent.innerHTML = `
-        <div class="text-red-400 mb-2">❌ PDF test failed</div>
-        <div class="text-slate-300 text-sm">
-          <strong>Error:</strong> ${error.message || 'Unknown error'}<br>
-          <strong>Document ID:</strong> ${docId}<br>
-          <strong>Page Number:</strong> ${pageNumber}
-        </div>
-      `;
-    }
+    console.log('🧪 Opening PDF Viewer:', {
+      docId: pdfTestDocId,
+      page: pdfTestPage
+    });
+    
+    setShowPdfViewer(true);
   };
 
   const handleTabChange = (tab: TabType) => {
@@ -1189,7 +1146,7 @@ export default function AdminDashboard() {
                 PDF Page Opening Test
               </h3>
               <p className="text-slate-400 text-sm mb-4">
-                Test the PDF serving endpoint to verify page anchors work correctly.
+                Test the new React PDF viewer component with page navigation.
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1200,8 +1157,9 @@ export default function AdminDashboard() {
                   <input
                     type="text"
                     placeholder="Enter document ID"
+                    value={pdfTestDocId}
+                    onChange={(e) => setPdfTestDocId(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    id="pdfTestDocId"
                   />
                 </div>
                 
@@ -1213,8 +1171,9 @@ export default function AdminDashboard() {
                     type="number"
                     placeholder="Enter page number"
                     min="1"
+                    value={pdfTestPage}
+                    onChange={(e) => setPdfTestPage(parseInt(e.target.value) || 1)}
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    id="pdfTestPageNumber"
                   />
                 </div>
                 
@@ -1224,18 +1183,35 @@ export default function AdminDashboard() {
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2"
                   >
                     <Play className="w-4 h-4" />
-                    Test PDF Opening
+                    Open PDF Viewer
                   </button>
                 </div>
               </div>
               
-              <div id="pdfTestResult" className="mt-4 hidden">
-                <div className="bg-slate-700 rounded p-4">
-                  <div className="text-slate-100 font-medium mb-2">Test Result:</div>
-                  <div id="pdfTestResultContent" className="text-slate-300 text-sm"></div>
+              <div className="mt-4 bg-slate-700 rounded p-4">
+                <div className="text-slate-300 text-sm">
+                  <strong className="text-slate-100">How it works:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Enter a document ID from your database</li>
+                    <li>Enter the page number you want to open</li>
+                    <li>Click "Open PDF Viewer" to test the component</li>
+                    <li>The PDF will open in a modal with the correct page displayed</li>
+                  </ul>
+                  <div className="mt-3 text-yellow-400 text-xs">
+                    💡 <strong>Tip:</strong> Use document ID: 0b8853cc-2e26-4191-805c-00935cf22db8 for testing
+                  </div>
                 </div>
               </div>
             </div>
+            
+            {/* PDF Viewer Modal */}
+            {showPdfViewer && (
+              <PDFViewer
+                docId={pdfTestDocId}
+                initialPage={pdfTestPage}
+                onClose={() => setShowPdfViewer(false)}
+              />
+            )}
 
             {/* Test Query Cards */}
             <div className="space-y-4">

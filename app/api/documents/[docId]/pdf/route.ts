@@ -46,10 +46,8 @@ export async function GET(
     // Build the signed URL with PDF.js viewer for better page navigation
     let redirectUrl = signedUrlData.signedUrl;
     if (page) {
-      // PDF.js uses 0-indexed pages, so page 1 = 0, page 2 = 1, etc.
-      const pdfJsPage = parseInt(page) - 1;
-      // Use PDF.js viewer with page parameter (more reliable than #page anchor)
-      redirectUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(signedUrlData.signedUrl)}&page=${pdfJsPage}`;
+      // Use PDF.js viewer with #page anchor (more reliable than ?page parameter)
+      redirectUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(signedUrlData.signedUrl)}#page=${page}`;
     }
     
     console.log(`🔍 PDF DEBUG INFO:`);
