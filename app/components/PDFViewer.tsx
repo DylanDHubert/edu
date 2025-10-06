@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { createBrowserClient } from '@/utils/supabase/client';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
+import { createClient } from '../utils/supabase/client';
+
+// Import react-pdf styles (these are bundled with react-pdf)
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -28,7 +30,7 @@ export default function PDFViewer({
   const [retryCount, setRetryCount] = useState<number>(0);
   const [documentName, setDocumentName] = useState<string>('');
 
-  const supabase = useMemo(() => createBrowserClient(), []);
+  const supabase = useMemo(() => createClient(), []);
 
   // Fetch signed URL for the PDF
   useEffect(() => {
