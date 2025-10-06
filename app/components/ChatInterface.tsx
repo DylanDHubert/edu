@@ -9,6 +9,7 @@ import FeedbackModal from "./FeedbackModal";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FileText } from 'lucide-react';
+import SourcesDisplay from './SourcesDisplay';
 
 interface Message {
   id: string;
@@ -34,6 +35,12 @@ interface Message {
     quote: string;
     fullChunkContent?: string;
     fileName?: string;
+    relevanceScore?: number;
+  }>;
+  sources?: Array<{
+    documentName: string;
+    pageNumber: number;
+    docId: string;
     relevanceScore?: number;
   }>;
 }
@@ -615,6 +622,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                         citations = data.citations || [];
                         currentStep = data.step || '';
                         const citationData = data.citationData || [];
+                        const sources = data.sources || [];
                         
                         // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
                         if (!assistantMessageObj && assistantMessage.trim()) {
@@ -625,7 +633,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             content: [{ type: 'text', text: { value: assistantMessage } }],
                             created_at: Date.now() / 1000,
                             // STORE CITATION DATA FOR SOURCES PAGE
-                            citationData: citationData
+                            citationData: citationData,
+                            // STORE SOURCES FOR PAGE CITATIONS
+                            sources: sources
                           };
                           setMessages(prev => [...prev, assistantMessageObj!]);
                           // RECORD START TIME FOR RESPONSE TIME CALCULATION
@@ -641,7 +651,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                                   ...msg, 
                                   content: [{ type: 'text', text: { value: assistantMessage } }],
                                   // UPDATE CITATION DATA
-                                  citationData: citationData
+                                  citationData: citationData,
+                                  // UPDATE SOURCES
+                                  sources: sources
                                 }
                               : msg
                           ));
@@ -824,6 +836,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     currentStep = data.step || '';
                     const citationData = data.citationData || [];
                     const openaiMessageId = data.openaiMessageId;
+                    const sources = data.sources || [];
                     
                     
                     // CREATE ASSISTANT MESSAGE BUBBLE ONLY WHEN WE HAVE CONTENT
@@ -849,7 +862,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                         }],
                         created_at: Date.now() / 1000,
                         // STORE CITATION DATA FOR SOURCES PAGE
-                        citationData: citationData
+                        citationData: citationData,
+                        // STORE SOURCES FOR PAGE CITATIONS
+                        sources: sources
                       };
                       setMessages(prev => [...prev, assistantMessageObj!]);
                       // RECORD START TIME FOR RESPONSE TIME CALCULATION
@@ -884,7 +899,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                                   } 
                                 }],
                                 // UPDATE CITATION DATA
-                                citationData: citationData
+                                citationData: citationData,
+                                // UPDATE SOURCES
+                                sources: sources
                               }
                             : msg
                         ));
@@ -1138,8 +1155,10 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                               )}
                             </div>
                             
-                            {/* SEE SOURCES BUTTON */}
-                            {(message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0) ? (
+                            {/* SOURCES DISPLAY */}
+                            {message.sources && message.sources.length > 0 ? (
+                              <SourcesDisplay sources={message.sources} />
+                            ) : (message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0) ? (
                               <button
                                 onClick={() => {
                                   // OPEN SOURCES PAGE IN NEW TAB - CITATIONS WILL BE LOADED FROM DATABASE
