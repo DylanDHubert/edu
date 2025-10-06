@@ -30,38 +30,26 @@ export async function GET(
     
     console.log(`FOUND DOCUMENT: ${document.original_name} at ${document.file_path}`);
     
-    // Get PDF from Supabase Storage
-    const { data: pdfData, error: downloadError } = await serviceClient.storage
-      .from('team-documents')
-      .download(document.file_path);
-    
-    if (downloadError) {
-      console.error('PDF DOWNLOAD ERROR:', downloadError);
+    // Construct the Supabase Storage public URL
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) {
+      console.error('SUPABASE URL NOT CONFIGURED');
       return NextResponse.json(
-        { error: 'Failed to download PDF' },
+        { error: 'Storage configuration error' },
         { status: 500 }
       );
     }
     
-    console.log(`PDF DOWNLOADED: ${pdfData.size} bytes`);
+    // Build the public URL with page anchor
+    let redirectUrl = `${supabaseUrl}/storage/v1/object/public/team-documents/${document.file_path}`;
+    if (page) {
+      redirectUrl += `#page=${page}`;
+    }
     
-    // Convert to buffer for response
-    const pdfBuffer = await pdfData.arrayBuffer();
+    console.log(`REDIRECTING TO: ${redirectUrl}`);
     
-    // Create response with PDF data
-    const response = new NextResponse(pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${document.original_name}"`,
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
-        // Add page anchor if specified
-        ...(page && { 'X-Page-Anchor': `#page=${page}` })
-      }
-    });
-    
-    console.log(`PDF SERVED: ${document.original_name} (${pdfBuffer.byteLength} bytes)`);
-    return response;
+    // Redirect to the Supabase Storage URL with page anchor
+    return NextResponse.redirect(redirectUrl);
     
   } catch (error) {
     console.error('PDF SERVING ERROR:', error);
