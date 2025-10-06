@@ -46,7 +46,12 @@ export async function GET(
       redirectUrl += `#page=${page}`;
     }
     
-    console.log(`REDIRECTING TO: ${redirectUrl}`);
+    console.log(`🔍 PDF DEBUG INFO:`);
+    console.log(`   Document ID: ${docId}`);
+    console.log(`   Page Requested: ${page}`);
+    console.log(`   File Path: ${document.file_path}`);
+    console.log(`   Supabase URL: ${supabaseUrl}`);
+    console.log(`   Final Redirect URL: ${redirectUrl}`);
     
     // Redirect to the Supabase Storage URL with page anchor
     return NextResponse.redirect(redirectUrl);

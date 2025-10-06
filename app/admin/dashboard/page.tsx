@@ -568,6 +568,10 @@ export default function AdminDashboard() {
       // Test the PDF serving endpoint
       const testUrl = `/api/documents/${docId}/pdf?page=${pageNumber}`;
       console.log('🧪 Testing PDF URL:', testUrl);
+      console.log('🔍 Debug Info:');
+      console.log('   Document ID:', docId);
+      console.log('   Page Number:', pageNumber);
+      console.log('   Full URL:', window.location.origin + testUrl);
       
       // Open the PDF in a new tab
       const newWindow = window.open(testUrl, '_blank');
@@ -579,7 +583,11 @@ export default function AdminDashboard() {
             <strong>URL:</strong> <code class="bg-slate-600 px-1 rounded">${testUrl}</code><br>
             <strong>Document ID:</strong> ${docId}<br>
             <strong>Page Number:</strong> ${pageNumber}<br>
-            <strong>Status:</strong> New tab opened
+            <strong>Status:</strong> New tab opened<br>
+            <br>
+            <div class="text-yellow-400 text-xs">
+              <strong>Debug:</strong> Check the Network tab in Developer Tools to see the redirect URL
+            </div>
           </div>
         `;
       } else {
