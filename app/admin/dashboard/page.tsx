@@ -1355,6 +1355,52 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           )}
+
+                          {/* Extracted Sources with Page Ranges */}
+                          {experimentResult && experimentResult.sources && experimentResult.sources.length > 0 && (
+                            <div>
+                              <h4 className="text-slate-100 font-medium mb-3 flex items-center gap-2">
+                                <FileText className="w-5 h-5" />
+                                Extracted Sources ({experimentResult.sources.length})
+                              </h4>
+                              <div className="bg-slate-900 rounded-lg p-4 border border-slate-600">
+                                <div className="space-y-2">
+                                  {experimentResult.sources.map((source: any, index: number) => (
+                                    <button
+                                      key={`${source.docId}-${index}`}
+                                      onClick={() => {
+                                        setPdfTestDocId(source.docId);
+                                        setPdfTestPage(source.pageStart);
+                                        setShowPdfViewer(true);
+                                      }}
+                                      className="w-full text-left bg-slate-800 hover:bg-slate-700 rounded p-3 transition-colors border border-slate-600 hover:border-blue-500"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <span className="text-blue-400 font-medium">
+                                            {index + 1}. {source.documentName}
+                                          </span>
+                                          <span className="text-slate-300 ml-2">
+                                            - Page {source.pageStart === source.pageEnd 
+                                              ? source.pageStart 
+                                              : `${source.pageStart}-${source.pageEnd}`}
+                                          </span>
+                                        </div>
+                                        {source.relevanceScore !== undefined && (
+                                          <span className="text-xs text-slate-400 ml-4">
+                                            Score: {source.relevanceScore.toFixed(2)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="mt-3 text-xs text-slate-400">
+                                  💡 Click any source to open the PDF at that page
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

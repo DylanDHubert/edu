@@ -293,6 +293,7 @@ export async function GET(request: NextRequest) {
             const vectorizationService = new VectorizationService();
             
             // Check if we have screenshot paths from earlier processing
+            // NOTE: Safe Mode uses original markdown (without page markers) since it has screenshot-based citations
             if (screenshotPaths && screenshotPaths.length > 0) {
               await vectorizationService.vectorizeWithScreenshots(job.document_id, markdown, screenshotPaths);
               console.log(`SAFE MODE VECTORIZATION WITH SCREENSHOTS COMPLETE: ${job.document_id}`);

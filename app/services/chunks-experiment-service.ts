@@ -37,6 +37,14 @@ interface DetailedRun {
   steps?: RunStep[];
 }
 
+export interface SourceInfo {
+  documentName: string;
+  docId: string;
+  pageStart: number;
+  pageEnd: number;
+  relevanceScore?: number;
+}
+
 export interface ExperimentResult {
   result: string; // Markdown output
   metadata: {
@@ -51,6 +59,7 @@ export interface ExperimentResult {
     chunkCount: number;
     tokensUsed?: any;
   };
+  sources?: SourceInfo[]; // Extracted page citations
 }
 
 export class ChunksExperimentService {
@@ -133,6 +142,11 @@ export class ChunksExperimentService {
       console.log('\n📊 Processing results...');
       const markdownResult = await this.processResults(detailedRun, runSteps, assistantMessage, thread.id, client);
 
+      // Step 7: Extract sources with page ranges
+      console.log('\n🔍 Extracting sources from chunks...');
+      const sources = await this.extractSources(detailedRun, runSteps, client);
+      console.log(`✅ Extracted ${sources.length} sources`);
+
       const processingTime = Date.now() - startTime;
 
       // Cleanup: Delete the thread
@@ -155,7 +169,8 @@ export class ChunksExperimentService {
           processingTime,
           chunkCount: await this.countChunks(detailedRun, runSteps),
           tokensUsed: detailedRun.usage
-        }
+        },
+        sources
       };
 
     } catch (error) {
@@ -359,5 +374,115 @@ export class ChunksExperimentService {
     }
     
     return chunkCount;
+  }
+
+  private async extractSources(detailedRun: DetailedRun, runSteps: any, openaiClient: OpenAI): Promise<SourceInfo[]> {
+    const { createServiceClient } = await import('../utils/supabase/server');
+    const supabase = createServiceClient();
+    
+    const sourceMap = new Map<string, { pages: number[]; score: number; fileId: string }>();
+    
+    // Helper function to extract page numbers from text
+    const extractPageNumbers = (text: string): number[] => {
+      const pages = new Set<number>();
+      
+      // Match both formats: <<N>> and --- Page N ---
+      const llamaParsePattern = /<<(\d+)>>/g;
+      const customMarkerPattern = /---\s*Page\s+(\d+)\s*---/gi;
+      
+      let match;
+      while ((match = llamaParsePattern.exec(text)) !== null) {
+        pages.add(parseInt(match[1]));
+      }
+      while ((match = customMarkerPattern.exec(text)) !== null) {
+        pages.add(parseInt(match[1]));
+      }
+      
+      return Array.from(pages).sort((a, b) => a - b);
+    };
+    
+    // Process chunks from detailedRun.steps
+    const steps = detailedRun.steps || runSteps?.data || [];
+    
+    for (const step of steps) {
+      if (step.step_details && step.step_details.tool_calls) {
+        for (const toolCall of step.step_details.tool_calls) {
+          if (toolCall.type === 'file_search' && toolCall.file_search && toolCall.file_search.results) {
+            for (const result of toolCall.file_search.results) {
+              if (!result.file_id) continue;
+              
+              // Extract content text
+              let contentText = '';
+              if (result.content && result.content.length > 0) {
+                for (const contentItem of result.content) {
+                  if (contentItem.type === 'text' && contentItem.text) {
+                    contentText += contentItem.text;
+                  }
+                }
+              }
+              
+              // Extract page numbers from content
+              const pageNumbers = extractPageNumbers(contentText);
+              
+              if (pageNumbers.length > 0) {
+                if (!sourceMap.has(result.file_id)) {
+                  sourceMap.set(result.file_id, {
+                    pages: [],
+                    score: result.score || 0,
+                    fileId: result.file_id
+                  });
+                }
+                
+                const source = sourceMap.get(result.file_id)!;
+                source.pages.push(...pageNumbers);
+                // Keep highest score
+                if (result.score && result.score > source.score) {
+                  source.score = result.score;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Convert to SourceInfo array with page ranges
+    const sources: SourceInfo[] = [];
+    
+    for (const [fileId, data] of sourceMap.entries()) {
+      try {
+        // Get document info from team_documents by openai_file_id
+        const { data: document, error: docError } = await supabase
+          .from('team_documents')
+          .select('id, original_name')
+          .eq('openai_file_id', fileId)
+          .single();
+        
+        if (docError || !document) {
+          console.warn(`Could not find document for file_id ${fileId}`);
+          continue;
+        }
+        
+        // Get unique sorted pages
+        const uniquePages = Array.from(new Set(data.pages)).sort((a, b) => a - b);
+        
+        if (uniquePages.length > 0) {
+          sources.push({
+            documentName: document.original_name,
+            docId: document.id,
+            pageStart: uniquePages[0],
+            pageEnd: uniquePages[uniquePages.length - 1],
+            relevanceScore: data.score
+          });
+        }
+      } catch (error) {
+        console.error(`Error processing file ${fileId}:`, error);
+      }
+    }
+    
+    // Sort by relevance score (highest first)
+    sources.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+    
+    return sources;
   }
 }
