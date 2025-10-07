@@ -1,157 +1,130 @@
-import { createServiceClient } from '../utils/supabase/server';
 import OpenAI from 'openai';
+import { createServiceClient } from '../utils/supabase/server';
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export interface SourceInfo {
   documentName: string;
-  pageNumber: number;
   docId: string;
+  pageStart: number;
+  pageEnd: number;
   relevanceScore?: number;
 }
 
 export class SourceExtractionService {
-  private serviceClient = createServiceClient();
-  private openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   /**
-   * EXTRACT SOURCES FROM CHAT RESPONSE
+   * Extract sources from OpenAI run steps with page ranges
    */
-  async extractSourcesFromRun(
-    threadId: string, 
-    runId: string
-  ): Promise<SourceInfo[]> {
+  async extractSourcesFromRun(threadId: string, runId: string): Promise<SourceInfo[]> {
     try {
       console.log(`🔍 EXTRACTING SOURCES: Thread ${threadId}, Run ${runId}`);
       
-      // Get run steps with chunk content (using existing analytics code)
-      const runSteps = await this.openaiClient.beta.threads.runs.steps.list(threadId, runId, {
+      // Fetch run steps from OpenAI
+      const runSteps = await client.beta.threads.runs.steps.list(threadId, runId, {
         include: ['step_details.tool_calls[*].file_search.results[*].content']
       } as any);
       
       console.log(`📊 FOUND ${runSteps.data.length} RUN STEPS`);
       
       const sources: SourceInfo[] = [];
+      const supabase = createServiceClient();
       
       // Process each run step
       for (const step of runSteps.data) {
-        if (step.step_details && 'tool_calls' in step.step_details && step.step_details.tool_calls) {
-          for (const toolCall of step.step_details.tool_calls) {
-            if (toolCall.type === 'file_search' && toolCall.file_search && toolCall.file_search.results) {
-              console.log(`🔎 PROCESSING ${toolCall.file_search.results.length} FILE SEARCH RESULTS`);
-              
-              for (const result of toolCall.file_search.results) {
-                if (result.content && result.content.length > 0) {
-                  // Extract page numbers from chunk content
-                  const pageNumbers = this.extractPageNumbersFromChunk(result.content);
-                  console.log(`📄 CHUNK ${result.file_id}: Found ${pageNumbers.length} page numbers:`, pageNumbers);
-                  
-                  if (pageNumbers.length > 0) {
-                    // Get document info for this file
-                    const documentInfo = await this.getDocumentInfo(result.file_id);
-                    console.log(`📋 DOCUMENT INFO for ${result.file_id}:`, documentInfo);
-                    
-                    if (documentInfo) {
-                      // Create source entries for each page number found
-                      for (const pageNumber of pageNumbers) {
-                        sources.push({
-                          documentName: documentInfo.originalName,
-                          pageNumber: pageNumber,
-                          docId: documentInfo.docId,
-                          relevanceScore: result.score
-                        });
-                      }
-                    }
-                  }
+        if (!('tool_calls' in step.step_details)) continue;
+        
+        const toolCalls = step.step_details.tool_calls;
+        if (!toolCalls) continue;
+        
+        for (const toolCall of toolCalls) {
+          if (toolCall.type !== 'file_search') continue;
+          if (!toolCall.file_search?.results) continue;
+          
+          console.log(`🔎 PROCESSING ${toolCall.file_search.results.length} FILE SEARCH RESULTS`);
+          
+          for (const result of toolCall.file_search.results) {
+            if (!result.file_id) continue;
+            
+            // Extract content text from this chunk
+            let contentText = '';
+            if (result.content && result.content.length > 0) {
+              for (const contentItem of result.content) {
+                if (contentItem.type === 'text' && 'text' in contentItem) {
+                  contentText += contentItem.text;
                 }
               }
+            }
+            
+            // Extract page numbers from this chunk only
+            const pageNumbers = this.extractPageNumbers(contentText);
+            
+            console.log(`📄 CHUNK ${result.file_id}: Found ${pageNumbers.length} page numbers:`, pageNumbers);
+            
+            if (pageNumbers.length > 0) {
+              // Look up document by openai_file_id
+              const { data: document, error: docError } = await supabase
+                .from('team_documents')
+                .select('id, original_name')
+                .eq('openai_file_id', result.file_id)
+                .single();
+              
+              console.log(`📋 DOCUMENT INFO for ${result.file_id}:`, document);
+              
+              if (docError || !document) {
+                console.warn(`⚠️ Could not find document for file_id ${result.file_id}`);
+                continue;
+              }
+              
+              // Create a separate source for this chunk
+              sources.push({
+                documentName: document.original_name,
+                docId: document.id,
+                pageStart: pageNumbers[0],
+                pageEnd: pageNumbers[pageNumbers.length - 1],
+                relevanceScore: result.score || 0
+              });
             }
           }
         }
       }
       
-      // Deduplicate sources (same document + page combination)
-      const deduplicatedSources = this.deduplicateSources(sources);
-      
-      // Sort by relevance score and limit to top 5
-      const topSources = deduplicatedSources
+      // Sort by relevance score and return top 5
+      const topSources = sources
         .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
         .slice(0, 5);
       
-      console.log(`✅ EXTRACTED ${topSources.length} SOURCES:`, topSources.map(s => `${s.documentName} - Page ${s.pageNumber}`));
+      console.log(`✅ EXTRACTED ${topSources.length} SOURCES:`, topSources.map(s => `${s.documentName} - Page ${s.pageStart}-${s.pageEnd}`));
       
       return topSources;
       
     } catch (error) {
-      console.error('ERROR EXTRACTING SOURCES:', error);
+      console.error('❌ ERROR EXTRACTING SOURCES:', error);
+      // Return empty array on error - don't break chat
       return [];
     }
   }
-
+  
   /**
-   * EXTRACT PAGE NUMBERS FROM CHUNK CONTENT
+   * Extract page numbers from text content
+   * Supports both <<N>> (LlamaParse) and --- Page N --- (custom) formats
    */
-  private extractPageNumbersFromChunk(content: any[]): number[] {
-    const pageNumbers: number[] = [];
+  private extractPageNumbers(text: string): number[] {
+    const pages = new Set<number>();
     
-    for (const contentItem of content) {
-      if (contentItem.type === 'text' && contentItem.text) {
-        // Look for page markers: --- Page N ---
-        const pageMatches = contentItem.text.match(/--- Page (\d+) ---/g);
-        
-        if (pageMatches) {
-          for (const match of pageMatches) {
-            const pageNumber = parseInt(match.match(/\d+/)?.[0] || '0');
-            if (pageNumber > 0) {
-              pageNumbers.push(pageNumber);
-            }
-          }
-        }
-      }
+    // Match both formats: <<N>> and --- Page N ---
+    const llamaParsePattern = /<<(\d+)>>/g;
+    const customMarkerPattern = /---\s*Page\s+(\d+)\s*---/gi;
+    
+    let match;
+    while ((match = llamaParsePattern.exec(text)) !== null) {
+      pages.add(parseInt(match[1]));
+    }
+    while ((match = customMarkerPattern.exec(text)) !== null) {
+      pages.add(parseInt(match[1]));
     }
     
-    // Remove duplicates and sort
-    return [...new Set(pageNumbers)].sort((a, b) => a - b);
-  }
-
-  /**
-   * GET DOCUMENT INFO FROM OPENAI FILE ID
-   */
-  private async getDocumentInfo(fileId: string): Promise<{originalName: string, docId: string} | null> {
-    try {
-      const { data: document } = await this.serviceClient
-        .from('team_documents')
-        .select('id, original_name')
-        .eq('openai_file_id', fileId)
-        .single();
-      
-      if (document) {
-        return {
-          originalName: document.original_name,
-          docId: document.id
-        };
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('ERROR GETTING DOCUMENT INFO:', error);
-      return null;
-    }
-  }
-
-  /**
-   * DEDUPLICATE SOURCES BY DOCUMENT + PAGE
-   */
-  private deduplicateSources(sources: SourceInfo[]): SourceInfo[] {
-    const seen = new Set<string>();
-    const deduplicated: SourceInfo[] = [];
-    
-    for (const source of sources) {
-      const key = `${source.docId}-${source.pageNumber}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduplicated.push(source);
-      }
-    }
-    
-    return deduplicated;
+    return Array.from(pages).sort((a, b) => a - b);
   }
 }

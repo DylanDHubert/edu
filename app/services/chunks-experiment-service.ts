@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { SourceInfo } from './source-extraction-service';
 
 // Initialize OpenAI client (same as working chat system)
 const client = new OpenAI({
@@ -35,14 +36,6 @@ interface DetailedRun {
   completed_at?: number;
   usage?: any;
   steps?: RunStep[];
-}
-
-export interface SourceInfo {
-  documentName: string;
-  docId: string;
-  pageStart: number;
-  pageEnd: number;
-  relevanceScore?: number;
 }
 
 export interface ExperimentResult {
@@ -144,7 +137,9 @@ export class ChunksExperimentService {
 
       // Step 7: Extract sources with page ranges
       console.log('\n🔍 Extracting sources from chunks...');
-      const sources = await this.extractSources(detailedRun, runSteps, client);
+      const { SourceExtractionService } = await import('./source-extraction-service');
+      const sourceService = new SourceExtractionService();
+      const sources = await sourceService.extractSourcesFromRun(thread.id, detailedRun.id);
       console.log(`✅ Extracted ${sources.length} sources`);
 
       const processingTime = Date.now() - startTime;
@@ -376,89 +371,4 @@ export class ChunksExperimentService {
     return chunkCount;
   }
 
-  private async extractSources(detailedRun: DetailedRun, runSteps: any, openaiClient: OpenAI): Promise<SourceInfo[]> {
-    const { createServiceClient } = await import('../utils/supabase/server');
-    const supabase = createServiceClient();
-    
-    const sources: SourceInfo[] = [];
-    
-    // Helper function to extract page numbers from text
-    const extractPageNumbers = (text: string): number[] => {
-      const pages = new Set<number>();
-      
-      // Match both formats: <<N>> and --- Page N ---
-      const llamaParsePattern = /<<(\d+)>>/g;
-      const customMarkerPattern = /---\s*Page\s+(\d+)\s*---/gi;
-      
-      let match;
-      while ((match = llamaParsePattern.exec(text)) !== null) {
-        pages.add(parseInt(match[1]));
-      }
-      while ((match = customMarkerPattern.exec(text)) !== null) {
-        pages.add(parseInt(match[1]));
-      }
-      
-      return Array.from(pages).sort((a, b) => a - b);
-    };
-    
-    // Process chunks from detailedRun.steps - KEEP EACH CHUNK SEPARATE
-    const steps = detailedRun.steps || runSteps?.data || [];
-    
-    for (const step of steps) {
-      if (step.step_details && step.step_details.tool_calls) {
-        for (const toolCall of step.step_details.tool_calls) {
-          if (toolCall.type === 'file_search' && toolCall.file_search && toolCall.file_search.results) {
-            for (const result of toolCall.file_search.results) {
-              if (!result.file_id) continue;
-              
-              // Extract content text
-              let contentText = '';
-              if (result.content && result.content.length > 0) {
-                for (const contentItem of result.content) {
-                  if (contentItem.type === 'text' && contentItem.text) {
-                    contentText += contentItem.text;
-                  }
-                }
-              }
-              
-              // Extract page numbers from THIS chunk only
-              const pageNumbers = extractPageNumbers(contentText);
-              
-              if (pageNumbers.length > 0) {
-                try {
-                  // Get document info from team_documents by openai_file_id
-                  const { data: document, error: docError } = await supabase
-                    .from('team_documents')
-                    .select('id, original_name')
-                    .eq('openai_file_id', result.file_id)
-                    .single();
-                  
-                  if (docError || !document) {
-                    console.warn(`Could not find document for file_id ${result.file_id}`);
-                    continue;
-                  }
-                  
-                  // Create a separate source for THIS chunk
-                  sources.push({
-                    documentName: document.original_name,
-                    docId: document.id,
-                    pageStart: pageNumbers[0],
-                    pageEnd: pageNumbers[pageNumbers.length - 1],
-                    relevanceScore: result.score || 0
-                  });
-                } catch (error) {
-                  console.error(`Error processing file ${result.file_id}:`, error);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    // Sort by relevance score (highest first)
-    sources.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
-    
-    return sources;
-  }
 }
