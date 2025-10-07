@@ -1,4 +1,4 @@
-# HHB Assistant
+# HHB Assistant (EDU)
 
 **Date:** September 2025 
 **Version:** 1.1
