@@ -11,7 +11,8 @@ const PDFViewer = dynamic(() => import('./PDFViewer'), {
 
 interface SourceInfo {
   documentName: string;
-  pageNumber: number;
+  pageStart: number;
+  pageEnd: number;
   docId: string;
   relevanceScore?: number;
 }
@@ -31,7 +32,7 @@ export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
   }
 
   const handleSourceClick = (source: SourceInfo) => {
-    console.log(`📄 OPENING PDF: ${source.documentName} - Page ${source.pageNumber}`);
+    console.log(`📄 OPENING PDF: ${source.documentName} - Page ${source.pageStart}-${source.pageEnd}`);
     setSelectedSource(source);
   };
 
@@ -47,11 +48,13 @@ export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
         <div className="space-y-1">
           {sources.map((source, index) => (
             <button
-              key={`${source.docId}-${source.pageNumber}-${index}`}
+              key={`${source.docId}-${source.pageStart}-${index}`}
               onClick={() => handleSourceClick(source)}
               className="block text-left text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer w-full"
             >
-              {index + 1}. {source.documentName} - Page {source.pageNumber}
+              {index + 1}. {source.documentName} - Page {source.pageStart === source.pageEnd 
+                ? source.pageStart 
+                : `${source.pageStart}-${source.pageEnd}`}
               {source.relevanceScore && (
                 <span className="text-gray-500 ml-2">
                   (Score: {source.relevanceScore.toFixed(2)})
@@ -66,7 +69,7 @@ export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
       {selectedSource && (
         <PDFViewer
           docId={selectedSource.docId}
-          initialPage={selectedSource.pageNumber}
+          initialPage={selectedSource.pageStart}
           onClose={handleClose}
         />
       )}

@@ -39,7 +39,8 @@ interface Message {
   }>;
   sources?: Array<{
     documentName: string;
-    pageNumber: number;
+    pageStart: number;
+    pageEnd: number;
     docId: string;
     relevanceScore?: number;
   }>;
