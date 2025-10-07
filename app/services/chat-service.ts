@@ -139,7 +139,7 @@ export class ChatService {
               request.threadId, 
               messageWithContext, 
               request.assistantId,
-              (content: string, citations: string[], step?: string, citationData?: any[], openaiMessageId?: string) => {
+              (content: string, citations: string[], step?: string, citationData?: any[], openaiMessageId?: string, sources?: any[]) => {
                 try {
                   // SEND STREAMING UPDATE WITH SAFE JSON HANDLING
                   const data = JSON.stringify({
@@ -148,7 +148,8 @@ export class ChatService {
                     citations,
                     step,
                     citationData: citationData || [],
-                    openaiMessageId: openaiMessageId || null
+                    openaiMessageId: openaiMessageId || null,
+                    sources: sources || []
                   });
                   controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                 } catch (jsonError) {
@@ -160,7 +161,8 @@ export class ChatService {
                     citations: citations || [],
                     step: step || '',
                     citationData: citationData || [],
-                    openaiMessageId: openaiMessageId || null
+                    openaiMessageId: openaiMessageId || null,
+                    sources: sources || []
                   });
                   controller.enqueue(encoder.encode(`data: ${safeData}\n\n`));
                 }

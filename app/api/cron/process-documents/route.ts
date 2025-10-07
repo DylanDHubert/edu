@@ -3,6 +3,8 @@ import { JobQueueService } from '../../../services/job-queue-service';
 import { LlamaParseService, ScreenshotData, ScreenshotPath } from '../../../services/llamaparse-service';
 import { createServiceClient } from '../../../utils/supabase/server';
 import OpenAI from 'openai';
+// @ts-ignore - tiktoken types not available
+import { encoding_for_model } from 'tiktoken';
 
 /**
  * UPLOAD SCREENSHOTS TO SUPABASE STORAGE
@@ -48,6 +50,55 @@ async function uploadScreenshotsToStorage(
   }
   
   return screenshotPaths;
+}
+
+/**
+ * ADD PAGE MARKERS EVERY 400 TOKENS FOR SOURCE CITATIONS
+ */
+function addPageMarkersEvery400Tokens(markdown: string): string {
+  try {
+    const tokenizer = encoding_for_model('gpt-4');
+    const parts = markdown.split(/(<<\d+>>)/);
+    const result = [];
+    
+    for (let i = 0; i < parts.length; i += 2) {
+      const content = parts[i];
+      const pageMarker = parts[i + 1]; // <<N>>
+      
+      if (content && content.trim().length > 0) {
+        const tokens = tokenizer.encode(content);
+        const pageNum = pageMarker ? pageMarker.match(/\d+/)?.[0] : '1';
+        
+        // ALWAYS add page marker at the beginning of each page section
+        result.push(`--- Page ${pageNum} ---`);
+        
+        // Add page markers every 400 tokens within the page
+        for (let j = 0; j < tokens.length; j += 400) {
+          const chunkTokens = tokens.slice(j, j + 400);
+          const chunkText = tokenizer.decode(chunkTokens);
+          result.push(chunkText);
+          
+          // Add page marker if there are more tokens after this chunk
+          if (j + 400 < tokens.length) {
+            result.push(`--- Page ${pageNum} ---`);
+          }
+        }
+      }
+      
+      if (pageMarker) {
+        result.push(pageMarker);
+      }
+    }
+    
+    const processedMarkdown = result.join('\n');
+    console.log(`PAGE MARKERS ADDED: ${processedMarkdown.length} characters (was ${markdown.length})`);
+    return processedMarkdown;
+    
+  } catch (error) {
+    console.error('ERROR ADDING PAGE MARKERS:', error);
+    // Return original markdown if processing fails
+    return markdown;
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -106,13 +157,24 @@ export async function GET(request: NextRequest) {
           const markdown = await llamaparseService.downloadMarkdown(job.llamaparse_job_id);
           console.log(`MARKDOWN DOWNLOADED: ${job.llamaparse_job_id} (${markdown.length} characters)`);
           
+          // POST-PROCESS MARKDOWN TO ADD PAGE MARKERS FOR SOURCE CITATIONS
+          await jobQueueService.updateJobStatus(
+            job.id, 
+            'processing', 
+            55, 
+            'adding_page_markers'
+          );
+          
+          const processedMarkdown = addPageMarkersEvery400Tokens(markdown);
+          console.log(`PAGE MARKERS PROCESSING COMPLETE: ${processedMarkdown.length} characters`);
+          
           // DETERMINE TOTAL PAGES FROM MARKDOWN AND PROCESS SCREENSHOTS
           let screenshotPaths: any[] = [];
           console.log(`ABOUT TO EXTRACT PAGE COUNT FROM MARKDOWN...`);
           try {
-            const pageNumbers = llamaparseService.extractPageNumbers(markdown);
+            const pageNumbers = llamaparseService.extractPageNumbers(processedMarkdown);
             console.log(`DETECTED ${pageNumbers.length} PAGES IN DOCUMENT:`, pageNumbers);
-            console.log(`MARKDOWN PREVIEW: ${markdown.substring(0, 200)}...`);
+            console.log(`PROCESSED MARKDOWN PREVIEW: ${processedMarkdown.substring(0, 200)}...`);
             
             if (pageNumbers.length > 0) {
               console.log(`ATTEMPTING TO DOWNLOAD SCREENSHOTS FOR ${pageNumbers.length} PAGES...`);
@@ -180,7 +242,7 @@ export async function GET(request: NextRequest) {
           
           const { error: storageError } = await serviceClient.storage
             .from('team-documents')
-            .upload(markdownFilePath, markdown, {
+            .upload(markdownFilePath, processedMarkdown, {
               contentType: 'text/markdown',
               upsert: true
             });
@@ -200,7 +262,7 @@ export async function GET(request: NextRequest) {
           );
           
           const openaiFile = await openaiClient.files.create({
-            file: new File([markdown], `processed_${job.document_id}.md`, { type: 'text/markdown' }),
+            file: new File([processedMarkdown], `processed_${job.document_id}.md`, { type: 'text/markdown' }),
             purpose: 'assistants'
           });
           
@@ -231,6 +293,7 @@ export async function GET(request: NextRequest) {
             const vectorizationService = new VectorizationService();
             
             // Check if we have screenshot paths from earlier processing
+            // NOTE: Safe Mode uses original markdown (without page markers) since it has screenshot-based citations
             if (screenshotPaths && screenshotPaths.length > 0) {
               await vectorizationService.vectorizeWithScreenshots(job.document_id, markdown, screenshotPaths);
               console.log(`SAFE MODE VECTORIZATION WITH SCREENSHOTS COMPLETE: ${job.document_id}`);

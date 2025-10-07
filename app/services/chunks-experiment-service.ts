@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { SourceInfo } from './source-extraction-service';
 
 // Initialize OpenAI client (same as working chat system)
 const client = new OpenAI({
@@ -51,6 +52,7 @@ export interface ExperimentResult {
     chunkCount: number;
     tokensUsed?: any;
   };
+  sources?: SourceInfo[]; // Extracted page citations
 }
 
 export class ChunksExperimentService {
@@ -133,6 +135,13 @@ export class ChunksExperimentService {
       console.log('\n📊 Processing results...');
       const markdownResult = await this.processResults(detailedRun, runSteps, assistantMessage, thread.id, client);
 
+      // Step 7: Extract sources with page ranges
+      console.log('\n🔍 Extracting sources from chunks...');
+      const { SourceExtractionService } = await import('./source-extraction-service');
+      const sourceService = new SourceExtractionService();
+      const sources = await sourceService.extractSourcesFromRun(thread.id, detailedRun.id);
+      console.log(`✅ Extracted ${sources.length} sources`);
+
       const processingTime = Date.now() - startTime;
 
       // Cleanup: Delete the thread
@@ -155,7 +164,8 @@ export class ChunksExperimentService {
           processingTime,
           chunkCount: await this.countChunks(detailedRun, runSteps),
           tokensUsed: detailedRun.usage
-        }
+        },
+        sources
       };
 
     } catch (error) {
@@ -360,4 +370,5 @@ export class ChunksExperimentService {
     
     return chunkCount;
   }
+
 }

@@ -23,14 +23,16 @@
     "lucide-react": "^0.539.0",
     "next": "15.4.5",
     "openai": "^4.104.0",
+    "pdfjs-dist": "^5.4.296",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
+    "react-pdf": "^10.1.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.0.1",
     "supabase": "^2.33.9",
-    "tiktoken": "^1.0.10"
+    "tiktoken": "^1.0.22"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -6,8 +6,15 @@ import { useRouter } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 import { BarChart3, MessageSquare, FileText, Download, Filter, RefreshCw, Calendar, AlertTriangle, ChevronDown, ChevronRight, Play } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
+import dynamic from 'next/dynamic';
 import StandardHeader from "../../components/StandardHeader";
 import LoadingScreen from "../../components/LoadingScreen";
+
+// Dynamically import PDFViewer to avoid SSR issues
+const PDFViewer = dynamic(() => import('../../components/PDFViewer'), {
+  ssr: false,
+  loading: () => <div className="text-center p-4">Loading PDF viewer...</div>,
+});
 
 interface ChatAnalyticsData {
   user_email: string;
@@ -544,6 +551,25 @@ export default function AdminDashboard() {
       // Expand new thread
       loadThreadData(threadId);
     }
+  };
+
+  // PDF Test state
+  const [pdfTestDocId, setPdfTestDocId] = useState<string>('');
+  const [pdfTestPage, setPdfTestPage] = useState<number>(1);
+  const [showPdfViewer, setShowPdfViewer] = useState<boolean>(false);
+
+  const handlePdfTest = () => {
+    if (!pdfTestDocId || !pdfTestPage) {
+      alert('Please enter both Document ID and Page Number');
+      return;
+    }
+    
+    console.log('🧪 Opening PDF Viewer:', {
+      docId: pdfTestDocId,
+      page: pdfTestPage
+    });
+    
+    setShowPdfViewer(true);
   };
 
   const handleTabChange = (tab: TabType) => {
@@ -1113,6 +1139,80 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* PDF Page Opening Test */}
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+              <h3 className="text-slate-100 font-medium mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                PDF Page Opening Test
+              </h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Test the new React PDF viewer component with page navigation.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Document ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter document ID"
+                    value={pdfTestDocId}
+                    onChange={(e) => setPdfTestDocId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Page Number
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Enter page number"
+                    min="1"
+                    value={pdfTestPage}
+                    onChange={(e) => setPdfTestPage(parseInt(e.target.value) || 1)}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div className="flex items-end">
+                  <button
+                    onClick={handlePdfTest}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Play className="w-4 h-4" />
+                    Open PDF Viewer
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mt-4 bg-slate-700 rounded p-4">
+                <div className="text-slate-300 text-sm">
+                  <strong className="text-slate-100">How it works:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Enter a document ID from your database</li>
+                    <li>Enter the page number you want to open</li>
+                    <li>Click "Open PDF Viewer" to test the component</li>
+                    <li>The PDF will open in a modal with the correct page displayed</li>
+                  </ul>
+                  <div className="mt-3 text-yellow-400 text-xs">
+                    💡 <strong>Tip:</strong> Use document ID: 0b8853cc-2e26-4191-805c-00935cf22db8 for testing
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* PDF Viewer Modal */}
+            {showPdfViewer && (
+              <PDFViewer
+                docId={pdfTestDocId}
+                initialPage={pdfTestPage}
+                onClose={() => setShowPdfViewer(false)}
+              />
+            )}
+
             {/* Test Query Cards */}
             <div className="space-y-4">
               {testData.map((query) => {
@@ -1253,6 +1353,52 @@ export default function AdminDashboard() {
                                   {experimentResult.metadata.cached ? 'From cache' : 'Fresh run'}
                                 </div>
                               )}
+                            </div>
+                          )}
+
+                          {/* Extracted Sources with Page Ranges */}
+                          {experimentResult && experimentResult.sources && experimentResult.sources.length > 0 && (
+                            <div>
+                              <h4 className="text-slate-100 font-medium mb-3 flex items-center gap-2">
+                                <FileText className="w-5 h-5" />
+                                Extracted Sources ({experimentResult.sources.length})
+                              </h4>
+                              <div className="bg-slate-900 rounded-lg p-4 border border-slate-600">
+                                <div className="space-y-2">
+                                  {experimentResult.sources.map((source: any, index: number) => (
+                                    <button
+                                      key={`${source.docId}-${index}`}
+                                      onClick={() => {
+                                        setPdfTestDocId(source.docId);
+                                        setPdfTestPage(source.pageStart);
+                                        setShowPdfViewer(true);
+                                      }}
+                                      className="w-full text-left bg-slate-800 hover:bg-slate-700 rounded p-3 transition-colors border border-slate-600 hover:border-blue-500"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <span className="text-blue-400 font-medium">
+                                            {index + 1}. {source.documentName}
+                                          </span>
+                                          <span className="text-slate-300 ml-2">
+                                            - Page {source.pageStart === source.pageEnd 
+                                              ? source.pageStart 
+                                              : `${source.pageStart}-${source.pageEnd}`}
+                                          </span>
+                                        </div>
+                                        {source.relevanceScore !== undefined && (
+                                          <span className="text-xs text-slate-400 ml-4">
+                                            Score: {source.relevanceScore.toFixed(2)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="mt-3 text-xs text-slate-400">
+                                  💡 Click any source to open the PDF at that page
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>

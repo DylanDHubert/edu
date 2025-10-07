@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
             ...cachedResult.metadata,
             cached: true,
             cacheKey: experimentCache.generateKey(assistantId, query)
-          }
+          },
+          sources: cachedResult.sources || []
         });
       }
     }
@@ -79,7 +80,8 @@ export async function POST(request: NextRequest) {
         ...experimentResult.metadata,
         cached: false,
         cacheKey: experimentCache.generateKey(assistantId, query)
-      }
+      },
+      sources: experimentResult.sources || []
     });
 
   } catch (error: any) {
