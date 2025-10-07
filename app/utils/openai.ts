@@ -350,13 +350,32 @@ export async function sendMessageStreaming(
             // DON'T THROW - CITATIONS STORAGE FAILURE SHOULD NOT BREAK THE CHAT
           }
         } else {
-          // NO CITATIONS - STILL SEND FINAL UPDATE WITH MESSAGE ID
+          // NO CITATIONS - STILL SEND FINAL UPDATE WITH MESSAGE ID AND EXTRACT SOURCES
           try {
             const messages = await client.beta.threads.messages.list(threadId, { limit: 1 });
             if (messages.data.length > 0) {
               const latestMessage = messages.data[0];
               const openaiMessageId = latestMessage.id;
-              onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId);
+              
+              // EXTRACT SOURCES FOR PAGE CITATIONS (even if no file citations)
+              console.log(`🚀 ABOUT TO START SOURCE EXTRACTION (NO CITATIONS) for thread ${threadId}, run ${runId}`);
+              try {
+                console.log(`🚀 STARTING SOURCE EXTRACTION for thread ${threadId}, run ${runId}`);
+                const { SourceExtractionService } = await import('../services/source-extraction-service');
+                console.log(`📦 SOURCE EXTRACTION SERVICE IMPORTED`);
+                const sourceService = new SourceExtractionService();
+                console.log(`🔧 SOURCE SERVICE CREATED`);
+                const sources = await sourceService.extractSourcesFromRun(threadId, runId);
+                
+                console.log(`📤 SENDING SOURCES TO FRONTEND:`, sources);
+                // Send sources in final update
+                onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId, sources);
+                console.log(`✅ SOURCES SENT: ${sources.length} sources found`);
+              } catch (sourceError) {
+                console.error('❌ ERROR EXTRACTING SOURCES:', sourceError);
+                // Continue without sources if extraction fails
+                onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId);
+              }
             }
           } catch (error) {
             console.log('Could not get message ID for final update:', error);
