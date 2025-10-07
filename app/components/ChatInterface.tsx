@@ -1046,7 +1046,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] lg:max-w-3xl rounded-lg px-3 py-2 lg:px-4 lg:py-2 flex items-center ${
+                className={`max-w-[85%] lg:max-w-3xl rounded-lg px-3 py-2 lg:px-4 lg:py-2 ${
                   message.role === 'user'
                     ? 'bg-slate-600 text-slate-100'
                     : 'bg-slate-700 text-slate-100'
