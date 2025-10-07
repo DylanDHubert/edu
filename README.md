@@ -1,7 +1,7 @@
 # HHB Assistant
 
 **Date:** September 2025 
-**Version:** 1.0
+**Version:** 1.1
 
 ## Summary
 
