@@ -47,6 +47,7 @@ export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
   };
 
   console.log(`🎨 RENDERING ${sources.length} SOURCES`);
+  console.log(`🎨 COMPONENT IS ABOUT TO RETURN JSX`);
 
   return (
     <>
