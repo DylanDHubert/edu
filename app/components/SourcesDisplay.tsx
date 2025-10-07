@@ -23,6 +23,9 @@ interface SourcesDisplayProps {
 
 export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
   console.log(`🎨 SOURCES DISPLAY RENDERED with:`, sources);
+  console.log(`🎨 SOURCES TYPE:`, typeof sources);
+  console.log(`🎨 SOURCES IS ARRAY:`, Array.isArray(sources));
+  console.log(`🎨 SOURCES LENGTH:`, sources?.length);
   
   const [selectedSource, setSelectedSource] = useState<SourceInfo | null>(null);
   
@@ -30,6 +33,8 @@ export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
     console.log(`❌ NO SOURCES TO DISPLAY`);
     return null;
   }
+
+  console.log(`✅ ABOUT TO RENDER SOURCES UI`);
 
   const handleSourceClick = (source: SourceInfo) => {
     console.log(`📄 OPENING PDF: ${source.documentName} - Page ${source.pageStart}-${source.pageEnd}`);
@@ -41,27 +46,41 @@ export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
     setSelectedSource(null);
   };
 
+  console.log(`🎨 RENDERING ${sources.length} SOURCES`);
+
   return (
     <>
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
-        <h4 className="text-sm font-medium text-gray-700 mb-2">Sources:</h4>
-        <div className="space-y-1">
+      <div className="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700">
+        <h4 className="text-sm font-medium text-slate-100 mb-3">Sources ({sources.length}):</h4>
+        <div className="space-y-2">
           {sources.map((source, index) => (
             <button
               key={`${source.docId}-${source.pageStart}-${index}`}
               onClick={() => handleSourceClick(source)}
-              className="block text-left text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer w-full"
+              className="w-full text-left bg-slate-700 hover:bg-slate-600 rounded p-3 transition-colors border border-slate-600 hover:border-blue-500"
             >
-              {index + 1}. {source.documentName} - Page {source.pageStart === source.pageEnd 
-                ? source.pageStart 
-                : `${source.pageStart}-${source.pageEnd}`}
-              {source.relevanceScore && (
-                <span className="text-gray-500 ml-2">
-                  (Score: {source.relevanceScore.toFixed(2)})
-                </span>
-              )}
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <span className="text-blue-400 font-medium text-sm">
+                    {index + 1}. {source.documentName}
+                  </span>
+                  <span className="text-slate-300 ml-2 text-sm">
+                    - Page {source.pageStart === source.pageEnd 
+                      ? source.pageStart 
+                      : `${source.pageStart}-${source.pageEnd}`}
+                  </span>
+                </div>
+                {source.relevanceScore && (
+                  <span className="text-xs text-slate-400 ml-4">
+                    Score: {source.relevanceScore.toFixed(2)}
+                  </span>
+                )}
+              </div>
             </button>
           ))}
+        </div>
+        <div className="mt-3 text-xs text-slate-400">
+          💡 Click any source to open the PDF at that page
         </div>
       </div>
 
