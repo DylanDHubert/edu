@@ -380,7 +380,7 @@ export class ChunksExperimentService {
     const { createServiceClient } = await import('../utils/supabase/server');
     const supabase = createServiceClient();
     
-    const sourceMap = new Map<string, { pages: number[]; score: number; fileId: string }>();
+    const sources: SourceInfo[] = [];
     
     // Helper function to extract page numbers from text
     const extractPageNumbers = (text: string): number[] => {
@@ -401,7 +401,7 @@ export class ChunksExperimentService {
       return Array.from(pages).sort((a, b) => a - b);
     };
     
-    // Process chunks from detailedRun.steps
+    // Process chunks from detailedRun.steps - KEEP EACH CHUNK SEPARATE
     const steps = detailedRun.steps || runSteps?.data || [];
     
     for (const step of steps) {
@@ -421,62 +421,38 @@ export class ChunksExperimentService {
                 }
               }
               
-              // Extract page numbers from content
+              // Extract page numbers from THIS chunk only
               const pageNumbers = extractPageNumbers(contentText);
               
               if (pageNumbers.length > 0) {
-                if (!sourceMap.has(result.file_id)) {
-                  sourceMap.set(result.file_id, {
-                    pages: [],
-                    score: result.score || 0,
-                    fileId: result.file_id
+                try {
+                  // Get document info from team_documents by openai_file_id
+                  const { data: document, error: docError } = await supabase
+                    .from('team_documents')
+                    .select('id, original_name')
+                    .eq('openai_file_id', result.file_id)
+                    .single();
+                  
+                  if (docError || !document) {
+                    console.warn(`Could not find document for file_id ${result.file_id}`);
+                    continue;
+                  }
+                  
+                  // Create a separate source for THIS chunk
+                  sources.push({
+                    documentName: document.original_name,
+                    docId: document.id,
+                    pageStart: pageNumbers[0],
+                    pageEnd: pageNumbers[pageNumbers.length - 1],
+                    relevanceScore: result.score || 0
                   });
-                }
-                
-                const source = sourceMap.get(result.file_id)!;
-                source.pages.push(...pageNumbers);
-                // Keep highest score
-                if (result.score && result.score > source.score) {
-                  source.score = result.score;
+                } catch (error) {
+                  console.error(`Error processing file ${result.file_id}:`, error);
                 }
               }
             }
           }
         }
-      }
-    }
-    
-    // Convert to SourceInfo array with page ranges
-    const sources: SourceInfo[] = [];
-    
-    for (const [fileId, data] of sourceMap.entries()) {
-      try {
-        // Get document info from team_documents by openai_file_id
-        const { data: document, error: docError } = await supabase
-          .from('team_documents')
-          .select('id, original_name')
-          .eq('openai_file_id', fileId)
-          .single();
-        
-        if (docError || !document) {
-          console.warn(`Could not find document for file_id ${fileId}`);
-          continue;
-        }
-        
-        // Get unique sorted pages
-        const uniquePages = Array.from(new Set(data.pages)).sort((a, b) => a - b);
-        
-        if (uniquePages.length > 0) {
-          sources.push({
-            documentName: document.original_name,
-            docId: document.id,
-            pageStart: uniquePages[0],
-            pageEnd: uniquePages[uniquePages.length - 1],
-            relevanceScore: data.score
-          });
-        }
-      } catch (error) {
-        console.error(`Error processing file ${fileId}:`, error);
       }
     }
     
