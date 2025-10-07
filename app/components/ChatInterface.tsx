@@ -1116,81 +1116,76 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                             </ReactMarkdown>
                           </div>
                         )}
-                        {/* SOURCES SECTION REMOVED - CITATION FLOW STILL ACTIVE */}
-                        
-                        {/* RATING BUTTONS FOR ASSISTANT MESSAGES */}
-                        {message.role === 'assistant' && (
-                          <>
-                            <div className="mt-2 pt-2 border-t border-slate-600 flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() => handleRateMessage(message.id, 1)}
-                                  disabled={isRatingMessage === message.id}
-                                  className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
-                                    messageRatings[message.id]?.rating === 1
-                                      ? 'text-green-400 bg-green-900/20'
-                                      : 'text-slate-400 hover:text-green-400 hover:bg-slate-600'
-                                  }`}
-                                  title="THUMBS UP"
-                                >
-                                  <svg className="w-4 h-4" fill={messageRatings[message.id]?.rating === 1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                                    <path d="M7 10v12"/>
-                                    <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12.4 2.5a.6.6 0 0 1 .6-.4.6.6 0 0 1 .6.4L15 5.88Z"/>
-                                  </svg>
-                                </button>
-                                
-                                <button
-                                  onClick={() => handleRateMessage(message.id, -1)}
-                                  disabled={isRatingMessage === message.id}
-                                  className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
-                                    messageRatings[message.id]?.rating === -1
-                                      ? 'text-red-400 bg-red-900/20'
-                                      : 'text-slate-400 hover:text-red-400 hover:bg-slate-600'
-                                  }`}
-                                  title="THUMBS DOWN"
-                                >
-                                  <svg className="w-4 h-4" fill={messageRatings[message.id]?.rating === -1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                                    <path d="M17 14v2"/>
-                                    <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11.6 21.5a.6.6 0 0 1-.6.4.6.6 0 0 1-.6-.4L9 18.12Z"/>
-                                  </svg>
-                                </button>
-                                
-                                {isRatingMessage === message.id && (
-                                  <span className="text-xs text-slate-500">SAVING...</span>
-                                )}
-                              </div>
-                              
-                              {/* OLD SOURCES BUTTON - Show only if no new sources */}
-                              {!(message.sources && message.sources.length > 0) && ((message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0)) && (
-                                <button
-                                  onClick={() => {
-                                    // OPEN SOURCES PAGE IN NEW TAB - CITATIONS WILL BE LOADED FROM DATABASE
-                                    window.open(`/view-sources/${message.id}?threadId=${currentChat?.thread_id}`, '_blank');
-                                  }}
-                                  className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
-                                  title="View Sources"
-                                >
-                                  <FileText className="w-4 h-4" />
-                                  See Sources ({message.citationData?.length || messageCitations[message.id]?.length || 0})
-                                </button>
-                              )}
-                            </div>
-                            
-                            {/* NEW SOURCES DISPLAY - OUTSIDE FLEXBOX */}
-                            {(() => {
-                              console.log(`🔍 CHECKING SOURCES FOR MESSAGE ${message.id}:`, message.sources);
-                              return null;
-                            })()}
-                            {message.sources && message.sources.length > 0 && (
-                              <SourcesDisplay sources={message.sources} />
-                            )}
-                          </>
-                        )}
                       </div>
                     );
                   }
                   return null;
                 })}
+                
+                {/* RATING BUTTONS AND SOURCES - OUTSIDE CONTENT LOOP */}
+                {message.role === 'assistant' && (
+                  <>
+                    <div className="mt-2 pt-2 border-t border-slate-600 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleRateMessage(message.id, 1)}
+                          disabled={isRatingMessage === message.id}
+                          className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
+                            messageRatings[message.id]?.rating === 1
+                              ? 'text-green-400 bg-green-900/20'
+                              : 'text-slate-400 hover:text-green-400 hover:bg-slate-600'
+                          }`}
+                          title="THUMBS UP"
+                        >
+                          <svg className="w-4 h-4" fill={messageRatings[message.id]?.rating === 1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M7 10v12"/>
+                            <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12.4 2.5a.6.6 0 0 1 .6-.4.6.6 0 0 1 .6.4L15 5.88Z"/>
+                          </svg>
+                        </button>
+                        
+                        <button
+                          onClick={() => handleRateMessage(message.id, -1)}
+                          disabled={isRatingMessage === message.id}
+                          className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
+                            messageRatings[message.id]?.rating === -1
+                              ? 'text-red-400 bg-red-900/20'
+                              : 'text-slate-400 hover:text-red-400 hover:bg-slate-600'
+                          }`}
+                          title="THUMBS DOWN"
+                        >
+                          <svg className="w-4 h-4" fill={messageRatings[message.id]?.rating === -1 ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M17 14v2"/>
+                            <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11.6 21.5a.6.6 0 0 1-.6.4.6.6 0 0 1-.6-.4L9 18.12Z"/>
+                          </svg>
+                        </button>
+                        
+                        {isRatingMessage === message.id && (
+                          <span className="text-xs text-slate-500">SAVING...</span>
+                        )}
+                      </div>
+                      
+                      {/* OLD SOURCES BUTTON - Show only if no new sources */}
+                      {!(message.sources && message.sources.length > 0) && ((message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0)) && (
+                        <button
+                          onClick={() => {
+                            // OPEN SOURCES PAGE IN NEW TAB - CITATIONS WILL BE LOADED FROM DATABASE
+                            window.open(`/view-sources/${message.id}?threadId=${currentChat?.thread_id}`, '_blank');
+                          }}
+                          className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                          title="View Sources"
+                        >
+                          <FileText className="w-4 h-4" />
+                          See Sources ({message.citationData?.length || messageCitations[message.id]?.length || 0})
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* NEW SOURCES DISPLAY - AFTER RATING BUTTONS */}
+                    {message.sources && message.sources.length > 0 && (
+                      <SourcesDisplay sources={message.sources} />
+                    )}
+                  </>
+                )}
               </div>
             </div>
           ))
