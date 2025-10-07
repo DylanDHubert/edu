@@ -51,7 +51,19 @@ export default function SourcesDisplay({ sources }: SourcesDisplayProps) {
 
   return (
     <>
-      <div className="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700">
+      <div 
+        className="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700"
+        style={{
+          backgroundColor: '#1e293b',
+          color: 'white',
+          padding: '16px',
+          marginTop: '16px',
+          display: 'block',
+          width: '100%',
+          minHeight: '100px',
+          border: '2px solid #64748b'
+        }}
+      >
         <h4 className="text-sm font-medium text-slate-100 mb-3">Sources ({sources.length}):</h4>
         <div className="space-y-2">
           {sources.map((source, index) => (
