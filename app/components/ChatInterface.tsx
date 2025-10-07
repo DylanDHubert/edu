@@ -72,6 +72,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
   const [currentStep, setCurrentStep] = useState<string>('');
   const [messageRatings, setMessageRatings] = useState<Record<string, any>>({});
   const [messageCitations, setMessageCitations] = useState<Record<string, any[]>>({});
+  const [messageSources, setMessageSources] = useState<Record<string, any[]>>({});
   const [isRatingMessage, setIsRatingMessage] = useState<string | null>(null);
   const [responseStartTimes, setResponseStartTimes] = useState<Record<string, number>>({});
   const [feedbackModalOpen, setFeedbackModalOpen] = useState<string | null>(null);
@@ -264,6 +265,27 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       }
     } catch (error) {
       console.error('ERROR LOADING CITATIONS:', error);
+    }
+  };
+
+  const loadMessageSources = async () => {
+    if (!currentChat?.thread_id) return;
+    
+    try {
+      const response = await fetch(`/api/chat/sources?threadId=${currentChat.thread_id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const { sources } = await response.json();
+        console.log('📚 LOADED SOURCES FROM DATABASE:', sources);
+        setMessageSources(sources || {});
+      }
+    } catch (error) {
+      console.error('ERROR LOADING SOURCES:', error);
     }
   };
 
@@ -482,6 +504,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       
       // LOAD CITATIONS FOR THIS THREAD
       await loadMessageCitations();
+      
+      // LOAD SOURCES FOR THIS THREAD
+      await loadMessageSources();
     } catch (error) {
       console.error('ERROR LOADING MESSAGES:', error);
       setMessages([]);
@@ -1165,7 +1190,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                       </div>
                       
                       {/* OLD SOURCES BUTTON - Show only if no new sources */}
-                      {!(message.sources && message.sources.length > 0) && ((message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0)) && (
+                      {!(messageSources[message.id] && messageSources[message.id].length > 0) && ((message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0)) && (
                         <button
                           onClick={() => {
                             // OPEN SOURCES PAGE IN NEW TAB - CITATIONS WILL BE LOADED FROM DATABASE
@@ -1181,8 +1206,8 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     </div>
                     
                     {/* NEW SOURCES DISPLAY - AFTER RATING BUTTONS */}
-                    {message.sources && message.sources.length > 0 && (
-                      <SourcesDisplay sources={message.sources} />
+                    {messageSources[message.id] && messageSources[message.id].length > 0 && (
+                      <SourcesDisplay sources={messageSources[message.id]} />
                     )}
                   </>
                 )}

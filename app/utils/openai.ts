@@ -336,6 +336,12 @@ export async function sendMessageStreaming(
                 const sources = await sourceService.extractSourcesFromRun(threadId, runId);
                 
                 console.log(`📤 SENDING SOURCES TO FRONTEND:`, sources);
+                
+                // STORE SOURCES IN DATABASE
+                if (sources.length > 0) {
+                  await storeSourcesInDatabase(threadId, openaiMessageId, sources);
+                }
+                
                 // Send sources in final update
                 onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId, sources);
                 console.log(`✅ SOURCES SENT: ${sources.length} sources found`);
@@ -368,6 +374,12 @@ export async function sendMessageStreaming(
                 const sources = await sourceService.extractSourcesFromRun(threadId, runId);
                 
                 console.log(`📤 SENDING SOURCES TO FRONTEND:`, sources);
+                
+                // STORE SOURCES IN DATABASE
+                if (sources.length > 0) {
+                  await storeSourcesInDatabase(threadId, openaiMessageId, sources);
+                }
+                
                 // Send sources in final update
                 onUpdate(messageContent, citations, 'COMPLETE', citationData, openaiMessageId, sources);
                 console.log(`✅ SOURCES SENT: ${sources.length} sources found`);
@@ -532,6 +544,40 @@ async function storeCitationsInDatabase(threadId: string, openaiMessageId: strin
     console.log(`✅ SUCCESSFULLY STORED CITATIONS FOR MESSAGE ${openaiMessageId}`);
   } catch (error) {
     console.error(`❌ ERROR STORING CITATIONS FOR MESSAGE ${openaiMessageId}:`, error);
+    throw error;
+  }
+}
+
+// STORE SOURCES IN DATABASE
+async function storeSourcesInDatabase(threadId: string, openaiMessageId: string, sources: any[]) {
+  try {
+    console.log(`📄 STORING ${sources.length} SOURCES FOR MESSAGE ${openaiMessageId}`);
+    
+    const { createServiceClient } = await import('./supabase/server');
+    const supabase = createServiceClient();
+    
+    // INSERT SOURCES INTO DATABASE
+    const sourcesForStorage = sources.map(source => ({
+      thread_id: threadId,
+      openai_message_id: openaiMessageId,
+      document_id: source.docId,
+      document_name: source.documentName,
+      page_start: source.pageStart,
+      page_end: source.pageEnd,
+      relevance_score: source.relevanceScore || null
+    }));
+    
+    const { error } = await supabase
+      .from('message_sources')
+      .insert(sourcesForStorage);
+    
+    if (error) {
+      throw new Error(`Failed to store sources: ${error.message}`);
+    }
+    
+    console.log(`✅ SUCCESSFULLY STORED ${sources.length} SOURCES FOR MESSAGE ${openaiMessageId}`);
+  } catch (error) {
+    console.error(`❌ ERROR STORING SOURCES FOR MESSAGE ${openaiMessageId}:`, error);
     throw error;
   }
 }
