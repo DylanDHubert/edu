@@ -666,6 +666,15 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                           };
                           console.log(`💾 CREATING MESSAGE WITH SOURCES:`, assistantMessageObj.sources);
                           setMessages(prev => [...prev, assistantMessageObj!]);
+                          
+                          // STORE SOURCES IN STATE FOR IMMEDIATE DISPLAY
+                          if (sources && sources.length > 0) {
+                            setMessageSources(prev => ({
+                              ...prev,
+                              [messageId]: sources
+                            }));
+                          }
+                          
                           // RECORD START TIME FOR RESPONSE TIME CALCULATION
                           setResponseStartTimes(prev => ({
                             ...prev,
@@ -686,6 +695,14 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                               : msg
                           ));
                           console.log(`🔄 UPDATING MESSAGE WITH SOURCES:`, sources);
+                          
+                          // UPDATE MESSAGE SOURCES STATE FOR IMMEDIATE DISPLAY
+                          if (sources && sources.length > 0) {
+                            setMessageSources(prev => ({
+                              ...prev,
+                              [assistantMessageObj!.id]: sources
+                            }));
+                          }
                         }
                         
                         // UPDATE CURRENT STEP
@@ -904,8 +921,21 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     } else if (assistantMessageObj) {
                       // UPDATE THE ASSISTANT MESSAGE
                       // IF WE RECEIVED AN OPENAI MESSAGE ID, UPDATE THE MESSAGE ID
+                      const oldId = assistantMessageObj.id;
                       if (openaiMessageId && assistantMessageObj.id !== openaiMessageId) {
                         assistantMessageObj.id = openaiMessageId;
+                        
+                        // TRANSFER SOURCES FROM TEMP ID TO REAL OPENAI MESSAGE ID
+                        if (sources && sources.length > 0) {
+                          setMessageSources(prev => {
+                            const newSources = { ...prev };
+                            // Copy from old temp ID to new OpenAI ID
+                            newSources[openaiMessageId] = sources;
+                            // Remove old temp ID
+                            delete newSources[oldId];
+                            return newSources;
+                          });
+                        }
                       }
                       
                         setMessages(prev => prev.map(msg => 
@@ -934,6 +964,14 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                               }
                             : msg
                         ));
+                        
+                        // UPDATE MESSAGE SOURCES STATE FOR IMMEDIATE DISPLAY
+                        if (sources && sources.length > 0) {
+                          setMessageSources(prev => ({
+                            ...prev,
+                            [assistantMessageObj!.id]: sources
+                          }));
+                        }
                     }
                     
                     // UPDATE CURRENT STEP
