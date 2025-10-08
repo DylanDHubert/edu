@@ -50,9 +50,7 @@ interface ActiveAssistant {
   assistantId: string;
   assistantName: string;
   teamId: string;
-  accountId: string;
   portfolioId: string;
-  accountName?: string;
   portfolioName?: string;
   teamName?: string;
   teamLocation?: string;
@@ -322,7 +320,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           messageId,
           rating,
           teamId: activeAssistant?.teamId,
-          accountId: activeAssistant?.accountId,
           portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
           citations: citations,
@@ -337,7 +334,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           [messageId]: {
             rating: rating,
             teamId: activeAssistant?.teamId,
-            accountId: activeAssistant?.accountId,
             portfolioId: activeAssistant?.portfolioId,
             responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
             citations: citations,
@@ -392,7 +388,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           messageId,
           rating: messageRatings[messageId]?.rating || null,
           teamId: activeAssistant?.teamId,
-          accountId: activeAssistant?.accountId,
           portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
           citations: citations,
@@ -463,7 +458,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           threadId: currentChat.thread_id,
           assistantId: activeAssistant?.assistantId,
           teamId: activeAssistant?.teamId,
-          accountId: activeAssistant?.accountId,
           portfolioId: activeAssistant?.portfolioId
         }),
       });
@@ -554,7 +548,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             },
             body: JSON.stringify({
               teamId: activeAssistant.teamId,
-              accountId: activeAssistant.accountId,
               portfolioId: activeAssistant.portfolioId,
               assistantId: activeAssistant.assistantId,
               title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
@@ -597,7 +590,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           message: inputMessage,
           assistantId: activeAssistant.assistantId,
           teamId: activeAssistant.teamId,
-          accountId: activeAssistant.accountId,
           portfolioId: activeAssistant.portfolioId,
           streaming: true
         }),
@@ -830,7 +822,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           message: inputMessage,
           assistantId: activeAssistant.assistantId,
           teamId: activeAssistant.teamId,
-          accountId: activeAssistant.accountId,
           portfolioId: activeAssistant.portfolioId,
           streaming: true
         }),
@@ -1065,7 +1056,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         teamLocation={activeAssistant?.teamLocation}
         userRole={activeAssistant?.userRole}
         isOriginalManager={activeAssistant?.isOriginalManager}
-        accountName={activeAssistant?.accountName}
         portfolioName={activeAssistant?.portfolioName}
         showBackButton={false}
         showMenuButton={true}

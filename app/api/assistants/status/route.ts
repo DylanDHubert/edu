@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateWithTeamAccess } from '../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
-import { ContextGeneratorService } from '../../../services/context-generator-service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,15 +34,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // CHECK IF CACHE IS STALE
-    const contextService = new ContextGeneratorService();
-    const isStale = await contextService.checkIfCacheIsStale(teamId, portfolioId);
-
+    // Skip cache staleness check - no manual knowledge system
     return NextResponse.json({
       success: true,
-      status: isStale ? 'outdated' : 'ready',
+      status: 'ready',
       exists: true,
-      upToDate: !isStale
+      upToDate: true
     });
 
   } catch (error) {

@@ -7,7 +7,6 @@ import { createClient } from "../utils/supabase/client";
 interface ChatHistory {
   id: string;
   team_id: string;
-  account_id: string;
   portfolio_id: string;
   assistant_id: string;
   thread_id: string;
@@ -138,15 +137,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       
       // TEAM-BASED CHAT FILTERING ONLY
       if (activeAssistant) {
-        // Show chats that match the current team/account/portfolio configuration
+        // Show chats that match the current team/portfolio configuration
         filteredData = filteredData.filter(chat => {
           // MUST HAVE TEAM ID MATCH
           if (chat.team_id !== activeAssistant.teamId) {
-            return false;
-          }
-          
-          // MUST HAVE ACCOUNT ID MATCH
-          if (chat.account_id !== activeAssistant.accountId) {
             return false;
           }
           
@@ -155,7 +149,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return false;
           }
           
-          // ALL THREE MATCH - THIS IS A VALID TEAM CHAT
+          // BOTH MATCH - THIS IS A VALID TEAM CHAT
           return true;
         });
         
@@ -178,7 +172,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       // TEAM-BASED CHAT CREATION ONLY
-      if (!activeAssistant || !activeAssistant.teamId || !activeAssistant.accountId || !activeAssistant.portfolioId) {
+      if (!activeAssistant || !activeAssistant.teamId || !activeAssistant.portfolioId) {
         throw new Error('NO ACTIVE TEAM ASSISTANT - PLEASE SELECT FROM HOME PAGE');
       }
 
@@ -189,7 +183,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({
           teamId: activeAssistant.teamId,
-          accountId: activeAssistant.accountId,
           portfolioId: activeAssistant.portfolioId,
           assistantId: activeAssistant.assistantId,
           title: `NEW ${activeAssistant.portfolioName} CHAT`

@@ -61,7 +61,6 @@ export class ChatService {
    */
   async buildMessageContext(
     teamId: string, 
-    accountId: string, 
     portfolioId: string, 
     userId: string, 
     message: string
@@ -87,7 +86,6 @@ export class ChatService {
       // BUILD MESSAGE CONTEXT
       const messageWithContext = await this.buildMessageContext(
         request.teamId,
-        request.accountId,
         request.portfolioId,
         userId,
         request.message
@@ -123,7 +121,6 @@ export class ChatService {
       // BUILD MESSAGE CONTEXT
       const messageWithContext = await this.buildMessageContext(
         request.teamId,
-        request.accountId,
         request.portfolioId,
         userId,
         request.message
@@ -212,7 +209,6 @@ export class ChatService {
         thread_id: request.threadId,
         message_id: request.messageId,
         team_id: request.teamId,
-        account_id: request.accountId,
         portfolio_id: request.portfolioId,
         response_time_ms: request.responseTimeMs || null,
         citations: request.citations || [],
@@ -272,7 +268,7 @@ export class ChatService {
       const supabase = await this.getSupabase();
       const { data: ratings, error: ratingsError } = await supabase
         .from('message_ratings')
-        .select('message_id, rating, team_id, account_id, portfolio_id, response_time_ms, citations, feedback_text')
+        .select('message_id, rating, team_id, portfolio_id, response_time_ms, citations, feedback_text')
         .eq('thread_id', request.threadId)
         .eq('user_id', userId);
 
@@ -289,7 +285,6 @@ export class ChatService {
         acc[rating.message_id] = {
           rating: rating.rating,
           teamId: rating.team_id,
-          accountId: rating.account_id,
           portfolioId: rating.portfolio_id,
           responseTimeMs: rating.response_time_ms,
           citations: rating.citations || [],

@@ -106,15 +106,15 @@ export default function TeamSetupPage() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-100 mb-2">Create Your Team</h1>
-          <p className="text-slate-400">Create your team to get started with the HHB Assistant</p>
+          <h1 className="text-3xl font-bold text-slate-100 mb-2">Create Your Course</h1>
+          <p className="text-slate-400">Create your course to get started with the HHB Assistant</p>
         </div>
         
         <div className="bg-slate-800 rounded-lg border border-slate-700 p-8">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-slate-100 mb-2">Team Information</h2>
+            <h2 className="text-xl font-semibold text-slate-100 mb-2">Course Information</h2>
             <p className="text-slate-400 text-sm">
-              Provide basic information about your team. You'll be able to manage portfolios, accounts, and team members from your team dashboard.
+              Provide basic information about your course. You'll be able to manage portfolios, accounts, and course members from your course dashboard.
             </p>
           </div>
 
@@ -125,10 +125,10 @@ export default function TeamSetupPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Team Name */}
+            {/* Course Name */}
             <div>
               <label htmlFor="teamName" className="block text-sm font-medium text-slate-300 mb-2">
-                Team Name <span className="text-red-400">*</span>
+                Course Name <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
@@ -136,7 +136,7 @@ export default function TeamSetupPage() {
                 name="teamName"
                 value={formData.teamName}
                 onChange={handleInputChange}
-                placeholder="e.g., Atlanta Regional Team"
+                placeholder="e.g., Advanced Biology 101"
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -182,7 +182,7 @@ export default function TeamSetupPage() {
                 <li>• You'll be taken back to the team selection page</li>
                 <li>• From there you can manage portfolios, accounts, and members</li>
                 <li>• Upload documents and create team knowledge</li>
-                <li>• Invite team members and start using your AI assistant</li>
+                <li>• Invite course members and start using your AI assistant</li>
               </ul>
             </div>
 

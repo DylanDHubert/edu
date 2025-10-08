@@ -1,28 +1,6 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
-CREATE TABLE public.account_portfolio_stores (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  team_id uuid,
-  account_id uuid,
-  portfolio_id uuid,
-  vector_store_id text NOT NULL,
-  vector_store_name text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT account_portfolio_stores_pkey PRIMARY KEY (id),
-  CONSTRAINT account_portfolio_stores_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT account_portfolio_stores_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT account_portfolio_stores_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id)
-);
-CREATE TABLE public.account_portfolios (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  account_id uuid,
-  portfolio_id uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT account_portfolios_pkey PRIMARY KEY (id),
-  CONSTRAINT account_portfolios_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
-  CONSTRAINT account_portfolios_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
-);
 CREATE TABLE public.admin_users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
@@ -31,26 +9,61 @@ CREATE TABLE public.admin_users (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT admin_users_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.archived_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id text NOT NULL,
+  assistant_id text NOT NULL,
+  message_id text NOT NULL,
+  role text NOT NULL,
+  content text NOT NULL,
+  created_at timestamp with time zone NOT NULL,
+  message_order integer NOT NULL,
+  archived_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT archived_messages_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.chat_history (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
   portfolio_type text,
-  thread_id text NOT NULL,
+  thread_id text NOT NULL UNIQUE,
   title text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   team_id uuid,
-  account_id uuid,
   portfolio_id uuid,
   assistant_id text,
   CONSTRAINT chat_history_pkey PRIMARY KEY (id),
-  CONSTRAINT chat_history_thread_id_unique UNIQUE (thread_id),
   CONSTRAINT chat_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT chat_history_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
 );
--- MANAGER_INVITATIONS TABLE REMOVED
--- This table was used for the old manager invitation system
--- It has been removed as part of the simplification where any authenticated user can create teams
+CREATE TABLE public.document_chunks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  document_id uuid,
+  chunk_text text NOT NULL,
+  chunk_summary text NOT NULL,
+  embedding USER-DEFINED,
+  page_number integer NOT NULL,
+  chunk_index integer NOT NULL,
+  token_count integer NOT NULL,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT document_chunks_pkey PRIMARY KEY (id),
+  CONSTRAINT document_chunks_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.team_documents(id)
+);
+CREATE TABLE public.message_citations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id text NOT NULL,
+  openai_message_id text NOT NULL,
+  citation_number integer NOT NULL,
+  file_id text NOT NULL,
+  quote text,
+  full_chunk_content text,
+  file_name text,
+  relevance_score numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT message_citations_pkey PRIMARY KEY (id),
+  CONSTRAINT message_citations_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.chat_history(thread_id)
+);
 CREATE TABLE public.message_ratings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
@@ -62,101 +75,71 @@ CREATE TABLE public.message_ratings (
   citations ARRAY,
   feedback_text text,
   team_id uuid,
-  account_id uuid,
   portfolio_id uuid,
   CONSTRAINT message_ratings_pkey PRIMARY KEY (id),
-  CONSTRAINT message_ratings_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT message_ratings_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
   CONSTRAINT message_ratings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT message_ratings_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
+  CONSTRAINT message_ratings_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
+  CONSTRAINT message_ratings_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
 );
-CREATE TABLE public.message_citations (
+CREATE TABLE public.message_sources (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   thread_id text NOT NULL,
   openai_message_id text NOT NULL,
-  citation_number integer NOT NULL,
-  file_id text NOT NULL,
-  quote text,
-  full_chunk_content text,
-  file_name text,
-  relevance_score decimal,
+  document_id uuid NOT NULL,
+  document_name text NOT NULL,
+  page_start integer NOT NULL,
+  page_end integer NOT NULL,
+  relevance_score numeric,
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT message_citations_pkey PRIMARY KEY (id),
-  CONSTRAINT message_citations_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.chat_history(thread_id) ON DELETE CASCADE
+  CONSTRAINT message_sources_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_message_sources_document FOREIGN KEY (document_id) REFERENCES public.team_documents(id)
 );
-CREATE TABLE public.note_tags (
+CREATE TABLE public.portfolio_knowledge_files (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  note_id uuid,
-  tag_name text NOT NULL CHECK (tag_name = ANY (ARRAY['account'::text, 'team'::text])),
-  tag_value text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT note_tags_pkey PRIMARY KEY (id),
-  CONSTRAINT note_tags_note_id_fkey FOREIGN KEY (note_id) REFERENCES public.notes(id)
+  team_id uuid NOT NULL,
+  portfolio_id uuid NOT NULL,
+  filename text NOT NULL,
+  openai_file_id text,
+  last_generated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT portfolio_knowledge_files_pkey PRIMARY KEY (id),
+  CONSTRAINT portfolio_knowledge_files_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT portfolio_knowledge_files_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
 );
-CREATE TABLE public.notes (
+CREATE TABLE public.processing_jobs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid,
-  portfolio_type text NOT NULL,
-  title text NOT NULL,
-  content text NOT NULL,
-  is_shared boolean DEFAULT false,
-  is_portfolio_shared boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  images jsonb DEFAULT '[]'::jsonb CHECK (jsonb_typeof(images) = 'array'::text AND jsonb_array_length(images) <= 10),
+  document_id uuid,
   team_id uuid,
-  account_id uuid,
   portfolio_id uuid,
-  CONSTRAINT notes_pkey PRIMARY KEY (id),
-  CONSTRAINT notes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT notes_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT notes_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
-  CONSTRAINT notes_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
-);
-CREATE TABLE public.surgeons (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  team_id uuid,
-  name text NOT NULL,
-  specialty text NOT NULL,
-  procedure_focus text NOT NULL,
-  notes text,
-  created_by uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT surgeons_pkey PRIMARY KEY (id),
-  CONSTRAINT surgeons_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT surgeons_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
-);
-CREATE TABLE public.team_accounts (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  team_id uuid,
-  name text NOT NULL,
-  description text,
-  created_by uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT team_accounts_pkey PRIMARY KEY (id),
-  CONSTRAINT team_accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
-  CONSTRAINT team_accounts_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
+  llamaparse_job_id text NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text])),
+  progress integer DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+  current_step text,
+  error_message text,
+  retry_count integer DEFAULT 0,
+  max_retries integer DEFAULT 3,
+  created_at timestamp without time zone DEFAULT now(),
+  started_at timestamp without time zone,
+  completed_at timestamp without time zone,
+  last_heartbeat timestamp without time zone DEFAULT now(),
+  CONSTRAINT processing_jobs_pkey PRIMARY KEY (id),
+  CONSTRAINT processing_jobs_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.team_documents(id),
+  CONSTRAINT processing_jobs_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT processing_jobs_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
 );
 CREATE TABLE public.team_assistants (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   team_id uuid,
-  account_id uuid,
   portfolio_id uuid,
   assistant_id text NOT NULL,
   assistant_name text NOT NULL,
   general_vector_store_id text NOT NULL,
-  account_portfolio_vector_store_id text NOT NULL,
   portfolio_vector_store_id text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   consolidated_vector_store_id text,
   consolidated_vector_store_name text,
   CONSTRAINT team_assistants_pkey PRIMARY KEY (id),
   CONSTRAINT team_assistants_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_assistants_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT team_assistants_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
-  CONSTRAINT team_assistants_portfolio_unique UNIQUE (team_id, portfolio_id)
+  CONSTRAINT team_assistants_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id)
 );
 CREATE TABLE public.team_documents (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -165,34 +148,15 @@ CREATE TABLE public.team_documents (
   filename text NOT NULL,
   original_name text NOT NULL,
   file_path text NOT NULL,
-  file_size bigint,
   openai_file_id text,
   uploaded_by uuid,
   created_at timestamp with time zone DEFAULT now(),
+  file_size bigint,
+  document_type text DEFAULT 'portfolio'::text CHECK (document_type = ANY (ARRAY['portfolio'::text, 'inventory'::text])),
   CONSTRAINT team_documents_pkey PRIMARY KEY (id),
-  CONSTRAINT team_documents_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
   CONSTRAINT team_documents_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_documents_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
   CONSTRAINT team_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id)
-);
-CREATE TABLE public.team_knowledge (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  team_id uuid,
-  portfolio_id uuid,
-  account_name text,
-  category text NOT NULL CHECK (category = ANY (ARRAY['inventory'::text, 'instruments'::text, 'technical'::text, 'access_misc'::text, 'surgeon_info'::text])),
-  title text NOT NULL,
-  content text NOT NULL,
-  images jsonb,
-  metadata jsonb,
-  created_by uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  account_id uuid,
-  CONSTRAINT team_knowledge_pkey PRIMARY KEY (id),
-  CONSTRAINT team_knowledge_portfolio_id_fkey FOREIGN KEY (portfolio_id) REFERENCES public.team_portfolios(id),
-  CONSTRAINT team_knowledge_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.team_accounts(id),
-  CONSTRAINT team_knowledge_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
-  CONSTRAINT team_knowledge_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.team_member_invitations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -207,8 +171,8 @@ CREATE TABLE public.team_member_invitations (
   expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval),
   accepted_at timestamp with time zone,
   CONSTRAINT team_member_invitations_pkey PRIMARY KEY (id),
-  CONSTRAINT team_member_invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES auth.users(id),
-  CONSTRAINT team_member_invitations_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
+  CONSTRAINT team_member_invitations_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
+  CONSTRAINT team_member_invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.team_members (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -221,9 +185,9 @@ CREATE TABLE public.team_members (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT team_members_pkey PRIMARY KEY (id),
-  CONSTRAINT team_members_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES auth.users(id),
+  CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id),
   CONSTRAINT team_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT team_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id)
+  CONSTRAINT team_members_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.team_portfolios (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -246,109 +210,6 @@ CREATE TABLE public.teams (
   created_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  general_knowledge_vector_store_id text,
-  general_knowledge_vector_store_name text,
-  general_vector_store_id text,
-  general_vector_store_name text,
   CONSTRAINT teams_pkey PRIMARY KEY (id),
   CONSTRAINT teams_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
-
--- SAFE MODE: DOCUMENT CHUNKS TABLE WITH VECTOR SEARCH
--- THIS MIGRATION CREATES THE FOUNDATION FOR SAFE MODE DOCUMENT SEARCH
-
--- DOCUMENT CHUNKS TABLE WITH PAGE ENFORCEMENT
-CREATE TABLE document_chunks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id UUID REFERENCES team_documents(id) ON DELETE CASCADE,
-  chunk_text TEXT NOT NULL, -- CLEANED CONTENT FOR EMBEDDING
-  chunk_summary TEXT NOT NULL, -- 2-5 SENTENCE SUMMARY GENERATED DURING VECTORIZATION
-  embedding vector(1536), -- OPENAI EMBEDDING DIMENSION
-  page_number INTEGER NOT NULL, -- ABSOLUTE PAGE NUMBER (EXTRACTED FROM LLAMAPARSE)
-  chunk_index INTEGER NOT NULL, -- ORDER WITHIN THE DOCUMENT
-  token_count INTEGER NOT NULL, -- ACTUAL TOKEN COUNT FOR THIS CHUNK
-  -- RICH METADATA
-  metadata JSONB DEFAULT '{}', -- INCLUDES ORIGINAL CONTENT, CLEANING INFO, ETC.
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- INDEXES FOR PERFORMANCE
-CREATE INDEX ON document_chunks (document_id);
-CREATE INDEX ON document_chunks (page_number);
-CREATE INDEX ON document_chunks (chunk_index);
-CREATE INDEX ON document_chunks USING GIN (metadata); -- FOR JSONB QUERIES
-CREATE INDEX ON document_chunks USING ivfflat (embedding vector_cosine_ops);
-
--- VECTOR SEARCH FUNCTION
-CREATE OR REPLACE FUNCTION search_chunks(
-  query_embedding vector(1536),
-  team_id UUID,
-  portfolio_id UUID,
-  result_limit INT DEFAULT 5
-)
-RETURNS TABLE (
-  chunk_text TEXT,
-  chunk_summary TEXT,
-  page_number INTEGER,
-  document_name TEXT,
-  similarity FLOAT
-)
-AS $$
-  SELECT 
-    dc.chunk_text,
-    dc.chunk_summary,
-    dc.page_number,
-    td.original_name,
-    1 - (dc.embedding <=> query_embedding) as similarity
-  FROM document_chunks dc
-  JOIN team_documents td ON dc.document_id = td.id
-  WHERE td.team_id = search_chunks.team_id
-    AND td.portfolio_id = search_chunks.portfolio_id
-  ORDER BY dc.embedding <=> query_embedding
-  LIMIT search_chunks.result_limit;
-$$ LANGUAGE sql;
-
--- ADD ROW LEVEL SECURITY
-ALTER TABLE document_chunks ENABLE ROW LEVEL SECURITY;
-
--- RLS POLICY: USERS CAN ONLY ACCESS CHUNKS FROM THEIR TEAM'S DOCUMENTS
-CREATE POLICY "Users can access chunks from their team documents" ON document_chunks
-  FOR ALL USING (
-    document_id IN (
-      SELECT id FROM team_documents 
-      WHERE team_id IN (
-        SELECT team_id FROM team_members 
-        WHERE user_id = auth.uid()
-      )
-    )
-  );
-
--- HELPER FUNCTION TO GET CHUNK COUNT BY DOCUMENT
-CREATE OR REPLACE FUNCTION get_document_chunk_count(document_uuid UUID)
-RETURNS INTEGER
-AS $$
-  SELECT COUNT(*)::INTEGER FROM document_chunks WHERE document_id = document_uuid;
-$$ LANGUAGE sql;
-
--- HELPER FUNCTION TO GET CHUNKS BY PAGE
-CREATE OR REPLACE FUNCTION get_chunks_by_page(
-  document_uuid UUID,
-  page_num INTEGER
-)
-RETURNS TABLE (
-  chunk_text TEXT,
-  chunk_summary TEXT,
-  chunk_index INTEGER,
-  token_count INTEGER
-)
-AS $$
-  SELECT 
-    chunk_text,
-    chunk_summary,
-    chunk_index,
-    token_count
-  FROM document_chunks 
-  WHERE document_id = document_uuid 
-    AND page_number = page_num
-  ORDER BY chunk_index;
-$$ LANGUAGE sql;

@@ -4,7 +4,6 @@
 
 export interface CreateAssistantRequest {
   teamId: string;
-  accountId: string;
   portfolioId: string;
   userId?: string;
 }
@@ -41,7 +40,6 @@ export interface BackupThread {
   title: string;
   user_id: string;
   team_id: string;
-  account_id: string;
   portfolio_id: string;
   created_at: string;
   messages: ThreadMessage[];

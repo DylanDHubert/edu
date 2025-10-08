@@ -346,17 +346,7 @@ export class PortfolioService {
       }
 
       // 3. DELETE NOTES (REFERENCES PORTFOLIO)
-      const { error: notesError } = await serviceClient
-        .from('notes')
-        .delete()
-        .eq('portfolio_id', portfolioId);
-
-      if (notesError) {
-        errors.push(`notes: ${notesError.message}`);
-      } else {
-        deletedTables.push('notes');
-        console.log('✅ DELETED NOTES');
-      }
+      // Notes deletion skipped - notes system removed
 
       // 4. DELETE TEAM ASSISTANTS (REFERENCES PORTFOLIO)
       const { error: assistantsError } = await serviceClient

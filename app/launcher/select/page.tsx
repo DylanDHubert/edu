@@ -18,11 +18,6 @@ interface Portfolio {
   documents: Array<{ original_name: string }>;
 }
 
-interface Account {
-  id: string;
-  name: string;
-  description: string;
-}
 
 interface TeamData {
   id: string;
@@ -30,7 +25,7 @@ interface TeamData {
   location: string;
 }
 
-function AccountPortfolioSelectContent() {
+function PortfolioSelectContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,9 +35,7 @@ function AccountPortfolioSelectContent() {
   const [loading, setLoading] = useState(true);
   const [team, setTeam] = useState<TeamData | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('');
-  const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
@@ -126,69 +119,12 @@ function AccountPortfolioSelectContent() {
     }
   };
 
-  // Load accounts when portfolio is selected
-  useEffect(() => {
-    if (selectedPortfolio) {
-      loadAccountsForPortfolio();
-    } else {
-      setAccounts([]);
-      setSelectedAccount('');
-    }
-  }, [selectedPortfolio]);
 
-  const loadAccountsForPortfolio = async () => {
-    try {
-      // Use the secure accounts list API endpoint
-      const response = await fetch(`/api/teams/accounts/list?teamId=${teamId}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error('Error loading accounts:', result.error);
-        setError('Failed to load accounts for this portfolio');
-        return;
-      }
-
-      if (!result.success) {
-        console.error('Failed to load accounts');
-        setError('Failed to load accounts for this portfolio');
-        return;
-      }
-
-      const allAccounts = result.accounts || [];
-
-      // Filter accounts that are assigned to the selected portfolio
-      const portfolioAccounts = allAccounts.filter((account: any) => {
-        // Check if this account has account_portfolios relationship with the selected portfolio
-        const accountPortfolios = account.account_portfolios || [];
-        return accountPortfolios.some((ap: any) => ap.portfolio_id === selectedPortfolio);
-      });
-
-      const transformedAccounts = portfolioAccounts.map((account: any) => ({
-        id: account.id,
-        name: account.name,
-        description: account.description || ''
-      }));
-
-      setAccounts(transformedAccounts);
-
-      // Select first account by default
-      if (transformedAccounts.length > 0) {
-        setSelectedAccount(transformedAccounts[0].id);
-      }
-
-    } catch (error) {
-      console.error('Error loading accounts for portfolio:', error);
-      setError('Failed to load accounts');
-    }
-  };
 
   const handlePortfolioChange = (portfolioId: string) => {
     setSelectedPortfolio(portfolioId);
   };
 
-  const handleAccountSelect = (accountId: string) => {
-    setSelectedAccount(accountId);
-  };
 
   const checkProcessingStatus = async () => {
     if (!selectedPortfolio || !teamId) return;
@@ -218,11 +154,6 @@ function AccountPortfolioSelectContent() {
       return;
     }
 
-    if (!selectedAccount) {
-      setError('Please select an account');
-      return;
-    }
-
     // CHECK PROCESSING STATUS FIRST
     await checkProcessingStatus();
     
@@ -235,7 +166,7 @@ function AccountPortfolioSelectContent() {
     setError(null);
 
     try {
-      // Call API to create/get dynamic assistant for this team+account+portfolio combination
+      // Call API to create/get dynamic assistant for this team+portfolio combination
       const response = await fetch('/api/assistants/create-dynamic', {
         method: 'POST',
         headers: {
@@ -243,7 +174,6 @@ function AccountPortfolioSelectContent() {
         },
         body: JSON.stringify({
           teamId,
-          accountId: selectedAccount,
           portfolioId: selectedPortfolio
         }),
       });
@@ -263,9 +193,7 @@ function AccountPortfolioSelectContent() {
         assistantId,
         assistantName,
         teamId,
-        accountId: selectedAccount,
         portfolioId: selectedPortfolio,
-        accountName: accounts.find(a => a.id === selectedAccount)?.name,
         portfolioName: selectedPortfolioData?.name,
         teamName: team?.name,
         teamLocation: team?.location,
@@ -298,7 +226,7 @@ function AccountPortfolioSelectContent() {
     return (
       <LoadingScreen 
         title="HHB Assistant" 
-        subtitle="Loading portfolios and accounts..." 
+        subtitle="Loading portfolios..." 
       />
     );
   }
@@ -326,7 +254,7 @@ function AccountPortfolioSelectContent() {
         <div className="text-center max-w-md">
           <h1 className="text-4xl font-bold text-slate-400 mb-4">No Portfolios Found</h1>
           <p className="text-slate-400 mb-6">
-            This team doesn't have any portfolios set up yet. Please contact your team manager.
+            This course doesn't have any portfolios set up yet. Please contact your course instructor.
           </p>
           <button
             onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
@@ -375,37 +303,6 @@ function AccountPortfolioSelectContent() {
             </div>
           </div>
 
-          {/* Account Selection */}
-          {selectedPortfolio && (
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <h2 className="text-xl font-semibold text-slate-100 mb-4">Select Account</h2>
-              <p className="text-slate-400 text-sm mb-6">
-                Choose which hospital or location to include in your chat context.
-              </p>
-              
-              {accounts.length > 0 ? (
-                <div className="space-y-3">
-                  {accounts.map((account) => (
-                    <CustomRadioButton
-                      key={account.id}
-                      name="account"
-                      value={account.id}
-                      checked={selectedAccount === account.id}
-                      onChange={handleAccountSelect}
-                      label={account.name}
-                      description={account.description}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-slate-400">
-                    No accounts are assigned to this portfolio. Please contact your team manager.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Error Display */}
           {error && (
@@ -455,7 +352,7 @@ function AccountPortfolioSelectContent() {
             ) : (
               <button
                 onClick={handleStartChat}
-                disabled={!selectedPortfolio || !selectedAccount || creatingAssistant}
+                disabled={!selectedPortfolio || creatingAssistant}
                 className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
               >
                 <BrainCog className="w-5 h-5 flex-shrink-0" />
@@ -471,7 +368,7 @@ function AccountPortfolioSelectContent() {
   );
 }
 
-export default function AccountPortfolioSelectPage() {
+export default function PortfolioSelectPage() {
   return (
     <Suspense fallback={
       <LoadingScreen 
@@ -479,7 +376,7 @@ export default function AccountPortfolioSelectPage() {
         subtitle="Loading..." 
       />
     }>
-      <AccountPortfolioSelectContent />
+      <PortfolioSelectContent />
     </Suspense>
   );
 } 

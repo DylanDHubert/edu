@@ -74,8 +74,8 @@ function TeamMemberInviteContent() {
 
       const { invitation: inviteData } = await response.json();
 
-      // Get inviter name (simplified - just using "Team Manager" for now)
-      const inviterName = "Team Manager";
+      // Get inviter name (simplified - just using "Course TA" for now)
+      const inviterName = "Course TA";
 
       setInvitation({
         ...inviteData,
@@ -249,9 +249,9 @@ function TeamMemberInviteContent() {
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="max-w-md w-full space-y-8 p-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-slate-100 mb-2">Team Invitation</h1>
+            <h1 className="text-4xl font-bold text-slate-100 mb-2">Course Invitation</h1>
             <p className="text-slate-400">You've been invited to join <strong>{invitation.team_name}</strong></p>
-            <p className="text-slate-300 text-sm mt-2">Role: <strong>{invitation.role === 'manager' ? 'Team Manager' : 'Team Member'}</strong></p>
+            <p className="text-slate-300 text-sm mt-2">Role: <strong>{invitation.role === 'manager' ? 'Course TA' : 'Course Student'}</strong></p>
           </div>
 
           <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
@@ -355,7 +355,7 @@ function TeamMemberInviteContent() {
     <div className="min-h-screen flex items-center justify-center bg-slate-900">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">Team Invitation</h1>
+          <h1 className="text-4xl font-bold text-slate-100 mb-4">Course Invitation</h1>
           <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
             <h3 className="text-lg font-semibold text-slate-100 mb-4">You're invited to join:</h3>
             
@@ -367,7 +367,7 @@ function TeamMemberInviteContent() {
               <div>
                 <span className="text-slate-400">Role:</span>
                 <span className="text-slate-100 font-medium ml-2">
-                  {invitation.role === 'manager' ? 'Team Manager' : 'Team Member'}
+                  {invitation.role === 'manager' ? 'Course TA' : 'Course Student'}
                 </span>
               </div>
               <div>
@@ -378,7 +378,7 @@ function TeamMemberInviteContent() {
 
             {invitation.role === 'member' && (
               <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded text-blue-200 text-sm">
-                <strong>Team Member Access:</strong>
+                <strong>Course Student Access:</strong>
                 <ul className="mt-1 space-y-1 text-xs">
                   <li>• View team knowledge and documents</li>
                   <li>• Use AI assistant for searches</li>

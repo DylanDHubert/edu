@@ -6,10 +6,10 @@ import { createClient } from '../../../utils/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamId, accountId, portfolioId } = await request.json();
+    const { teamId, portfolioId } = await request.json();
     
-    if (!teamId || !accountId || !portfolioId) {
-      return handleValidationError('Team ID, Account ID, and Portfolio ID are required');
+    if (!teamId || !portfolioId) {
+      return handleValidationError('Team ID and Portfolio ID are required');
     }
 
     // VERIFY USER AUTHENTICATION
@@ -33,12 +33,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GET AFFECTED CHATS FOR THIS TEAM/ACCOUNT/PORTFOLIO COMBINATION
+    // GET AFFECTED CHATS FOR THIS TEAM/PORTFOLIO COMBINATION
     const { data: affectedChats, error: chatsError } = await supabase
       .from('chat_history')
       .select('id, thread_id, title, created_at')
       .eq('team_id', teamId)
-      .eq('account_id', accountId)
       .eq('portfolio_id', portfolioId)
       .order('created_at', { ascending: false });
 

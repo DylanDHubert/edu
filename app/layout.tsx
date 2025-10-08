@@ -3,7 +3,6 @@ import { Coda } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ChatProvider } from "./contexts/ChatContext";
-import { NotesProvider } from "./contexts/NotesContext";
 import { validateAppEnvironment } from "./utils/env-validation";
 
 // VALIDATE ENVIRONMENT VARIABLES AT STARTUP
@@ -60,9 +59,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ChatProvider>
-            <NotesProvider>
-              {children}
-            </NotesProvider>
+            {children}
           </ChatProvider>
         </AuthProvider>
       </body>

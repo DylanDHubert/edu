@@ -4,7 +4,6 @@ import { useState, useEffect, useContext } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useChat } from "../contexts/ChatContext";
-import NotesSection from "./NotesSection";
 import AssistantSelectModal from "./AssistantSelectModal";
 import ConfirmationModal from "./ConfirmationModal";
 
@@ -29,7 +28,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
   } = useChat();
 
   // MOBILE STATE MANAGEMENT
-  const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat'>('chat');
   const [activeAssistant, setActiveAssistant] = useState<any>(null);
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
@@ -147,7 +146,6 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
         },
         body: JSON.stringify({
           teamId: activeAssistant.teamId,
-          accountId: activeAssistant.accountId,
           portfolioId: activeAssistant.portfolioId,
           assistantId: activeAssistant.assistantId,
           title: `Untitled ${activeAssistant.portfolioName || 'Chat'}`
@@ -217,16 +215,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
           >
             CHAT HISTORY
           </button>
-          <button
-            onClick={() => setActiveTab('notes')}
-            className={`flex-1 p-3 text-sm font-medium transition-colors ${
-              activeTab === 'notes'
-                ? 'bg-slate-600 text-slate-100 border-b-2 border-slate-400'
-                : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            NOTES
-          </button>
+          {/* Notes tab removed */}
           {/* MOBILE CLOSE TAB - ONLY VISIBLE ON MOBILE */}
           <button
             onClick={() => setIsMobileOpen(false)}
@@ -315,18 +304,13 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
               )}
             </div>
           ) : (
-            // NOTES TAB
+            // NOTES TAB REMOVED
             <div className="flex flex-col h-full">
-              <NotesSection 
-                teamContext={activeAssistant ? {
-                  teamId: activeAssistant.teamId,
-                  teamName: activeAssistant.teamName || 'Team',
-                  accountId: activeAssistant.accountId,
-                  accountName: activeAssistant.accountName || 'Account',
-                  portfolioId: activeAssistant.portfolioId,
-                  portfolioName: activeAssistant.portfolioName || 'Portfolio',
-                } : null}
-              />
+              <div className="text-center py-8">
+                <p className="text-slate-400 text-sm">
+                  NOTES SYSTEM REMOVED
+                </p>
+              </div>
             </div>
           )}
         </div>

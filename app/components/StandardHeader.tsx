@@ -7,7 +7,6 @@ interface StandardHeaderProps {
   teamLocation?: string;
   userRole?: string;
   isOriginalManager?: boolean;
-  accountName?: string;
   portfolioName?: string;
   backUrl?: string;
   backText?: string;
@@ -24,7 +23,6 @@ export default function StandardHeader({
   teamLocation,
   userRole,
   isOriginalManager = false,
-  accountName,
   portfolioName,
   backUrl,
   backText = "←",
@@ -60,18 +58,18 @@ export default function StandardHeader({
           </button>
         </div>
 
-        {/* CENTER: Team/Context Info */}
+        {/* CENTER: Classroom/Context Info */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {teamName && (
             <div className="text-center pointer-events-auto">
-              {accountName && portfolioName ? (
+              {portfolioName ? (
                 // CHAT PAGE LAYOUT: 2 lines only
                 <>
                   <h1 className="text-xl font-bold text-slate-100">
                     {teamName} • {teamLocation}
                   </h1>
                   <p className="text-slate-400 text-sm mt-1">
-                    {accountName} • {portfolioName}
+                    {portfolioName}
                   </p>
                 </>
               ) : (
@@ -80,7 +78,7 @@ export default function StandardHeader({
                   <h1 className="text-xl font-bold text-slate-100">{teamName}</h1>
                   {teamLocation && userRole && (
                     <p className="text-slate-400 text-sm mt-1">
-                      {teamLocation} • {userRole === 'manager' ? (isOriginalManager ? 'Team Owner' : 'Team Manager') : 'Team Member'}
+                      {teamLocation} • {userRole === 'manager' ? (isOriginalManager ? 'Teacher (Professor)' : 'TA') : 'Student'}
                     </p>
                   )}
                 </>

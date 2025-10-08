@@ -145,7 +145,6 @@ export class TeamDeletionService {
         members,
         invitations,
         chatHistory,
-        notes,
         ratings,
         surgeons
       ] = await Promise.all([
@@ -204,11 +203,6 @@ export class TeamDeletionService {
           .select('*')
           .eq('team_id', teamId),
 
-        // NOTES
-        this.serviceClient
-          .from('notes')
-          .select('*')
-          .eq('team_id', teamId),
 
         // MESSAGE RATINGS
         this.serviceClient
@@ -269,7 +263,6 @@ export class TeamDeletionService {
         members: members.data || [],
         invitations: invitations.data || [],
         chatHistory: chatHistory.data || [],
-        notes: notes.data || [],
         ratings: ratings.data || [],
         surgeons: surgeons.data || [],
         vectorStoreIds: Array.from(vectorStoreIds),
@@ -285,7 +278,6 @@ export class TeamDeletionService {
           members: members.data?.length || 0,
           invitations: invitations.data?.length || 0,
           chats: chatHistory.data?.length || 0,
-          notes: notes.data?.length || 0,
           ratings: ratings.data?.length || 0,
           surgeons: surgeons.data?.length || 0
         }
@@ -313,7 +305,6 @@ export class TeamDeletionService {
         'note_tags',
         'message_ratings', 
         'chat_history',
-        'notes',
         'team_knowledge',
         'team_documents',
         'account_portfolio_stores',
@@ -332,19 +323,8 @@ export class TeamDeletionService {
           
           // Handle special cases for tables that don't directly reference team_id
           if (table === 'note_tags') {
-            // Delete note_tags for notes that belong to this team
-            const { data: teamNotes } = await this.serviceClient
-              .from('notes')
-              .select('id')
-              .eq('team_id', teamId);
-            
-            if (teamNotes && teamNotes.length > 0) {
-              const noteIds = teamNotes.map(note => note.id);
-              deleteQuery = deleteQuery.in('note_id', noteIds);
-            } else {
-              // No notes to delete tags for
-              continue;
-            }
+            // Skip note_tags deletion - notes system removed
+            continue;
           } else if (table === 'account_portfolios') {
             // Delete account_portfolios for accounts that belong to this team
             const { data: teamAccounts } = await this.serviceClient

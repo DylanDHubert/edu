@@ -216,7 +216,7 @@ function EditMembersContent() {
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-slate-100 mb-4">Loading...</h1>
-          <p className="text-slate-400">Loading team members...</p>
+          <p className="text-slate-400">Loading course members...</p>
         </div>
       </div>
     );
@@ -268,12 +268,12 @@ function EditMembersContent() {
         )}
 
         <div className="space-y-8">
-          {/* Current Team Members */}
+          {/* Current Course Members */}
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-            <h3 className="text-lg font-semibold text-slate-100 mb-6">Current Team Members ({existingMembers.length})</h3>
+            <h3 className="text-lg font-semibold text-slate-100 mb-6">Current Course Members ({existingMembers.length})</h3>
             
             {existingMembers.length === 0 ? (
-              <p className="text-slate-400 text-sm italic">No team members yet</p>
+              <p className="text-slate-400 text-sm italic">No course members yet</p>
             ) : (
               <div className="space-y-3">
                 {existingMembers.map((member) => (
@@ -404,7 +404,7 @@ function EditMembersContent() {
         title={confirmationModal.type === 'remove' ? 'REMOVE TEAM MEMBER' : 'CANCEL INVITATION'}
         message={
           confirmationModal.type === 'remove' 
-            ? `Are you sure you want to remove ${confirmationModal.data.memberEmail?.includes('@unknown.com') ? 'this team member' : confirmationModal.data.memberEmail} (${confirmationModal.data.role}) from the team? This action cannot be undone.`
+            ? `Are you sure you want to remove ${confirmationModal.data.memberEmail?.includes('@unknown.com') ? 'this course member' : confirmationModal.data.memberEmail} (${confirmationModal.data.role}) from the course? This action cannot be undone.`
             : `Are you sure you want to cancel the invitation for ${confirmationModal.data.email}?`
         }
         confirmText={confirmationModal.type === 'remove' ? 'REMOVE MEMBER' : 'CANCEL INVITATION'}

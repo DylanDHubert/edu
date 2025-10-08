@@ -107,7 +107,7 @@ function SignupPageContent() {
           {invitationToken && invitationType && (
             <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded-md">
               <p className="text-blue-300 text-sm">
-                {invitationType === 'manager' ? 'Team Manager Invitation' : 'Team Member Invitation'}
+                {invitationType === 'manager' ? 'Course TA Invitation' : 'Course Student Invitation'}
               </p>
               <p className="text-blue-200 text-xs mt-1">Your invitation will be automatically accepted after signup</p>
             </div>

@@ -1,9 +1,6 @@
 import { createServiceClient } from '../utils/supabase/server';
 import { OpenAIService } from './openai-service';
-import { ContextGeneratorService } from './context-generator-service';
 import { VectorStoreService } from './vector-store-service';
-import { KnowledgeUpdateService } from './knowledge-update-service';
-import { InventoryVectorService } from './inventory-vector-service';
 import { 
   CreateAssistantRequest, 
   AssistantResult, 
@@ -17,17 +14,14 @@ import path from 'path';
 export class AssistantService {
   private serviceClient = createServiceClient();
   private openaiService = new OpenAIService();
-  private contextService = new ContextGeneratorService();
   private vectorService = new VectorStoreService();
-  private knowledgeUpdateService = new KnowledgeUpdateService();
-  private inventoryService = new InventoryVectorService();
 
   /**
    * CREATE DYNAMIC ASSISTANT
    */
   async createDynamicAssistant(params: CreateAssistantRequest): Promise<AssistantResult> {
     try {
-      const { teamId, accountId, portfolioId, userId } = params;
+      const { teamId, portfolioId, userId } = params;
       
       if (!userId) {
         return {
@@ -37,7 +31,16 @@ export class AssistantService {
       }
 
       // Get names for context
-      const names = await this.contextService.getNames(teamId, portfolioId);
+      // Get team and portfolio names
+      const [teamResult, portfolioResult] = await Promise.all([
+        this.serviceClient.from('teams').select('name').eq('id', teamId).single(),
+        this.serviceClient.from('team_portfolios').select('name').eq('id', portfolioId).single()
+      ]);
+      
+      const names = {
+        teamName: teamResult.data?.name || 'Unknown Team',
+        portfolioName: portfolioResult.data?.name || 'Unknown Portfolio'
+      };
 
       // Check if we already have a cached portfolio assistant
       const { data: existingAssistant, error: assistantError } = await this.serviceClient
@@ -49,54 +52,28 @@ export class AssistantService {
 
       if (existingAssistant && !assistantError) {
         // Check if cache is stale
-        const isStale = await this.contextService.checkIfCacheIsStale(teamId, portfolioId);
+        console.log('Using cached assistant:', existingAssistant.assistant_id);
         
-        if (!isStale) {
-          console.log('Using cached assistant:', existingAssistant.assistant_id);
-          
-          // UPDATE KNOWLEDGE MD FILE IN VECTOR STORE IF NEEDED
-          await this.updateKnowledgeIfNeeded(teamId, accountId, portfolioId, existingAssistant.portfolio_vector_store_id, userId);
-          
-          // ENSURE INVENTORY FILES ARE ADDED TO VECTOR STORE
-          console.log('🧪 DEBUG: Adding inventory to existing assistant vector store:', existingAssistant.portfolio_vector_store_id);
-          const inventoryResult = await this.inventoryService.ensureInventoryInVectorStore(
-            existingAssistant.portfolio_vector_store_id,
-            teamId
-          );
-          console.log('🧪 DEBUG: Inventory service result for existing assistant:', inventoryResult);
-          
-          return {
-            success: true,
-            assistantId: existingAssistant.assistant_id
-          };
-        } else {
-          console.log('Cache is stale, recreating assistant...');
-          
-          // Backup threads before deletion
-          await this.backupAssistantThreads(existingAssistant.assistant_id);
-          
-          // Delete cached assistant record
-          await this.serviceClient
-            .from('team_assistants')
-            .delete()
-            .eq('id', existingAssistant.id);
-        }
+        return {
+          success: true,
+          assistantId: existingAssistant.assistant_id
+        };
+      } else {
+        console.log('No cached assistant found, creating new one...');
       }
 
-      // Generate context based on account/portfolio
+      // Generate context based on portfolio
       let context: string;
       let vectorStoreId: string | undefined;
 
-      if (accountId && portfolioId) {
-        // Account-specific portfolio assistant
-        const accountContext = await this.contextService.generateAccountContext(
-          teamId, 
-          accountId, 
-          portfolioId, 
-          names
-        );
-        
-        context = this.buildAccountContext(accountContext, names);
+      if (portfolioId) {
+        // Portfolio-specific assistant
+        // Generate simple context without manual knowledge
+        const generalContext = {
+          teamInfo: `Team: ${names.teamName}`,
+          knowledgeText: 'Knowledge comes from uploaded documents only.'
+        };
+        context = this.buildPortfolioContext(generalContext, names);
         
         // Create vector store for portfolio documents
         const vectorResult = await this.vectorService.createPortfolioVectorStore(
@@ -107,7 +84,11 @@ export class AssistantService {
         vectorStoreId = vectorResult.vectorStoreId;
       } else {
         // General team assistant
-        const generalContext = await this.contextService.generateGeneralContext(teamId, names);
+        // Generate simple context without manual knowledge
+        const generalContext = {
+          teamInfo: `Team: ${names.teamName}`,
+          knowledgeText: 'Knowledge comes from uploaded documents only.'
+        };
         context = this.buildGeneralContext(generalContext, names);
       }
 
@@ -137,7 +118,6 @@ export class AssistantService {
         .from('team_assistants')
         .upsert({
           team_id: teamId,
-          account_id: accountId,
           portfolio_id: portfolioId,
           assistant_id: assistant.id,
           assistant_name: assistantConfig.name,
@@ -175,7 +155,7 @@ export class AssistantService {
       // Get all chat_history records for this assistant
       const { data: chats, error: chatsError } = await this.serviceClient
         .from('chat_history')
-        .select('thread_id, title, user_id, team_id, account_id, portfolio_id, created_at')
+        .select('thread_id, title, user_id, team_id, portfolio_id, created_at')
         .eq('assistant_id', assistantId);
 
       if (chatsError) {
@@ -211,7 +191,6 @@ export class AssistantService {
             title: chat.title,
             user_id: chat.user_id,
             team_id: chat.team_id,
-            account_id: chat.account_id,
             portfolio_id: chat.portfolio_id,
             created_at: chat.created_at,
             messages: messages
@@ -225,7 +204,6 @@ export class AssistantService {
               title: chat.title,
               user_id: chat.user_id,
               team_id: chat.team_id,
-              account_id: chat.account_id,
               portfolio_id: chat.portfolio_id,
               created_at: chat.created_at,
               messages: JSON.stringify(backupData),
@@ -249,23 +227,17 @@ export class AssistantService {
   }
 
   /**
-   * BUILD ACCOUNT CONTEXT
+   * BUILD PORTFOLIO CONTEXT
    */
-  private buildAccountContext(context: any, names: any): string {
+  private buildPortfolioContext(context: any, names: any): string {
     return `
 TEAM: ${names.teamName}
 PORTFOLIO: ${names.portfolioName}
 
-ACCOUNT INFORMATION:
-${context.accountInfo}
+TEAM INFORMATION:
+${context.teamInfo}
 
-PORTFOLIO INFORMATION:
-${context.portfolioInfo}
-
-SURGEON INFORMATION:
-${context.surgeonInfo}
-
-ADDITIONAL KNOWLEDGE:
+GENERAL KNOWLEDGE:
 ${context.knowledgeText}
     `.trim();
   }
@@ -305,27 +277,13 @@ ${context.knowledgeText}
    */
   private async updateKnowledgeIfNeeded(
     teamId: string,
-    accountId: string,
     portfolioId: string,
     vectorStoreId: string,
     userId: string
   ): Promise<void> {
     try {
-      const result = await this.knowledgeUpdateService.updateKnowledgeIfStale(
-        teamId,
-        accountId,
-        portfolioId,
-        vectorStoreId,
-        userId
-      );
-      
-      if (result.success && result.wasUpdated) {
-        console.log('Knowledge MD file updated for portfolio:', portfolioId);
-      }
-      
-      if (!result.success) {
-        console.error('Knowledge update failed:', result.error);
-      }
+      // Skip knowledge update - no manual knowledge system
+      console.log('Knowledge update skipped - using document-based knowledge only');
       
     } catch (error) {
       console.error('Error updating knowledge:', error);

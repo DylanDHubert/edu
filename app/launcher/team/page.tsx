@@ -104,30 +104,18 @@ function TeamDashboardContent() {
     router.push(`/safemode?teamId=${teamId}`);
   };
 
-  const handleEditTeamDetails = () => {
-    // Go to surgeon management page
-    router.push(`/edit/surgeons?teamId=${teamId}`);
-  };
 
   const handleManagePortfolios = () => {
     // Go to portfolio management page
     router.push(`/edit/portfolios?teamId=${teamId}`);
   };
 
-  const handleManageAccounts = () => {
-    // Go to account management page
-    router.push(`/edit/accounts?teamId=${teamId}`);
-  };
 
   const handleManageMembers = () => {
     // Go to member management page
     router.push(`/edit/members?teamId=${teamId}`);
   };
 
-  const handleManageInventory = () => {
-    // Go to inventory management page
-    router.push(`/edit/inventory?teamId=${teamId}`);
-  };
 
   const handleDeleteTeam = () => {
     setDeleteError(null);
@@ -239,7 +227,7 @@ function TeamDashboardContent() {
           {/* Team Stats */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-              <h2 className="text-xl font-semibold text-slate-100 mb-6">Team Overview</h2>
+              <h2 className="text-xl font-semibold text-slate-100 mb-6">Course Overview</h2>
               
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-slate-700 rounded-lg p-4 text-center">
@@ -264,7 +252,7 @@ function TeamDashboardContent() {
                 
                 <div className="bg-slate-700 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-slate-100">{stats.teamMembers}</div>
-                  <div className="text-slate-400 text-sm">Team Members</div>
+                  <div className="text-slate-400 text-sm">Course Members</div>
                 </div>
                 
                 <div className="bg-slate-700 rounded-lg p-4 text-center">
@@ -320,35 +308,13 @@ function TeamDashboardContent() {
                           <span className="flex-1 text-center">Portfolios</span>
                         </button>
                         
-                        <button
-                          onClick={handleManageAccounts}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-                        >
-                          <Building2 className="w-5 h-5 flex-shrink-0" />
-                          <span className="flex-1 text-center">Accounts</span>
-                        </button>
                         
-                        <button
-                          onClick={handleEditTeamDetails}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-                        >
-                          <BookOpen className="w-5 h-5 flex-shrink-0" />
-                          <span className="flex-1 text-center">Surgeons</span>
-                        </button>
-                        
-                        <button
-                          onClick={handleManageInventory}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-                        >
-                          <ClipboardList className="w-5 h-5 flex-shrink-0" />
-                          <span className="flex-1 text-center">Inventory</span>
-                        </button>
                       </div>
                     </div>
 
-                    {/* Team Management */}
+                    {/* Course Management */}
                     <div>
-                      <h4 className="text-md font-medium text-slate-200 mb-3">Manage Team</h4>
+                      <h4 className="text-md font-medium text-slate-200 mb-3">Manage Course</h4>
                       <div className="space-y-3">
                         <button
                           onClick={handleManageMembers}
@@ -360,13 +326,13 @@ function TeamDashboardContent() {
                         
                         {/* DELETE TEAM BUTTON - ONLY FOR ORIGINAL MANAGERS */}
                         {isOriginalManager && team && (
-                          <button
-                            onClick={handleDeleteTeam}
-                            className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
-                          >
-                            <Trash2 className="w-5 h-5 flex-shrink-0" />
-                            <span className="flex-1 text-center">Delete Team</span>
-                          </button>
+                        <button
+                          onClick={handleDeleteTeam}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
+                        >
+                          <Trash2 className="w-5 h-5 flex-shrink-0" />
+                          <span className="flex-1 text-center">Delete Course</span>
+                        </button>
                         )}
                       </div>
                     </div>
@@ -384,24 +350,24 @@ function TeamDashboardContent() {
           <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4 border border-slate-700">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-red-400" />
-              <h3 className="text-lg font-semibold text-slate-100">Delete Team</h3>
+              <h3 className="text-lg font-semibold text-slate-100">Delete Course</h3>
             </div>
             
             <div className="mb-6">
               <p className="text-slate-300 mb-4">
                 <strong className="text-red-400">WARNING:</strong> This action cannot be undone. 
-                Deleting the team will permanently remove:
+                Deleting the course will permanently remove:
               </p>
               <ul className="text-slate-400 text-sm space-y-1 mb-4">
-                <li>• All team data and settings</li>
+                <li>• All course data and settings</li>
                 <li>• All portfolios, accounts, and knowledge</li>
                 <li>• All chat history and notes</li>
                 <li>• All uploaded documents and files</li>
                 <li>• All AI assistants and vector stores</li>
-                <li>• All team members and invitations</li>
+                <li>• All course members and invitations</li>
               </ul>
               <p className="text-slate-300">
-                To confirm deletion, type the team name exactly: <strong className="text-slate-100">{team?.name}</strong>
+                To confirm deletion, type the course name exactly: <strong className="text-slate-100">{team?.name}</strong>
               </p>
             </div>
 
@@ -410,7 +376,7 @@ function TeamDashboardContent() {
                 type="text"
                 value={deleteConfirmation}
                 onChange={(e) => setDeleteConfirmation(e.target.value)}
-                placeholder="Type team name to confirm"
+                placeholder="Type course name to confirm"
                 className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500"
                 disabled={isDeleting}
               />
@@ -447,7 +413,7 @@ function TeamDashboardContent() {
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    Delete Team
+                    Delete Course
                   </>
                 )}
               </button>

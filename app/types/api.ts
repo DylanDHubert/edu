@@ -50,7 +50,6 @@ export interface TeamDocument {
   id: string;
   team_id: string;
   portfolio_id?: string;
-  account_id?: string;
   original_name: string;
   file_path: string;
   file_size: number;
@@ -63,7 +62,6 @@ export interface TeamDocument {
 export interface TeamKnowledge {
   id: string;
   team_id: string;
-  account_id?: string;
   portfolio_id?: string;
   title: string;
   content: string;
@@ -76,7 +74,6 @@ export interface ChatHistory {
   thread_id: string;
   user_id: string;
   team_id: string;
-  account_id: string;
   portfolio_id: string;
   assistant_id: string;
   title: string;
@@ -90,7 +87,6 @@ export interface MessageRating {
   message_id: string;
   user_id: string;
   team_id: string;
-  account_id: string;
   portfolio_id: string;
   rating?: number;
   response_time_ms?: number;
@@ -104,7 +100,6 @@ export interface Note {
   id: string;
   user_id: string;
   team_id?: string;
-  account_id?: string;
   portfolio_id?: string;
   title: string;
   content: string;
@@ -149,7 +144,6 @@ export interface CreateNoteRequest {
   title: string;
   content: string;
   teamId?: string;
-  accountId?: string;
   portfolioId?: string;
   isShared?: boolean;
 }
@@ -165,7 +159,6 @@ export interface RateMessageRequest {
   threadId: string;
   messageId: string;
   teamId: string;
-  accountId: string;
   portfolioId: string;
   rating?: number;
   responseTimeMs?: number;
@@ -178,7 +171,6 @@ export interface SendMessageRequest {
   message: string;
   assistantId: string;
   teamId: string;
-  accountId: string;
   portfolioId: string;
   streaming?: boolean;
 }

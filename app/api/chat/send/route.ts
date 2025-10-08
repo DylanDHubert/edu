@@ -20,13 +20,12 @@ export async function POST(request: NextRequest) {
       message, 
       assistantId, 
       teamId, 
-      accountId, 
       portfolioId, 
       streaming = false 
     } = await request.json();
     
-    if (!threadId || !message || !assistantId || !teamId || !accountId || !portfolioId) {
-      return handleValidationError('Thread ID, message, assistant ID, team ID, account ID, and portfolio ID are required');
+    if (!threadId || !message || !assistantId || !teamId || !portfolioId) {
+      return handleValidationError('Thread ID, message, assistant ID, team ID, and portfolio ID are required');
     }
 
     // SANITIZE USER INPUT TO PREVENT XSS
@@ -42,7 +41,6 @@ export async function POST(request: NextRequest) {
       message: sanitizedMessage,
       assistantId,
       teamId,
-      accountId,
       portfolioId,
       streaming
     };

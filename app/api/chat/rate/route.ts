@@ -7,10 +7,10 @@ import { RateMessageRequest } from '../../../types/chat';
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, messageId, rating, teamId, accountId, portfolioId, responseTimeMs, citations, feedbackText } = await request.json();
+    const { threadId, messageId, rating, teamId, portfolioId, responseTimeMs, citations, feedbackText } = await request.json();
     
-    if (!threadId || !messageId || !teamId || !accountId || !portfolioId) {
-      return handleValidationError('Thread ID, message ID, team ID, account ID, and portfolio ID are required');
+    if (!threadId || !messageId || !teamId || !portfolioId) {
+      return handleValidationError('Thread ID, message ID, team ID, and portfolio ID are required');
     }
 
     // VALIDATE RATING VALUE (ALLOW NULL/UNDEFINED FOR FEEDBACK-ONLY UPDATES)
@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
       messageId,
       rating,
       teamId,
-      accountId,
       portfolioId,
       responseTimeMs,
       citations,

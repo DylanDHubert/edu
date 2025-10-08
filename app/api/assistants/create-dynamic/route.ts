@@ -6,11 +6,11 @@ import { CreateAssistantRequest } from '../../../types/assistant';
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamId, accountId, portfolioId } = await request.json();
+    const { teamId, portfolioId } = await request.json();
 
     // VALIDATE REQUIRED FIELDS
-    if (!teamId || !accountId || !portfolioId) {
-      return handleValidationError('Team ID, Account ID, and Portfolio ID are required');
+    if (!teamId || !portfolioId) {
+      return handleValidationError('Team ID and Portfolio ID are required');
     }
 
     // AUTHENTICATE USER AND VERIFY TEAM ACCESS
@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
     const assistantService = new AssistantService();
     const result = await assistantService.createDynamicAssistant({
       teamId,
-      accountId,
       portfolioId,
       userId: user.id
     });

@@ -14,7 +14,6 @@ export interface SendMessageRequest {
   message: string;
   assistantId: string;
   teamId: string;
-  accountId: string;
   portfolioId: string;
   streaming?: boolean;
 }
@@ -24,7 +23,6 @@ export interface RateMessageRequest {
   messageId: string;
   rating?: number | null;
   teamId: string;
-  accountId: string;
   portfolioId: string;
   responseTimeMs?: number;
   citations?: string[];

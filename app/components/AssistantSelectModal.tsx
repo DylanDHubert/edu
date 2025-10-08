@@ -13,11 +13,6 @@ interface Portfolio {
   documents: Array<{ original_name: string }>;
 }
 
-interface Account {
-  id: string;
-  name: string;
-  description: string;
-}
 
 interface TeamData {
   id: string;
@@ -29,9 +24,7 @@ interface ActiveAssistant {
   assistantId: string;
   assistantName: string;
   teamId: string;
-  accountId: string;
   portfolioId: string;
-  accountName?: string;
   portfolioName?: string;
   teamName?: string;
   teamLocation?: string;
@@ -53,9 +46,7 @@ export default function AssistantSelectModal({
   const [loading, setLoading] = useState(false);
   const [team, setTeam] = useState<TeamData | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('');
-  const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [isOriginalManager, setIsOriginalManager] = useState<boolean>(false);
@@ -73,17 +64,14 @@ export default function AssistantSelectModal({
   // RESET STATE WHEN MODAL OPENS/CLOSES
   useEffect(() => {
     if (isOpen && currentAssistant) {
-      // PRE-SELECT CURRENT ASSISTANT'S PORTFOLIO AND ACCOUNT
+      // PRE-SELECT CURRENT ASSISTANT'S PORTFOLIO
       setSelectedPortfolio(currentAssistant.portfolioId);
-      setSelectedAccount(currentAssistant.accountId);
       loadTeamData();
     } else if (!isOpen) {
       // RESET STATE WHEN MODAL CLOSES
       setTeam(null);
       setPortfolios([]);
-      setAccounts([]);
       setSelectedPortfolio('');
-      setSelectedAccount('');
       setError(null);
       setUserRole('');
       setIsOriginalManager(false);
@@ -156,73 +144,12 @@ export default function AssistantSelectModal({
     }
   };
 
-  // LOAD ACCOUNTS WHEN PORTFOLIO IS SELECTED
-  useEffect(() => {
-    if (selectedPortfolio && currentAssistant?.teamId) {
-      loadAccountsForPortfolio();
-    } else {
-      setAccounts([]);
-      setSelectedAccount('');
-    }
-  }, [selectedPortfolio, currentAssistant?.teamId]);
 
-  const loadAccountsForPortfolio = async () => {
-    if (!currentAssistant?.teamId) return;
-    
-    try {
-      // USE THE SECURE ACCOUNTS LIST API ENDPOINT
-      const response = await fetch(`/api/teams/accounts/list?teamId=${currentAssistant.teamId}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error('Error loading accounts:', result.error);
-        setError('Failed to load accounts for this portfolio');
-        return;
-      }
-
-      if (!result.success) {
-        console.error('Failed to load accounts');
-        setError('Failed to load accounts for this portfolio');
-        return;
-      }
-
-      const allAccounts = result.accounts || [];
-
-      // FILTER ACCOUNTS THAT ARE ASSIGNED TO THE SELECTED PORTFOLIO
-      const portfolioAccounts = allAccounts.filter((account: any) => {
-        // CHECK IF THIS ACCOUNT HAS ACCOUNT_PORTFOLIOS RELATIONSHIP WITH THE SELECTED PORTFOLIO
-        const accountPortfolios = account.account_portfolios || [];
-        return accountPortfolios.some((ap: any) => ap.portfolio_id === selectedPortfolio);
-      });
-
-      const transformedAccounts = portfolioAccounts.map((account: any) => ({
-        id: account.id,
-        name: account.name,
-        description: account.description || ''
-      }));
-
-      setAccounts(transformedAccounts);
-
-      // AUTO-SELECT CURRENT ACCOUNT IF IT EXISTS
-      if (currentAssistant?.accountId && transformedAccounts.some((a: Account) => a.id === currentAssistant.accountId)) {
-        setSelectedAccount(currentAssistant.accountId);
-      } else if (transformedAccounts.length > 0) {
-        setSelectedAccount(transformedAccounts[0].id);
-      }
-
-    } catch (error) {
-      console.error('Error loading accounts for portfolio:', error);
-      setError('Failed to load accounts');
-    }
-  };
 
   const handlePortfolioChange = (portfolioId: string) => {
     setSelectedPortfolio(portfolioId);
   };
 
-  const handleAccountSelect = (accountId: string) => {
-    setSelectedAccount(accountId);
-  };
 
   const checkProcessingStatus = async () => {
     if (!selectedPortfolio || !currentAssistant?.teamId) return;
@@ -247,8 +174,8 @@ export default function AssistantSelectModal({
   };
 
   const handleSwitchAssistant = async () => {
-    if (!selectedPortfolio || !selectedAccount || !currentAssistant?.teamId) {
-      setError('Please select a portfolio and account');
+    if (!selectedPortfolio || !currentAssistant?.teamId) {
+      setError('Please select a portfolio');
       return;
     }
 
@@ -264,7 +191,7 @@ export default function AssistantSelectModal({
     setError(null);
 
     try {
-      // CALL API TO CREATE/GET DYNAMIC ASSISTANT FOR THIS TEAM+ACCOUNT+PORTFOLIO COMBINATION
+      // CALL API TO CREATE/GET DYNAMIC ASSISTANT FOR THIS TEAM+PORTFOLIO COMBINATION
       const response = await fetch('/api/assistants/create-dynamic', {
         method: 'POST',
         headers: {
@@ -272,7 +199,6 @@ export default function AssistantSelectModal({
         },
         body: JSON.stringify({
           teamId: currentAssistant.teamId,
-          accountId: selectedAccount,
           portfolioId: selectedPortfolio
         }),
       });
@@ -284,18 +210,15 @@ export default function AssistantSelectModal({
 
       const { assistantId, assistantName } = await response.json();
 
-      // GET PORTFOLIO AND ACCOUNT NAMES
+      // GET PORTFOLIO NAME
       const selectedPortfolioData = portfolios.find(p => p.id === selectedPortfolio);
-      const selectedAccountData = accounts.find(a => a.id === selectedAccount);
 
       // STORE NEW ASSISTANT CONTEXT
       const newActiveAssistant = {
         assistantId,
         assistantName,
         teamId: currentAssistant.teamId,
-        accountId: selectedAccount,
         portfolioId: selectedPortfolio,
-        accountName: selectedAccountData?.name,
         portfolioName: selectedPortfolioData?.name,
         teamName: team?.name,
         teamLocation: team?.location,
@@ -393,37 +316,6 @@ export default function AssistantSelectModal({
                 </div>
               </div>
 
-              {/* ACCOUNT SELECTION */}
-              {selectedPortfolio && (
-                <div className="bg-slate-700 rounded-lg border border-slate-600 p-4">
-                  <h3 className="text-lg font-semibold text-slate-100 mb-3">Select Account</h3>
-                  <p className="text-slate-400 text-sm mb-4">
-                    Choose which hospital or location to include in your chat context.
-                  </p>
-                  
-                  {accounts.length > 0 ? (
-                    <div className="space-y-3">
-                      {accounts.map((account) => (
-                        <CustomRadioButton
-                          key={account.id}
-                          name="account"
-                          value={account.id}
-                          checked={selectedAccount === account.id}
-                          onChange={handleAccountSelect}
-                          label={account.name}
-                          description={account.description}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-slate-400">
-                        No accounts are assigned to this portfolio. Please contact your team manager.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* ERROR DISPLAY */}
               {error && (
@@ -473,7 +365,7 @@ export default function AssistantSelectModal({
                 ) : (
                   <button
                     onClick={handleSwitchAssistant}
-                    disabled={!selectedPortfolio || !selectedAccount || creatingAssistant}
+                    disabled={!selectedPortfolio || creatingAssistant}
                     className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white px-4 py-3 rounded-md font-medium transition-colors flex items-center gap-3"
                   >
                     <BrainCog className="w-5 h-5 flex-shrink-0" />

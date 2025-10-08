@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     // Validate role
     if (!['manager', 'member'].includes(role)) {
       return NextResponse.json(
-        { error: 'Role must be either "manager" or "member"' },
+        { error: 'Role must be either "TA" or "Student"' },
         { status: 400 }
       );
     }

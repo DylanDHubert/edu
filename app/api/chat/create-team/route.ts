@@ -3,7 +3,6 @@ import { createClient } from '../../../utils/supabase/server';
 import { createServiceClient } from '../../../utils/supabase/server';
 import { createThread } from '../../../utils/openai';
 import { cookies } from 'next/headers';
-import { KnowledgeUpdateService } from '../../../services/knowledge-update-service';
 import OpenAI from 'openai';
 
 const client = new OpenAI({
@@ -13,13 +12,13 @@ const client = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamId, accountId, portfolioId, assistantId, title, initialMessage } = await request.json();
+    const { teamId, portfolioId, assistantId, title, initialMessage } = await request.json();
     
-    console.log('🎯 CREATE-TEAM received params:', { teamId, accountId, portfolioId, assistantId, title });
+    console.log('🎯 CREATE-TEAM received params:', { teamId, portfolioId, assistantId, title });
     
-    if (!teamId || !accountId || !portfolioId || !assistantId || !title) {
+    if (!teamId || !portfolioId || !assistantId || !title) {
       return NextResponse.json(
-        { error: 'Team ID, Account ID, Portfolio ID, Assistant ID, and Title are required' },
+        { error: 'Team ID, Portfolio ID, Assistant ID, and Title are required' },
         { status: 400 }
       );
     }
@@ -71,23 +70,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // UPDATE KNOWLEDGE IN VECTOR STORE IF STALE
-    const knowledgeUpdateService = new KnowledgeUpdateService();
-    const updateResult = await knowledgeUpdateService.updateKnowledgeIfStale(
-      teamId,
-      accountId,
-      portfolioId,
-      assistantData.portfolio_vector_store_id,
-      user.id
-    );
-
-    if (!updateResult.success) {
-      console.error('Failed to update knowledge:', updateResult.error);
-      return NextResponse.json(
-        { error: 'Failed to update team knowledge' },
-        { status: 500 }
-      );
-    }
+    // Skip knowledge update - no manual knowledge system
 
 
     // CREATE NEW THREAD WITH INITIAL CONTEXT TO PRIME FILE SEARCH BEHAVIOR
@@ -112,7 +95,6 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         team_id: teamId,
-        account_id: accountId,
         portfolio_id: portfolioId,
         assistant_id: assistantId,
         thread_id: thread.id,
@@ -146,7 +128,6 @@ export async function POST(request: NextRequest) {
       thread_id: thread.id,
       title: chatTitle,
       team_id: teamId,
-      account_id: accountId,
       portfolio_id: portfolioId,
       assistant_id: assistantId,
       created_at: chatHistory.created_at
