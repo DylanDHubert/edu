@@ -33,8 +33,8 @@ export function handleAuthError(error: Error): NextResponse {
   switch (error.message) {
     case 'UNAUTHORIZED':
       return ErrorResponses.unauthorized();
-    case 'TEAM_ACCESS_DENIED':
-      return ErrorResponses.forbidden('You do not have access to this team');
+    case 'course_ACCESS_DENIED':
+      return ErrorResponses.forbidden('You do not have access to this course');
     case 'INSUFFICIENT_PERMISSIONS':
       return ErrorResponses.forbidden('Insufficient permissions for this operation');
     case 'ADMIN_ACCESS_REQUIRED':

@@ -7,9 +7,9 @@ export interface AuthResult {
   supabase: any;
 }
 
-export interface TeamMembership {
+export interface courseMembership {
   id: string;
-  team_id: string;
+  course_id: string;
   user_id: string;
   role: 'manager' | 'member';
   status: 'active' | 'inactive';
@@ -33,25 +33,25 @@ export async function verifyUserAuth(cookieStore: ReturnType<typeof cookies>): P
 }
 
 /**
- * VERIFY USER HAS ACCESS TO A TEAM
+ * VERIFY USER HAS ACCESS TO A course
  */
-export async function verifyTeamAccess(
-  teamId: string, 
+export async function verifycourseAccess(
+  courseId: string, 
   userId: string, 
   requiredRole?: 'manager' | 'member'
-): Promise<TeamMembership> {
+): Promise<courseMembership> {
   const serviceClient = createServiceClient();
   
   const { data: membership, error } = await serviceClient
-    .from('team_members')
+    .from('course_members')
     .select('*')
-    .eq('team_id', teamId)
+    .eq('course_id', courseId)
     .eq('user_id', userId)
     .eq('status', 'active')
     .single();
 
   if (error || !membership) {
-    throw new Error('TEAM_ACCESS_DENIED');
+    throw new Error('course_ACCESS_DENIED');
   }
 
   if (requiredRole && membership.role !== requiredRole) {
@@ -84,15 +84,15 @@ export function getServiceClient() {
 }
 
 /**
- * COMPLETE AUTHENTICATION FLOW WITH TEAM ACCESS CHECK
+ * COMPLETE AUTHENTICATION FLOW WITH course ACCESS CHECK
  */
-export async function authenticateWithTeamAccess(
-  teamId: string,
+export async function authenticateWithcourseAccess(
+  courseId: string,
   requiredRole?: 'manager' | 'member'
-): Promise<{ user: any; membership: TeamMembership; serviceClient: any }> {
+): Promise<{ user: any; membership: courseMembership; serviceClient: any }> {
   const cookieStore = cookies();
   const { user } = await verifyUserAuth(cookieStore);
-  const membership = await verifyTeamAccess(teamId, user.id, requiredRole);
+  const membership = await verifycourseAccess(courseId, user.id, requiredRole);
   const serviceClient = getServiceClient();
   
   return { user, membership, serviceClient };

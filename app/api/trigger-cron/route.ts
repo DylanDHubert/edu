@@ -1,54 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JobQueueService } from '../../services/job-queue-service';
-import { LlamaParseService, ScreenshotData, ScreenshotPath } from '../../services/llamaparse-service';
+import { LlamaParseService } from '../../services/llamaparse-service';
 import { createServiceClient } from '../../utils/supabase/server';
 import OpenAI from 'openai';
 
-/**
- * UPLOAD SCREENSHOTS TO SUPABASE STORAGE
- */
-async function uploadScreenshotsToStorage(
-  job: any, 
-  screenshots: ScreenshotData[], 
-  serviceClient: any
-): Promise<ScreenshotPath[]> {
-  const screenshotPaths: ScreenshotPath[] = [];
-  
-  for (const screenshot of screenshots) {
-    try {
-      // CONVERT BASE64 TO BUFFER
-      const imageBuffer = Buffer.from(screenshot.imageData, 'base64');
-      
-      // CREATE STORAGE PATH
-      const screenshotPath = `teams/${job.team_id}/portfolios/${job.portfolio_id}/screenshots/${job.document_id}/${screenshot.filename}`;
-      
-      // UPLOAD TO SUPABASE STORAGE
-      const { error } = await serviceClient.storage
-        .from('team-documents')
-        .upload(screenshotPath, imageBuffer, {
-          contentType: 'image/jpeg',
-          upsert: true
-        });
-      
-      if (error) {
-        console.error(`FAILED TO UPLOAD SCREENSHOT ${screenshot.filename}:`, error);
-        continue;
-      }
-      
-      screenshotPaths.push({
-        pageNumber: screenshot.pageNumber,
-        path: screenshotPath,
-        filename: screenshot.filename
-      });
-      
-      console.log(`SCREENSHOT UPLOADED: ${screenshotPath}`);
-    } catch (error) {
-      console.error(`ERROR UPLOADING SCREENSHOT ${screenshot.filename}:`, error);
-    }
-  }
-  
-  return screenshotPaths;
-}
+// Screenshot upload function removed
 
 export async function GET(request: NextRequest) {
   // CHECK FOR BYPASS TOKEN
@@ -117,55 +73,7 @@ export async function GET(request: NextRequest) {
           const markdown = await llamaparseService.downloadMarkdown(job.llamaparse_job_id);
           console.log(`MARKDOWN DOWNLOADED: ${job.llamaparse_job_id} (${markdown.length} characters)`);
           
-          // DETERMINE TOTAL PAGES FROM MARKDOWN AND PROCESS SCREENSHOTS
-          let screenshotPaths: any[] = [];
-          console.log(`🔍 DEBUG: STARTING SCREENSHOT PROCESSING...`);
-          console.log(`ABOUT TO EXTRACT PAGE COUNT FROM MARKDOWN...`);
-          try {
-            const pageNumbers = llamaparseService.extractPageNumbers(markdown);
-            console.log(`DETECTED ${pageNumbers.length} PAGES IN DOCUMENT:`, pageNumbers);
-            console.log(`MARKDOWN PREVIEW: ${markdown.substring(0, 200)}...`);
-            
-            if (pageNumbers.length > 0) {
-              console.log(`ATTEMPTING TO DOWNLOAD SCREENSHOTS FOR ${pageNumbers.length} PAGES...`);
-              
-              // DOWNLOAD SCREENSHOTS
-              await jobQueueService.updateJobStatus(
-                job.id, 
-                'processing', 
-                60, 
-                'downloading_screenshots'
-              );
-              
-              console.log(`CALLING downloadAllScreenshots with jobId: ${job.llamaparse_job_id}, pageNumbers:`, pageNumbers);
-              const screenshots = await llamaparseService.downloadAllScreenshots(job.llamaparse_job_id, pageNumbers);
-              console.log(`SCREENSHOTS DOWNLOADED: ${screenshots.length}/${pageNumbers.length} pages`);
-              
-              if (screenshots.length > 0) {
-                // UPLOAD SCREENSHOTS TO SUPABASE STORAGE
-                await jobQueueService.updateJobStatus(
-                  job.id, 
-                  'processing', 
-                  65, 
-                  'uploading_screenshots'
-                );
-                
-                console.log(`UPLOADING ${screenshots.length} SCREENSHOTS TO STORAGE...`);
-                screenshotPaths = await uploadScreenshotsToStorage(job, screenshots, serviceClient);
-                console.log(`SCREENSHOTS UPLOADED: ${screenshotPaths.length} files`);
-              } else {
-                console.log('NO SCREENSHOTS DOWNLOADED - SKIPPING UPLOAD');
-              }
-            } else {
-              console.log('NO PAGES DETECTED - SKIPPING SCREENSHOT PROCESSING');
-            }
-          } catch (screenshotError) {
-            console.error('SCREENSHOT PROCESSING ERROR:', screenshotError);
-            if (screenshotError instanceof Error) {
-              console.error('ERROR STACK:', screenshotError.stack);
-            }
-            console.log('CONTINUING WITHOUT SCREENSHOTS...');
-          }
+          // Screenshot processing removed - keeping page markers only
           
           // UPLOAD MARKDOWN TO SUPABASE STORAGE
           await jobQueueService.updateJobStatus(
@@ -177,7 +85,7 @@ export async function GET(request: NextRequest) {
           
           // FETCH DOCUMENT INFO TO GET ORIGINAL FILENAME
           const { data: documentData, error: documentError } = await serviceClient
-            .from('team_documents')
+            .from('course_documents')
             .select('original_name')
             .eq('id', job.document_id)
             .single();
@@ -188,10 +96,10 @@ export async function GET(request: NextRequest) {
           
           const originalFileName = documentData.original_name.replace('.pdf', '');
           const markdownFileName = `processed_${originalFileName}.md`;
-          const markdownFilePath = `teams/${job.team_id}/portfolios/${job.portfolio_id}/${markdownFileName}`;
+          const markdownFilePath = `courses/${job.course_id}/portfolios/${job.portfolio_id}/${markdownFileName}`;
           
           const { error: storageError } = await serviceClient.storage
-            .from('team-documents')
+            .from('course-documents')
             .upload(markdownFilePath, markdown, {
               contentType: 'text/markdown',
               upsert: true
@@ -220,7 +128,7 @@ export async function GET(request: NextRequest) {
           
           // UPDATE DOCUMENT WITH OPENAI FILE ID
           const { error: updateError } = await serviceClient
-            .from('team_documents')
+            .from('course_documents')
             .update({ 
               openai_file_id: openaiFile.id
             })
@@ -230,30 +138,7 @@ export async function GET(request: NextRequest) {
             throw new Error(`Failed to update document: ${updateError.message}`);
           }
           
-          // VECTORIZE FOR SAFE MODE
-          await jobQueueService.updateJobStatus(
-            job.id, 
-            'processing', 
-            95, 
-            'vectorizing_for_safe_mode'
-          );
-          
-          try {
-            const { VectorizationService } = await import('../../services/vectorization-service');
-            const vectorizationService = new VectorizationService();
-            
-            // Check if we have screenshot paths from earlier processing
-            if (screenshotPaths && screenshotPaths.length > 0) {
-              await vectorizationService.vectorizeWithScreenshots(job.document_id, markdown, screenshotPaths);
-              console.log(`SAFE MODE VECTORIZATION WITH SCREENSHOTS COMPLETE: ${job.document_id}`);
-            } else {
-              await vectorizationService.vectorizeUploadedMarkdown(job.document_id, markdown);
-              console.log(`SAFE MODE VECTORIZATION COMPLETE: ${job.document_id}`);
-            }
-          } catch (vectorizationError) {
-            console.error('SAFE MODE VECTORIZATION ERROR:', vectorizationError);
-            // CONTINUE WITH JOB COMPLETION EVEN IF VECTORIZATION FAILS
-          }
+          // Safe mode vectorization removed
           
           // MARK JOB AS COMPLETED
           await jobQueueService.markJobCompleted(job.id);
@@ -278,7 +163,7 @@ export async function GET(request: NextRequest) {
           
           // MARK DOCUMENT AS FAILED
           await serviceClient
-            .from('team_documents')
+            .from('course_documents')
             .update({ openai_file_id: 'failed' })
             .eq('id', job.document_id);
           
@@ -292,7 +177,7 @@ export async function GET(request: NextRequest) {
           
           // MARK DOCUMENT AS FAILED
           await serviceClient
-            .from('team_documents')
+            .from('course_documents')
             .update({ openai_file_id: 'failed' })
             .eq('id', job.document_id);
           
@@ -310,7 +195,7 @@ export async function GET(request: NextRequest) {
         
         // MARK DOCUMENT AS FAILED
         await serviceClient
-          .from('team_documents')
+          .from('course_documents')
           .update({ openai_file_id: 'failed' })
           .eq('id', job.document_id);
         

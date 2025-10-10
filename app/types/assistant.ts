@@ -3,7 +3,7 @@
  */
 
 export interface CreateAssistantRequest {
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   userId?: string;
 }
@@ -39,7 +39,7 @@ export interface BackupThread {
   thread_id: string;
   title: string;
   user_id: string;
-  team_id: string;
+  course_id: string;
   portfolio_id: string;
   created_at: string;
   messages: ThreadMessage[];
@@ -50,20 +50,19 @@ export interface PortfolioDocument {
   original_name: string;
 }
 
-export interface TeamNames {
-  teamName: string;
+export interface courseNames {
+  courseName: string;
   portfolioName: string;
 }
 
 export interface AccountContext {
   accountInfo: string;
   portfolioInfo: string;
-  surgeonInfo: string;
   knowledgeText: string;
 }
 
 export interface GeneralContext {
-  teamInfo: string;
+  courseInfo: string;
   knowledgeText: string;
 }
 

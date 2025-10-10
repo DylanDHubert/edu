@@ -13,12 +13,12 @@ export class VectorStoreService {
   /**
    * GATHER PORTFOLIO DOCUMENTS
    */
-  async gatherPortfolioDocuments(teamId: string, portfolioId: string): Promise<PortfolioDocument[]> {
+  async gatherPortfolioDocuments(courseId: string, portfolioId: string): Promise<PortfolioDocument[]> {
     try {
       const { data: documents, error } = await this.serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .select('openai_file_id, original_name')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId)
         .not('openai_file_id', 'is', null)
         .not('openai_file_id', 'eq', 'processing')
@@ -45,17 +45,17 @@ export class VectorStoreService {
   /**
    * CREATE PORTFOLIO VECTOR STORE
    */
-  async createPortfolioVectorStore(teamId: string, portfolioId: string, names: any): Promise<VectorStoreResult> {
+  async createPortfolioVectorStore(courseId: string, portfolioId: string, names: any): Promise<VectorStoreResult> {
     try {
       // Gather documents for this portfolio
-      const documents = await this.gatherPortfolioDocuments(teamId, portfolioId);
+      const documents = await this.gatherPortfolioDocuments(courseId, portfolioId);
       
       if (documents.length === 0) {
         throw new Error('No documents found for this portfolio');
       }
 
       // Create vector store
-      const vectorStoreName = `${names.teamName} - ${names.portfolioName} Portfolio`;
+      const vectorStoreName = `${names.courseName} - ${names.portfolioName} Portfolio`;
       const vectorStore = await this.openaiService.createVectorStore(vectorStoreName);
 
       // Add files to vector store
@@ -106,12 +106,12 @@ export class VectorStoreService {
     vectorStoreId: string, 
     filename: string, 
     markdownContent: string,
-    teamId: string,
+    courseId: string,
     portfolioId: string
   ): Promise<{ success: boolean; fileId?: string; error?: string }> {
     try {
       // Get existing knowledge file info from our tracking table
-      const existingInfo = await this.getKnowledgeFileInfo(teamId, portfolioId);
+      const existingInfo = await this.getKnowledgeFileInfo(courseId, portfolioId);
       
       // If we have an existing knowledge file tracked, delete it from vector store
       if (existingInfo && existingInfo.openaiFileId) {
@@ -152,7 +152,7 @@ export class VectorStoreService {
    * TRACK KNOWLEDGE FILE IN DATABASE
    */
   async trackKnowledgeFile(
-    teamId: string,
+    courseId: string,
     portfolioId: string,
     filename: string,
     openaiFileId: string
@@ -161,13 +161,13 @@ export class VectorStoreService {
       await this.serviceClient
         .from('portfolio_knowledge_files')
         .upsert({
-          team_id: teamId,
+          course_id: courseId,
           portfolio_id: portfolioId,
           filename: filename,
           openai_file_id: openaiFileId,
           last_generated_at: new Date().toISOString()
         }, {
-          onConflict: 'team_id,portfolio_id'
+          onConflict: 'course_id,portfolio_id'
         });
 
     } catch (error) {
@@ -179,7 +179,7 @@ export class VectorStoreService {
   /**
    * GET KNOWLEDGE FILE TRACKING INFO
    */
-  async getKnowledgeFileInfo(teamId: string, portfolioId: string): Promise<{
+  async getKnowledgeFileInfo(courseId: string, portfolioId: string): Promise<{
     filename?: string;
     openaiFileId?: string;
     lastGenerated?: Date;
@@ -188,7 +188,7 @@ export class VectorStoreService {
       const { data, error } = await this.serviceClient
         .from('portfolio_knowledge_files')
         .select('filename, openai_file_id, last_generated_at')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId)
         .single();
 

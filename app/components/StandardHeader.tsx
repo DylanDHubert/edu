@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 
 interface StandardHeaderProps {
-  teamName?: string;
-  teamLocation?: string;
+  courseName?: string;
+  courseLocation?: string;
   userRole?: string;
   isOriginalManager?: boolean;
   portfolioName?: string;
@@ -19,8 +19,8 @@ interface StandardHeaderProps {
 }
 
 export default function StandardHeader({
-  teamName,
-  teamLocation,
+  courseName,
+  courseLocation,
   userRole,
   isOriginalManager = false,
   portfolioName,
@@ -60,13 +60,13 @@ export default function StandardHeader({
 
         {/* CENTER: Classroom/Context Info */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {teamName && (
+          {courseName && (
             <div className="text-center pointer-events-auto">
               {portfolioName ? (
                 // CHAT PAGE LAYOUT: 2 lines only
                 <>
                   <h1 className="text-xl font-bold text-slate-100">
-                    {teamName} • {teamLocation}
+                    {courseName} • {courseLocation}
                   </h1>
                   <p className="text-slate-400 text-sm mt-1">
                     {portfolioName}
@@ -75,10 +75,10 @@ export default function StandardHeader({
               ) : (
                 // REGULAR PAGE LAYOUT: 2 lines with role
                 <>
-                  <h1 className="text-xl font-bold text-slate-100">{teamName}</h1>
-                  {teamLocation && userRole && (
+                  <h1 className="text-xl font-bold text-slate-100">{courseName}</h1>
+                  {courseLocation && userRole && (
                     <p className="text-slate-400 text-sm mt-1">
-                      {teamLocation} • {userRole === 'manager' ? (isOriginalManager ? 'Teacher (Professor)' : 'TA') : 'Student'}
+                      {courseLocation} • {userRole === 'manager' ? (isOriginalManager ? 'Teacher (Professor)' : 'TA') : 'Student'}
                     </p>
                   )}
                 </>

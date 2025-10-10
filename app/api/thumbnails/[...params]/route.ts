@@ -15,7 +15,7 @@ export async function GET(
     
     if (!pathParams || pathParams.length < 2) {
       return NextResponse.json(
-        { error: 'Invalid path. Expected: /api/thumbnails/screenshot/{teamId}/{portfolioId}/{documentId}/{pageNumber} or /api/thumbnails/pdf/{teamId}/{portfolioId}/{documentId}' },
+        { error: 'Invalid path. Expected: /api/thumbnails/screenshot/{courseId}/{portfolioId}/{documentId}/{pageNumber} or /api/thumbnails/pdf/{courseId}/{portfolioId}/{documentId}' },
         { status: 400 }
       );
     }
@@ -33,29 +33,29 @@ export async function GET(
     }
 
     const thumbnailService = new ThumbnailService();
-    const [type, teamId, portfolioId, documentId, ...rest] = pathParams;
+    const [type, courseId, portfolioId, documentId, ...rest] = pathParams;
 
     console.log('🔍 THUMBNAIL API: REQUEST');
     console.log('  🏷️ Type:', type);
     console.log('  👤 User:', user.id);
-    console.log('  🏢 Team:', teamId);
+    console.log('  🏢 course:', courseId);
     console.log('  📁 Portfolio:', portfolioId);
     console.log('  📄 Document:', documentId);
 
-    // VERIFY USER HAS ACCESS TO TEAM
-    const hasAccess = await thumbnailService.verifyUserAccess(user.id, teamId);
+    // VERIFY USER HAS ACCESS TO course
+    const hasAccess = await thumbnailService.verifyUserAccess(user.id, courseId);
     if (!hasAccess) {
       return NextResponse.json(
-        { error: 'Access denied to this team' },
+        { error: 'Access denied to this course' },
         { status: 403 }
       );
     }
 
     if (type === 'screenshot') {
-      // SCREENSHOT: /api/thumbnails/screenshot/{teamId}/{portfolioId}/{documentId}/{pageNumber}
+      // SCREENSHOT: /api/thumbnails/screenshot/{courseId}/{portfolioId}/{documentId}/{pageNumber}
       if (pathParams.length !== 5) {
         return NextResponse.json(
-          { error: 'Invalid screenshot path. Expected: /api/thumbnails/screenshot/{teamId}/{portfolioId}/{documentId}/{pageNumber}' },
+          { error: 'Invalid screenshot path. Expected: /api/thumbnails/screenshot/{courseId}/{portfolioId}/{documentId}/{pageNumber}' },
           { status: 400 }
         );
       }
@@ -69,7 +69,7 @@ export async function GET(
       }
 
       const result = await thumbnailService.getScreenshotThumbnail(
-        teamId,
+        courseId,
         portfolioId,
         documentId,
         pageNumber
@@ -85,16 +85,16 @@ export async function GET(
       });
 
     } else if (type === 'pdf') {
-      // PDF: /api/thumbnails/pdf/{teamId}/{portfolioId}/{documentId}
+      // PDF: /api/thumbnails/pdf/{courseId}/{portfolioId}/{documentId}
       if (pathParams.length !== 4) {
         return NextResponse.json(
-          { error: 'Invalid PDF path. Expected: /api/thumbnails/pdf/{teamId}/{portfolioId}/{documentId}' },
+          { error: 'Invalid PDF path. Expected: /api/thumbnails/pdf/{courseId}/{portfolioId}/{documentId}' },
           { status: 400 }
         );
       }
 
       const result = await thumbnailService.getPDFDocument(
-        teamId,
+        courseId,
         portfolioId,
         documentId
       );

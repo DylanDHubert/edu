@@ -4,26 +4,26 @@ import { deleteOpenAIResources } from '../utils/openai';
 import { StorageCleanupService } from './storage-cleanup-service';
 
 export interface CreatePortfolioRequest {
-  teamId: string;
+  courseId: string;
   name: string;
   description?: string;
 }
 
 export interface UpdatePortfolioRequest {
   portfolioId: string;
-  teamId: string;
+  courseId: string;
   name: string;
   description?: string;
 }
 
 export interface DeletePortfolioRequest {
   portfolioId: string;
-  teamId: string;
+  courseId: string;
 }
 
 export interface DeleteDocumentRequest {
   documentId: string;
-  teamId: string;
+  courseId: string;
 }
 
 export interface PortfolioOpenAIResources {
@@ -68,9 +68,9 @@ export class PortfolioService {
     const serviceClient = this.getServiceClient();
     
     const { data, error } = await serviceClient
-      .from('team_portfolios')
+      .from('course_portfolios')
       .insert({
-        team_id: request.teamId,
+        course_id: request.courseId,
         name: request.name.trim(),
         description: request.description?.trim() || null
       })
@@ -92,14 +92,14 @@ export class PortfolioService {
     const serviceClient = this.getServiceClient();
     
     const { data, error } = await serviceClient
-      .from('team_portfolios')
+      .from('course_portfolios')
       .update({
         name: request.name.trim(),
         description: request.description?.trim() || null,
         updated_at: new Date().toISOString()
       })
       .eq('id', request.portfolioId)
-      .eq('team_id', request.teamId)
+      .eq('course_id', request.courseId)
       .select()
       .single();
 
@@ -130,12 +130,12 @@ export class PortfolioService {
 
       // PHASE 3: CLEAN UP STORAGE FILES
       console.log('🗂️ PHASE 3: CLEANING UP STORAGE FILES');
-      const storageCleanup = await this.storageCleanup.cleanupPortfolioStorage(request.portfolioId, request.teamId);
+      const storageCleanup = await this.storageCleanup.cleanupPortfolioStorage(request.portfolioId, request.courseId);
       console.log('✅ STORAGE CLEANUP RESULT:', storageCleanup);
 
       // PHASE 4: DELETE DATABASE RECORDS IN DEPENDENCY ORDER
       console.log('🗄️ PHASE 4: CLEANING UP DATABASE RECORDS');
-      const databaseCleanup = await this.cleanupDatabaseRecords(request.portfolioId, request.teamId);
+      const databaseCleanup = await this.cleanupDatabaseRecords(request.portfolioId, request.courseId);
       console.log('✅ DATABASE CLEANUP RESULT:', databaseCleanup);
 
       // DETERMINE OVERALL SUCCESS - ALL CLEANUP PHASES MUST SUCCEED
@@ -180,7 +180,7 @@ export class PortfolioService {
     try {
       // GET DOCUMENT INFO BEFORE DELETION FOR STORAGE CLEANUP
       const { data: document, error: fetchError } = await serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .select('file_path, original_name')
         .eq('id', request.documentId)
         .single();
@@ -191,7 +191,7 @@ export class PortfolioService {
 
       // DELETE FROM DATABASE
       const { error } = await serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .delete()
         .eq('id', request.documentId);
 
@@ -220,20 +220,20 @@ export class PortfolioService {
     }
   }
 
-  async getPortfolios(teamId: string) {
+  async getPortfolios(courseId: string) {
     const serviceClient = this.getServiceClient();
     
     const { data, error } = await serviceClient
-      .from('team_portfolios')
+      .from('course_portfolios')
       .select(`
         *,
-        team_documents (
+        course_documents (
           id,
           filename,
           original_name
         )
       `)
-      .eq('team_id', teamId)
+      .eq('course_id', courseId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -250,14 +250,14 @@ export class PortfolioService {
     const vectorStores: string[] = [];
 
     try {
-      // GET TEAM ASSISTANTS - EXTRACT ALL VECTOR STORE REFERENCES
-      const { data: teamAssistants } = await serviceClient
-        .from('team_assistants')
+      // GET course ASSISTANTS - EXTRACT ALL VECTOR STORE REFERENCES
+      const { data: courseAssistants } = await serviceClient
+        .from('course_assistants')
         .select('assistant_id, consolidated_vector_store_id, general_vector_store_id, account_portfolio_vector_store_id, portfolio_vector_store_id')
         .eq('portfolio_id', portfolioId);
 
-      if (teamAssistants) {
-        teamAssistants.forEach(assistant => {
+      if (courseAssistants) {
+        courseAssistants.forEach(assistant => {
           // COLLECT ASSISTANT ID
           if (assistant.assistant_id) {
             assistants.push(assistant.assistant_id);
@@ -281,7 +281,7 @@ export class PortfolioService {
 
       // GET DOCUMENT FILE IDS (FOR POTENTIAL OPENAI FILE CLEANUP)
       const { data: documents } = await serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .select('openai_file_id')
         .eq('portfolio_id', portfolioId);
 
@@ -307,7 +307,7 @@ export class PortfolioService {
   }
 
   // CLEAN UP DATABASE RECORDS IN DEPENDENCY ORDER
-  private async cleanupDatabaseRecords(portfolioId: string, teamId: string): Promise<{
+  private async cleanupDatabaseRecords(portfolioId: string, courseId: string): Promise<{
     success: boolean;
     deletedTables: string[];
     errors: string[];
@@ -348,17 +348,17 @@ export class PortfolioService {
       // 3. DELETE NOTES (REFERENCES PORTFOLIO)
       // Notes deletion skipped - notes system removed
 
-      // 4. DELETE TEAM ASSISTANTS (REFERENCES PORTFOLIO)
+      // 4. DELETE course ASSISTANTS (REFERENCES PORTFOLIO)
       const { error: assistantsError } = await serviceClient
-        .from('team_assistants')
+        .from('course_assistants')
         .delete()
         .eq('portfolio_id', portfolioId);
 
       if (assistantsError) {
-        errors.push(`team_assistants: ${assistantsError.message}`);
+        errors.push(`course_assistants: ${assistantsError.message}`);
       } else {
-        deletedTables.push('team_assistants');
-        console.log('✅ DELETED TEAM ASSISTANTS');
+        deletedTables.push('course_assistants');
+        console.log('✅ DELETED course ASSISTANTS');
       }
 
       // 5. DELETE ACCOUNT PORTFOLIO STORES (REFERENCES PORTFOLIO)
@@ -387,44 +387,44 @@ export class PortfolioService {
         console.log('✅ DELETED ACCOUNT PORTFOLIOS');
       }
 
-      // 7. NULLIFY TEAM KNOWLEDGE PORTFOLIO REFERENCES (PRESERVE KNOWLEDGE)
+      // 7. NULLIFY course KNOWLEDGE PORTFOLIO REFERENCES (PRESERVE KNOWLEDGE)
       const { error: knowledgeError } = await serviceClient
-        .from('team_knowledge')
+        .from('course_knowledge')
         .update({ portfolio_id: null })
         .eq('portfolio_id', portfolioId);
 
       if (knowledgeError) {
-        errors.push(`team_knowledge: ${knowledgeError.message}`);
+        errors.push(`course_knowledge: ${knowledgeError.message}`);
       } else {
-        deletedTables.push('team_knowledge (nullified references)');
-        console.log('✅ NULLIFIED TEAM KNOWLEDGE PORTFOLIO REFERENCES');
+        deletedTables.push('course_knowledge (nullified references)');
+        console.log('✅ NULLIFIED course KNOWLEDGE PORTFOLIO REFERENCES');
       }
 
-      // 8. DELETE TEAM DOCUMENTS (REFERENCES PORTFOLIO)
+      // 8. DELETE course DOCUMENTS (REFERENCES PORTFOLIO)
       const { error: documentsError } = await serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .delete()
         .eq('portfolio_id', portfolioId);
 
       if (documentsError) {
-        errors.push(`team_documents: ${documentsError.message}`);
+        errors.push(`course_documents: ${documentsError.message}`);
       } else {
-        deletedTables.push('team_documents');
-        console.log('✅ DELETED TEAM DOCUMENTS');
+        deletedTables.push('course_documents');
+        console.log('✅ DELETED course DOCUMENTS');
       }
 
       // 9. DELETE PORTFOLIO (FINAL STEP)
       const { error: portfolioError } = await serviceClient
-        .from('team_portfolios')
+        .from('course_portfolios')
         .delete()
         .eq('id', portfolioId)
-        .eq('team_id', teamId);
+        .eq('course_id', courseId);
 
       if (portfolioError) {
-        errors.push(`team_portfolios: ${portfolioError.message}`);
+        errors.push(`course_portfolios: ${portfolioError.message}`);
         return { success: false, deletedTables, errors };
       } else {
-        deletedTables.push('team_portfolios');
+        deletedTables.push('course_portfolios');
         console.log('✅ DELETED PORTFOLIO');
       }
 

@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateWithTeamAccess } from '../../../utils/auth-helpers';
+import { authenticateWithcourseAccess } from '../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
 
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const teamId = url.searchParams.get('teamId');
+    const courseId = url.searchParams.get('courseId');
     const portfolioId = url.searchParams.get('portfolioId');
 
     // VALIDATE REQUIRED FIELDS
-    if (!teamId || !portfolioId) {
-      return handleValidationError('Team ID and Portfolio ID are required');
+    if (!courseId || !portfolioId) {
+      return handleValidationError('course ID and Portfolio ID are required');
     }
 
-    // AUTHENTICATE USER AND VERIFY TEAM ACCESS
-    const { user, membership, serviceClient } = await authenticateWithTeamAccess(teamId);
+    // AUTHENTICATE USER AND VERIFY course ACCESS
+    const { user, membership, serviceClient } = await authenticateWithcourseAccess(courseId);
 
     // CHECK IF ASSISTANT EXISTS
     const { data: existingAssistant, error: assistantError } = await serviceClient
-      .from('team_assistants')
+      .from('course_assistants')
       .select('*')
-      .eq('team_id', teamId)
+      .eq('course_id', courseId)
       .eq('portfolio_id', portfolioId)
       .single();
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'course_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
     }
     console.error('Error in assistant status route:', error);

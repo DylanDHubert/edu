@@ -4,17 +4,17 @@ import { handleAuthError, handleDatabaseError } from '../../../../../utils/error
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ teamId: string }> }
+  { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    const { teamId } = await params;
+    const { courseId } = await params;
 
     // AUTHENTICATE USER AS ADMIN
     const { user, serviceClient } = await authenticateAsAdmin();
 
-    // Fetch all team data using service client (admin has access to all teams)
+    // Fetch all course data using service client (admin has access to all courses)
     const [
-      teamData,
+      courseData,
       portfolios,
       accounts,
       documents,
@@ -22,67 +22,67 @@ export async function GET(
       members,
       invitations
     ] = await Promise.all([
-      // Team basic info
+      // course basic info
       serviceClient
-        .from('teams')
+        .from('courses')
         .select('*')
-        .eq('id', teamId)
+        .eq('id', courseId)
         .single(),
       
       // Portfolios
       serviceClient
-        .from('team_portfolios')
+        .from('course_portfolios')
         .select('*')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .order('created_at'),
       
       // Accounts
       serviceClient
-        .from('team_accounts')
+        .from('course_accounts')
         .select('*')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .order('created_at'),
       
       // Documents
       serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .select('*')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .order('created_at'),
       
       // Knowledge
       serviceClient
-        .from('team_knowledge')
+        .from('course_knowledge')
         .select('*')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .order('created_at'),
       
-      // Team members
+      // course members
       serviceClient
-        .from('team_members')
+        .from('course_members')
         .select('*')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('status', 'active')
         .order('created_at'),
       
       // Pending invitations
       serviceClient
-        .from('team_invitations')
+        .from('course_invitations')
         .select('*')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('status', 'pending')
         .order('created_at')
     ]);
 
-    if (teamData.error) {
-      return handleDatabaseError(teamData.error, 'load team data');
+    if (courseData.error) {
+      return handleDatabaseError(courseData.error, 'load course data');
     }
 
-    if (!teamData.data) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 });
+    if (!courseData.data) {
+      return NextResponse.json({ error: 'course not found' }, { status: 404 });
     }
 
-    // Get user emails for team members
+    // Get user emails for course members
     const membersWithEmails = await Promise.all(
       (members.data || []).map(async (member: any) => {
         try {
@@ -128,14 +128,14 @@ export async function GET(
       accounts: accounts.data?.length || 0,
       documents: documents.data?.length || 0,
       knowledgeItems: knowledge.data?.length || 0,
-      teamMembers: members.data?.length || 0,
+      courseMembers: members.data?.length || 0,
       pendingInvitations: invitations.data?.length || 0
     };
 
     return NextResponse.json({
       success: true,
       data: {
-        team: teamData.data,
+        course: courseData.data,
         portfolios: portfolios.data || [],
         accounts: accounts.data || [],
         documents: documents.data || [],
@@ -152,7 +152,7 @@ export async function GET(
     if (error instanceof Error && ['UNAUTHORIZED', 'ADMIN_ACCESS_REQUIRED'].includes(error.message)) {
       return handleAuthError(error);
     }
-    console.error('Error in admin team data API:', error);
-    return handleDatabaseError(error, 'fetch admin team data');
+    console.error('Error in admin course data API:', error);
+    return handleDatabaseError(error, 'fetch admin course data');
   }
 }

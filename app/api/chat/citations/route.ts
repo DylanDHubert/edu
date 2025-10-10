@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'course_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
     }
     console.error('Error storing citations:', error);
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'course_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
     }
     console.error('Error loading citations:', error);

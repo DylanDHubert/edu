@@ -25,20 +25,20 @@ interface PortfolioStatus {
   };
 }
 
-export function usePortfolioDocumentStatus(teamId: string, portfolioId: string) {
+export function usePortfolioDocumentStatus(courseId: string, portfolioId: string) {
   const [status, setStatus] = useState<PortfolioStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
-    if (!teamId || !portfolioId) return;
+    if (!courseId || !portfolioId) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `/api/teams/portfolios/${portfolioId}/documents/status?teamId=${teamId}`
+        `/api/courses/portfolios/${portfolioId}/documents/status?courseId=${courseId}`
       );
 
       if (!response.ok) {
@@ -61,7 +61,7 @@ export function usePortfolioDocumentStatus(teamId: string, portfolioId: string) 
     } finally {
       setIsLoading(false);
     }
-  }, [teamId, portfolioId]);
+  }, [courseId, portfolioId]);
 
   const refreshStatus = useCallback(async () => {
     await fetchStatus();

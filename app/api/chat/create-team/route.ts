@@ -12,13 +12,13 @@ const client = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamId, portfolioId, assistantId, title, initialMessage } = await request.json();
+    const { courseId, portfolioId, assistantId, title, initialMessage } = await request.json();
     
-    console.log('🎯 CREATE-TEAM received params:', { teamId, portfolioId, assistantId, title });
+    console.log('🎯 CREATE-course received params:', { courseId, portfolioId, assistantId, title });
     
-    if (!teamId || !portfolioId || !assistantId || !title) {
+    if (!courseId || !portfolioId || !assistantId || !title) {
       return NextResponse.json(
-        { error: 'Team ID, Portfolio ID, Assistant ID, and Title are required' },
+        { error: 'course ID, Portfolio ID, Assistant ID, and Title are required' },
         { status: 400 }
       );
     }
@@ -35,18 +35,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // VERIFY USER IS A MEMBER OF THIS TEAM
-    const { data: teamMember, error: memberError } = await supabase
-      .from('team_members')
+    // VERIFY USER IS A MEMBER OF THIS course
+    const { data: courseMember, error: memberError } = await supabase
+      .from('course_members')
       .select('role')
-      .eq('team_id', teamId)
+      .eq('course_id', courseId)
       .eq('user_id', user.id)
       .eq('status', 'active')
       .single();
 
-    if (memberError || !teamMember) {
+    if (memberError || !courseMember) {
       return NextResponse.json(
-        { error: 'Access denied to this team' },
+        { error: 'Access denied to this course' },
         { status: 403 }
       );
     }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Looking for assistant:', assistantId);
     const serviceClient = createServiceClient();
     const { data: assistantData, error: assistantError } = await serviceClient
-      .from('team_assistants')
+      .from('course_assistants')
       .select('portfolio_vector_store_id')
       .eq('assistant_id', assistantId)
       .single();
@@ -89,12 +89,12 @@ export async function POST(request: NextRequest) {
       }
     });
     
-    // SAVE TO DATABASE - Using team-based schema
+    // SAVE TO DATABASE - Using course-based schema
     const { data: chatHistory, error: dbError } = await supabase
       .from('chat_history')
       .insert({
         user_id: user.id,
-        team_id: teamId,
+        course_id: courseId,
         portfolio_id: portfolioId,
         assistant_id: assistantId,
         thread_id: thread.id,
@@ -127,14 +127,14 @@ export async function POST(request: NextRequest) {
       id: chatHistory.id,
       thread_id: thread.id,
       title: chatTitle,
-      team_id: teamId,
+      course_id: courseId,
       portfolio_id: portfolioId,
       assistant_id: assistantId,
       created_at: chatHistory.created_at
     });
 
   } catch (error) {
-    console.error('ERROR CREATING TEAM CHAT:', error);
+    console.error('ERROR CREATING course CHAT:', error);
     return NextResponse.json(
       { error: 'INTERNAL SERVER ERROR' },
       { status: 500 }

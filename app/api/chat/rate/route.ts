@@ -7,10 +7,10 @@ import { RateMessageRequest } from '../../../types/chat';
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, messageId, rating, teamId, portfolioId, responseTimeMs, citations, feedbackText } = await request.json();
+    const { threadId, messageId, rating, courseId, portfolioId, responseTimeMs, citations, feedbackText } = await request.json();
     
-    if (!threadId || !messageId || !teamId || !portfolioId) {
-      return handleValidationError('Thread ID, message ID, team ID, and portfolio ID are required');
+    if (!threadId || !messageId || !courseId || !portfolioId) {
+      return handleValidationError('Thread ID, message ID, course ID, and portfolio ID are required');
     }
 
     // VALIDATE RATING VALUE (ALLOW NULL/UNDEFINED FOR FEEDBACK-ONLY UPDATES)
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       threadId,
       messageId,
       rating,
-      teamId,
+      courseId,
       portfolioId,
       responseTimeMs,
       citations,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'course_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
     }
     console.error('Error rating message:', error);

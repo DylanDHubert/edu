@@ -8,9 +8,9 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
-export interface TeamMembership {
+export interface courseMembership {
   id: string;
-  team_id: string;
+  course_id: string;
   user_id: string;
   role: 'manager' | 'member';
   status: 'active' | 'inactive';
@@ -19,7 +19,7 @@ export interface TeamMembership {
   updated_at: string;
 }
 
-export interface Team {
+export interface course {
   id: string;
   name: string;
   description?: string;
@@ -28,27 +28,27 @@ export interface Team {
   updated_at: string;
 }
 
-export interface TeamPortfolio {
+export interface coursePortfolio {
   id: string;
-  team_id: string;
+  course_id: string;
   name: string;
   description?: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface TeamAccount {
+export interface courseAccount {
   id: string;
-  team_id: string;
+  course_id: string;
   name: string;
   description?: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface TeamDocument {
+export interface courseDocument {
   id: string;
-  team_id: string;
+  course_id: string;
   portfolio_id?: string;
   original_name: string;
   file_path: string;
@@ -59,9 +59,9 @@ export interface TeamDocument {
   updated_at: string;
 }
 
-export interface TeamKnowledge {
+export interface courseKnowledge {
   id: string;
-  team_id: string;
+  course_id: string;
   portfolio_id?: string;
   title: string;
   content: string;
@@ -73,7 +73,7 @@ export interface ChatHistory {
   id: string;
   thread_id: string;
   user_id: string;
-  team_id: string;
+  course_id: string;
   portfolio_id: string;
   assistant_id: string;
   title: string;
@@ -86,7 +86,7 @@ export interface MessageRating {
   thread_id: string;
   message_id: string;
   user_id: string;
-  team_id: string;
+  course_id: string;
   portfolio_id: string;
   rating?: number;
   response_time_ms?: number;
@@ -99,7 +99,7 @@ export interface MessageRating {
 export interface Note {
   id: string;
   user_id: string;
-  team_id?: string;
+  course_id?: string;
   portfolio_id?: string;
   title: string;
   content: string;
@@ -115,9 +115,9 @@ export interface AdminUser {
   updated_at: string;
 }
 
-export interface TeamMemberInvitation {
+export interface courseMemberInvitation {
   id: string;
-  team_id: string;
+  course_id: string;
   email: string;
   name: string;
   role: 'manager' | 'member';
@@ -128,13 +128,13 @@ export interface TeamMemberInvitation {
 }
 
 // REQUEST/RESPONSE TYPES
-export interface CreateTeamRequest {
+export interface CreatecourseRequest {
   name: string;
   description?: string;
 }
 
 export interface InviteMemberRequest {
-  teamId: string;
+  courseId: string;
   email: string;
   name: string;
   role: 'manager' | 'member';
@@ -143,7 +143,7 @@ export interface InviteMemberRequest {
 export interface CreateNoteRequest {
   title: string;
   content: string;
-  teamId?: string;
+  courseId?: string;
   portfolioId?: string;
   isShared?: boolean;
 }
@@ -158,7 +158,7 @@ export interface UpdateNoteRequest {
 export interface RateMessageRequest {
   threadId: string;
   messageId: string;
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   rating?: number;
   responseTimeMs?: number;
@@ -170,7 +170,7 @@ export interface SendMessageRequest {
   threadId: string;
   message: string;
   assistantId: string;
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   streaming?: boolean;
 }

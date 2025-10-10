@@ -5,11 +5,11 @@ import { cookies } from 'next/headers';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const teamId = searchParams.get('teamId');
+    const courseId = searchParams.get('courseId');
 
-    if (!teamId) {
+    if (!courseId) {
       return NextResponse.json(
-        { error: 'Team ID is required' },
+        { error: 'course ID is required' },
         { status: 400 }
       );
     }
@@ -26,14 +26,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Create service client for team membership check
+    // Create service client for course membership check
     const serviceClient = createServiceClient();
 
-    // Check if user is already a member of this team using service client
+    // Check if user is already a member of this course using service client
     const { data: existingMember, error: membershipError } = await serviceClient
-      .from('team_members')
+      .from('course_members')
       .select('*')
-      .eq('team_id', teamId)
+      .eq('course_id', courseId)
       .eq('user_id', user.id)
       .eq('status', 'active')
       .single();

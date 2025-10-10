@@ -22,14 +22,14 @@ export class ThumbnailService {
    * GET SCREENSHOT THUMBNAIL BY DOCUMENT ID AND PAGE NUMBER
    */
   async getScreenshotThumbnail(
-    teamId: string,
+    courseId: string,
     portfolioId: string,
     documentId: string,
     pageNumber: number
   ): Promise<ThumbnailResult> {
     try {
       const filename = `page_${pageNumber}.jpg`;
-      const filePath = `teams/${teamId}/portfolios/${portfolioId}/screenshots/${documentId}/${filename}`;
+      const filePath = `courses/${courseId}/portfolios/${portfolioId}/screenshots/${documentId}/${filename}`;
       
       console.log('🔍 THUMBNAIL SERVICE: FETCHING SCREENSHOT');
       console.log('  📁 File path:', filePath);
@@ -37,7 +37,7 @@ export class ThumbnailService {
       console.log('  📖 Page:', pageNumber);
 
       const { data, error } = await this.supabase.storage
-        .from('team-documents')
+        .from('course-documents')
         .download(filePath);
 
       if (error) {
@@ -69,17 +69,17 @@ export class ThumbnailService {
    * GET PDF DOCUMENT BY DOCUMENT ID
    */
   async getPDFDocument(
-    teamId: string,
+    courseId: string,
     portfolioId: string,
     documentId: string
   ): Promise<PDFResult> {
     try {
       // GET DOCUMENT INFO FROM DATABASE
       const { data: document, error: docError } = await this.supabase
-        .from('team_documents')
+        .from('course_documents')
         .select('original_name, file_path')
         .eq('id', documentId)
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId)
         .single();
 
@@ -93,7 +93,7 @@ export class ThumbnailService {
       console.log('  📝 Original name:', document.original_name);
 
       const { data, error } = await this.supabase.storage
-        .from('team-documents')
+        .from('course-documents')
         .download(document.file_path);
 
       if (error) {
@@ -122,19 +122,19 @@ export class ThumbnailService {
   }
 
   /**
-   * VERIFY USER HAS ACCESS TO TEAM/PORTFOLIO
+   * VERIFY USER HAS ACCESS TO course/PORTFOLIO
    */
-  async verifyUserAccess(userId: string, teamId: string): Promise<boolean> {
+  async verifyUserAccess(userId: string, courseId: string): Promise<boolean> {
     try {
-      const { data: teamMember, error } = await this.supabase
-        .from('team_members')
+      const { data: courseMember, error } = await this.supabase
+        .from('course_members')
         .select('role')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('user_id', userId)
         .eq('status', 'active')
         .single();
 
-      return !error && !!teamMember;
+      return !error && !!courseMember;
     } catch (error) {
       console.error('THUMBNAIL SERVICE: ACCESS VERIFICATION ERROR:', error);
       return false;

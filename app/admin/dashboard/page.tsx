@@ -18,7 +18,7 @@ const PDFViewer = dynamic(() => import('../../components/PDFViewer'), {
 
 interface ChatAnalyticsData {
   user_email: string;
-  team_name: string;
+  course_name: string;
   account_name: string;
   portfolio_name: string;
   chat_title: string;
@@ -42,7 +42,7 @@ interface FeedbackData {
   original_query: string;
   ai_response: string;
   created_at: string;
-  team_name: string;
+  course_name: string;
   account_name: string;
   portfolio_name: string;
   chat_title: string;
@@ -51,7 +51,7 @@ interface FeedbackData {
 interface NotesData {
   note_id: string;
   user_email: string;
-  team_name: string;
+  course_name: string;
   account_name: string;
   portfolio_name: string;
   title: string;
@@ -70,7 +70,7 @@ interface TestData {
   ai_response: string;
   assistant_id: string;
   thread_id: string;
-  team_name: string;
+  course_name: string;
   account_name: string;
   portfolio_name: string;
   feedback_text: string;
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   const [feedbackFilter, setFeedbackFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [teamFilter, setTeamFilter] = useState('');
+  const [courseFilter, setcourseFilter] = useState('');
   
   // Metadata
   const [metadata, setMetadata] = useState<any>({});
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
       params.append('feedback_filter', feedbackFilter);
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
-      if (teamFilter) params.append('team_id', teamFilter);
+      if (courseFilter) params.append('course_id', courseFilter);
 
       const response = await fetch(`/api/admin/analytics/chats?${params}`, {
         signal: chatAbortControllerRef.current.signal
@@ -255,7 +255,7 @@ export default function AdminDashboard() {
       const params = new URLSearchParams();
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
-      if (teamFilter) params.append('team_id', teamFilter);
+      if (courseFilter) params.append('course_id', courseFilter);
 
       const response = await fetch(`/api/admin/analytics/feedback?${params}`, {
         signal: feedbackAbortControllerRef.current.signal
@@ -298,7 +298,7 @@ export default function AdminDashboard() {
       const params = new URLSearchParams();
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
-      if (teamFilter) params.append('team_id', teamFilter);
+      if (courseFilter) params.append('course_id', courseFilter);
 
       const response = await fetch(`/api/admin/analytics/notes?${params}`, {
         signal: notesAbortControllerRef.current.signal
@@ -342,7 +342,7 @@ export default function AdminDashboard() {
       params.append('format', 'experiment'); // Use experiment format
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
-      if (teamFilter) params.append('team_id', teamFilter);
+      if (courseFilter) params.append('course_id', courseFilter);
 
       const response = await fetch(`/api/admin/analytics/feedback?${params}`, {
         signal: testAbortControllerRef.current.signal
@@ -378,19 +378,19 @@ export default function AdminDashboard() {
       if (activeTab === 'chats') {
         dataToExport = chatData;
         dataType = 'chats';
-        currentFilters = { feedback_filter: feedbackFilter, start_date: startDate, end_date: endDate, team_filter: teamFilter };
+        currentFilters = { feedback_filter: feedbackFilter, start_date: startDate, end_date: endDate, course_filter: courseFilter };
       } else if (activeTab === 'feedback') {
         dataToExport = feedbackData;
         dataType = 'feedback';
-        currentFilters = { start_date: startDate, end_date: endDate, team_filter: teamFilter };
+        currentFilters = { start_date: startDate, end_date: endDate, course_filter: courseFilter };
       } else if (activeTab === 'notes') {
         dataToExport = notesData;
         dataType = 'notes';
-        currentFilters = { start_date: startDate, end_date: endDate, team_filter: teamFilter };
+        currentFilters = { start_date: startDate, end_date: endDate, course_filter: courseFilter };
       } else if (activeTab === 'test') {
         dataToExport = testData;
         dataType = 'test';
-        currentFilters = { start_date: startDate, end_date: endDate, team_filter: teamFilter };
+        currentFilters = { start_date: startDate, end_date: endDate, course_filter: courseFilter };
       }
 
       const response = await fetch('/api/admin/analytics/export', {
@@ -613,8 +613,8 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <StandardHeader
-        teamName="HHB Analytics Dashboard"
-        teamLocation="Monitor user interactions and system usage"
+        courseName="HHB Analytics Dashboard"
+        courseLocation="Monitor user interactions and system usage"
         showBackButton={true}
         backText="← Back to Admin"
         backUrl="/admin"
@@ -835,7 +835,7 @@ export default function AdminDashboard() {
                           </td>
                         <td className="px-6 py-4 text-sm text-slate-300">
                           <div className="space-y-1">
-                            <div className="font-medium">{chat.team_name}</div>
+                            <div className="font-medium">{chat.course_name}</div>
                             <div className="text-slate-400">{chat.account_name}</div>
                             <div className="text-slate-400">{chat.portfolio_name}</div>
                           </div>
@@ -988,7 +988,7 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                       <div className="text-slate-400 text-sm">
-                        {feedback.team_name} → {feedback.account_name} → {feedback.portfolio_name}
+                        {feedback.course_name} → {feedback.account_name} → {feedback.portfolio_name}
                       </div>
                     </div>
                     <div className="text-slate-400 text-sm">
@@ -1070,7 +1070,7 @@ export default function AdminDashboard() {
                         )}
                       </div>
                       <div className="text-slate-400 text-sm">
-                        {note.team_name} → {note.account_name} → {note.portfolio_name}
+                        {note.course_name} → {note.account_name} → {note.portfolio_name}
                       </div>
                     </div>
                     <div className="text-slate-400 text-sm">
@@ -1235,7 +1235,7 @@ export default function AdminDashboard() {
                               <ChevronRight className="w-5 h-5 text-slate-400" />
                             }
                             <span className="text-slate-100 font-medium">
-                              {query.team_name} → {query.account_name} → {query.portfolio_name}
+                              {query.course_name} → {query.account_name} → {query.portfolio_name}
                             </span>
                             <span className="text-xs text-slate-500">
                               {new Date(query.created_at).toLocaleDateString()}

@@ -3,12 +3,12 @@ import { DocumentProcessingService } from '../../services/document-processing-se
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamId, portfolioId, documentId } = await request.json();
+    const { courseId, portfolioId, documentId } = await request.json();
 
     // VALIDATE REQUIRED FIELDS
-    if (!teamId || !portfolioId || !documentId) {
+    if (!courseId || !portfolioId || !documentId) {
       return NextResponse.json(
-        { error: 'Team ID, portfolio ID, and document ID are required' },
+        { error: 'course ID, portfolio ID, and document ID are required' },
         { status: 400 }
       );
     }
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     // PROCESS DOCUMENT WITH LLAMAPARSE
     const processingService = new DocumentProcessingService();
-    const result = await processingService.processDocument(teamId, portfolioId, documentId);
+    const result = await processingService.processDocument(courseId, portfolioId, documentId);
 
     if (result.success) {
       console.log(`BACKGROUND PROCESSING COMPLETED: ${documentId} -> ${result.openaiFileId}`);

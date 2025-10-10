@@ -49,11 +49,11 @@ interface Message {
 interface ActiveAssistant {
   assistantId: string;
   assistantName: string;
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   portfolioName?: string;
-  teamName?: string;
-  teamLocation?: string;
+  courseName?: string;
+  courseLocation?: string;
   userRole?: string;
   isOriginalManager?: boolean;
 }
@@ -88,7 +88,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         try {
           const assistant = JSON.parse(storedAssistant);
           setActiveAssistant(assistant);
-          // Team assistant loaded
+          // course assistant loaded
         } catch (error) {
           console.error('Error parsing activeAssistant from localStorage:', error);
         }
@@ -149,72 +149,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         {children}
       </td>
     ),
-  };
-
-  // EXTRACT IMAGE URLS FROM TEXT
-  const extractImageUrls = (text: string) => {
-    const imageUrlFormatRegex = /\[IMAGE URL:\s*(\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp))\]/gi;
-    const markdownImageRegex = /\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi;
-    const plainUrlRegex = /\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi;
-    
-    const imageUrls: string[] = [];
-    
-    // EXTRACT FROM [IMAGE URL: ...] FORMAT
-    let match;
-    while ((match = imageUrlFormatRegex.exec(text)) !== null) {
-      imageUrls.push(match[1]);
-    }
-    
-    // EXTRACT FROM MARKDOWN LINKS
-    while ((match = markdownImageRegex.exec(text)) !== null) {
-      const urlMatch = match[0].match(/\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)/i);
-      if (urlMatch) {
-        imageUrls.push(urlMatch[0]);
-      }
-    }
-    
-    // EXTRACT FROM PLAIN URLS
-    while ((match = plainUrlRegex.exec(text)) !== null) {
-      imageUrls.push(match[0]);
-    }
-    
-    // REMOVE DUPLICATES
-    const uniqueUrls = [...new Set(imageUrls)];
-    
-    return uniqueUrls;
-  };
-
-  // RENDER TEXT WITHOUT IMAGE URLS (CLEAN TEXT)
-  const renderTextWithImageUrlsAsText = (text: string) => {
-    // REMOVE [IMAGE URL: ...] FORMAT COMPLETELY
-    let processedText = text.replace(/\[IMAGE URL:\s*\/api\/images\/[^\]]+\.(?:jpg|jpeg|png|gif|webp)\]/gi, '');
-    
-    // REMOVE MARKDOWN IMAGE LINKS COMPLETELY
-    processedText = processedText.replace(/\[([^\]]+)\]\(\s*\/api\/images\/[^)]+\.(?:jpg|jpeg|png|gif|webp)\s*\)/gi, '');
-    
-    // REMOVE PLAIN IMAGE URLS COMPLETELY
-    processedText = processedText.replace(/\/api\/images\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)/gi, '');
-    
-    // AGGRESSIVE WHITESPACE CLEANUP
-    processedText = processedText.replace(/\s*\.\s*\./g, '.'); // REMOVE DOUBLE PERIODS
-    processedText = processedText.replace(/[ \t]+/g, ' '); // NORMALIZE SPACES
-    processedText = processedText.replace(/\n\s*\n\s*\n+/g, '\n\n'); // MAX 2 consecutive newlines (more aggressive)
-    processedText = processedText.replace(/\n[ \t]+/g, '\n'); // REMOVE SPACES AFTER NEWLINES
-    processedText = processedText.replace(/[ \t]+\n/g, '\n'); // REMOVE SPACES BEFORE NEWLINES
-    processedText = processedText.replace(/\n{2,}/g, '\n\n'); // REMOVE ANY 3+ CONSECUTIVE NEWLINES
-    processedText = processedText.replace(/\n\s*\n\s*\n/g, '\n\n'); // REMOVE TRIPLE NEWLINES WITH SPACES
-    processedText = processedText.trim(); // REMOVE LEADING/TRAILING SPACES
-    
-    return (
-      <div className="markdown-content">
-        <ReactMarkdown 
-          components={markdownComponents}
-          remarkPlugins={[remarkGfm]}
-        >
-          {processedText}
-        </ReactMarkdown>
-      </div>
-    );
   };
 
   const scrollToBottom = () => {
@@ -319,7 +253,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           threadId: currentChat.thread_id,
           messageId,
           rating,
-          teamId: activeAssistant?.teamId,
+          courseId: activeAssistant?.courseId,
           portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
           citations: citations,
@@ -333,7 +267,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           ...prev,
           [messageId]: {
             rating: rating,
-            teamId: activeAssistant?.teamId,
+            courseId: activeAssistant?.courseId,
             portfolioId: activeAssistant?.portfolioId,
             responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
             citations: citations,
@@ -387,7 +321,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           threadId: currentChat.thread_id,
           messageId,
           rating: messageRatings[messageId]?.rating || null,
-          teamId: activeAssistant?.teamId,
+          courseId: activeAssistant?.courseId,
           portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
           citations: citations,
@@ -457,7 +391,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         body: JSON.stringify({
           threadId: currentChat.thread_id,
           assistantId: activeAssistant?.assistantId,
-          teamId: activeAssistant?.teamId,
+          courseId: activeAssistant?.courseId,
           portfolioId: activeAssistant?.portfolioId
         }),
       });
@@ -474,7 +408,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
         
         // Filter out ALL hidden context messages regardless of position
         if (msg.metadata?.hidden === 'true' && 
-            (msg.metadata?.messageType === 'team_knowledge_context' || 
+            (msg.metadata?.messageType === 'course_knowledge_context' || 
              msg.metadata?.messageType === 'system_context')) {
           // Filtering out context message
           return false;
@@ -540,14 +474,14 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       setIsLoading(true);
         
         try {
-          // Use team-based chat creation
-          const response = await fetch('/api/chat/create-team', {
+          // Use course-based chat creation
+          const response = await fetch('/api/chat/create-course', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              teamId: activeAssistant.teamId,
+              courseId: activeAssistant.courseId,
               portfolioId: activeAssistant.portfolioId,
               assistantId: activeAssistant.assistantId,
               title: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
@@ -589,7 +523,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           threadId: newChat.thread_id,
           message: inputMessage,
           assistantId: activeAssistant.assistantId,
-          teamId: activeAssistant.teamId,
+          courseId: activeAssistant.courseId,
           portfolioId: activeAssistant.portfolioId,
           streaming: true
         }),
@@ -821,7 +755,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           threadId: currentChat.thread_id,
           message: inputMessage,
           assistantId: activeAssistant.assistantId,
-          teamId: activeAssistant.teamId,
+          courseId: activeAssistant.courseId,
           portfolioId: activeAssistant.portfolioId,
           streaming: true
         }),
@@ -1027,7 +961,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     }
   };
 
-  // Show welcome screen only if no team assistant
+  // Show welcome screen only if no course assistant
   if (!activeAssistant) {
     return (
       <div className="flex-1 flex items-center justify-center bg-slate-800">
@@ -1036,7 +970,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             WELCOME TO HHB ASSISTANT
           </h2>
           <p className="text-slate-400 mb-6 text-sm lg:text-base">
-                          PLEASE SELECT A TEAM FROM THE HOME PAGE
+                          PLEASE SELECT A course FROM THE HOME PAGE
           </p>
           <button
             onClick={() => router.push('/')}
@@ -1052,8 +986,8 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
   return (
     <div className="flex-1 flex flex-col bg-slate-900 h-screen">
       <StandardHeader
-        teamName={activeAssistant?.teamName}
-        teamLocation={activeAssistant?.teamLocation}
+        courseName={activeAssistant?.courseName}
+        courseLocation={activeAssistant?.courseLocation}
         userRole={activeAssistant?.userRole}
         isOriginalManager={activeAssistant?.isOriginalManager}
         portfolioName={activeAssistant?.portfolioName}
@@ -1122,42 +1056,13 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     return (
                       <div key={index} className="whitespace-pre-wrap">
                         {message.role === 'assistant' ? (
-                          <div>
-                            {renderTextWithImageUrlsAsText(text)}
-                            
-                            {/* RENDER IMAGES BELOW TEXT */}
-                            {(() => {
-                              const imageUrls = extractImageUrls(text);
-                              if (imageUrls.length > 0) {
-                                return (
-                                  <div className="mt-4 space-y-2">
-                                    {imageUrls.map((imageUrl, imgIndex) => (
-                                      <div key={imgIndex} className="my-2">
-                                        <img
-                                          src={imageUrl}
-                                          alt="NOTE IMAGE"
-                                          className="max-w-full max-h-64 rounded-lg border border-slate-600"
-                                          onError={(e) => {
-                                            console.log('❌ IMAGE FAILED TO LOAD:', imageUrl);
-                                            // IF IMAGE FAILS TO LOAD, SHOW AS TEXT LINK
-                                            e.currentTarget.style.display = 'none';
-                                            const linkElement = document.createElement('a');
-                                            linkElement.href = imageUrl;
-                                            linkElement.textContent = 'View Image';
-                                            linkElement.className = 'text-blue-400 hover:text-blue-300 underline';
-                                            e.currentTarget.parentNode?.appendChild(linkElement);
-                                          }}
-                                          onLoad={() => {
-                                            // Image loaded successfully in chat
-                                          }}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
+                          <div className="markdown-content">
+                            <ReactMarkdown 
+                              components={markdownComponents}
+                              remarkPlugins={[remarkGfm]}
+                            >
+                              {text}
+                            </ReactMarkdown>
                           </div>
                         ) : (
                           <div className="markdown-content">
@@ -1277,7 +1182,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={activeAssistant ? "TYPE YOUR MESSAGE HERE..." : "SELECT A TEAM TO START CHATTING"}
+            placeholder={activeAssistant ? "TYPE YOUR MESSAGE HERE..." : "SELECT A course TO START CHATTING"}
             className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 lg:px-4 lg:py-2 text-slate-100 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-slate-500 text-base"
             rows={1}
             disabled={isLoading || isLoadingMessages || !activeAssistant}

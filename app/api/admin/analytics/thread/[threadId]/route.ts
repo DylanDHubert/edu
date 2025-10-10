@@ -54,11 +54,10 @@ export async function GET(
       return NextResponse.json({ error: 'Chat history not found' }, { status: 404 });
     }
 
-    // Get team/account/portfolio context
-    const [teamsData, accountsData, portfoliosData] = await Promise.all([
-      serviceClient.from('teams').select('id, name').eq('id', chatHistory.team_id).single(),
-      serviceClient.from('team_accounts').select('id, name').eq('id', chatHistory.account_id).single(),
-      serviceClient.from('team_portfolios').select('id, name').eq('id', chatHistory.portfolio_id).single()
+    // Get course/account/portfolio context
+    const [coursesData, portfoliosData] = await Promise.all([
+      serviceClient.from('courses').select('id, name').eq('id', chatHistory.course_id).single(),
+      serviceClient.from('course_portfolios').select('id, name').eq('id', chatHistory.portfolio_id).single()
     ]);
 
     // Get user email
@@ -168,8 +167,7 @@ export async function GET(
       thread_id: threadId,
       chat_title: chatHistory.title,
       user_email: userEmail,
-      team_name: teamsData.data?.name || 'Unknown',
-      account_name: accountsData.data?.name || 'Unknown',
+      course_name: coursesData.data?.name || 'Unknown',
       portfolio_name: portfoliosData.data?.name || 'Unknown',
       created_at: chatHistory.created_at,
       updated_at: chatHistory.updated_at,

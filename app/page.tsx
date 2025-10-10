@@ -8,13 +8,13 @@ import { MapPin, LogOut } from "lucide-react";
 import Link from "next/link";
 import LoadingScreen from "./components/LoadingScreen";
 
-interface TeamMember {
+interface courseMember {
   id: string;
-  team_id: string;
+  course_id: string;
   role: string;
   is_original_manager: boolean;
   status: string;
-  teams: {
+  courses: {
     id: string;
     name: string;
     description: string;
@@ -22,16 +22,16 @@ interface TeamMember {
   };
 }
 
-interface TeamInvitation {
+interface courseInvitation {
   id: string;
-  team_id: string;
+  course_id: string;
   email: string;
   name: string;
   role: string;
   status: string;
   created_at: string;
   expires_at: string;
-  teams: {
+  courses: {
     id: string;
     name: string;
     description: string;
@@ -48,9 +48,9 @@ export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [hasActiveAssistant, setHasActiveAssistant] = useState(false);
-  const [teamMemberships, setTeamMemberships] = useState<TeamMember[]>([]);
-  const [pendingInvitations, setPendingInvitations] = useState<TeamInvitation[]>([]);
-  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [courseMemberships, setcourseMemberships] = useState<courseMember[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<courseInvitation[]>([]);
+  const [loadingcourses, setLoadingcourses] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const supabase = createClient();
@@ -109,13 +109,13 @@ export default function HomePage() {
         setHasActiveAssistant(true);
       }
       
-      // LOAD USER TEAMS AND INVITATIONS
-      loadUserTeams();
+      // LOAD USER courseS AND INVITATIONS
+      loadUsercourses();
       loadPendingInvitations();
     }
   }, [user, loading]);
 
-  // CLEAR ACTIVE ASSISTANT WHEN USER VISITS HOME PAGE (INDICATING THEY WANT TO CHANGE TEAMS)
+  // CLEAR ACTIVE ASSISTANT WHEN USER VISITS HOME PAGE (INDICATING THEY WANT TO CHANGE courseS)
   useEffect(() => {
     if (!loading && user) {
       // Clear any existing active assistant when visiting home page
@@ -130,9 +130,9 @@ export default function HomePage() {
     }
   }, [user, loading]);
 
-  const loadUserTeams = async () => {
+  const loadUsercourses = async () => {
     try {
-      setLoadingTeams(true);
+      setLoadingcourses(true);
       
       // CHECK ACCESS VIA API (INCLUDES MANAGER PRIVILEGES AND ADMIN STATUS)
       
@@ -149,45 +149,45 @@ export default function HomePage() {
         setIsAdmin(adminResult);
       }
 
-      // THEN LOAD TEAM MEMBERSHIPS VIA SECURE API
-      const teamsResponse = await fetch('/api/user/teams');
+      // THEN LOAD course MEMBERSHIPS VIA SECURE API
+      const coursesResponse = await fetch('/api/user/courses');
       let memberships: any[] = [];
 
-      if (teamsResponse.ok) {
-        const teamsResult = await teamsResponse.json();
-        if (teamsResult.success) {
-          memberships = teamsResult.memberships || [];
-          // Team memberships loaded via API
+      if (coursesResponse.ok) {
+        const coursesResult = await coursesResponse.json();
+        if (coursesResult.success) {
+          memberships = coursesResult.memberships || [];
+          // course memberships loaded via API
         } else {
-          console.error('Failed to load teams via API:', teamsResult.error);
+          console.error('Failed to load courses via API:', coursesResult.error);
         }
       } else {
-        console.error('Error loading teams via API:', teamsResponse.status);
-        // Just continue with empty teams list - user can still create teams
-        console.log('Error loading teams, continuing with empty list');
+        console.error('Error loading courses via API:', coursesResponse.status);
+        // Just continue with empty courses list - user can still create courses
+        console.log('Error loading courses, continuing with empty list');
       }
 
       if (!memberships || memberships.length === 0) {
-        console.log('No team memberships found');
-        // ANY AUTHENTICATED USER CAN CONTINUE WITH EMPTY TEAMS LIST
-        // They can create teams or accept invitations
-        console.log('Continuing with empty teams list - user can create teams');
+        console.log('No course memberships found');
+        // ANY AUTHENTICATED USER CAN CONTINUE WITH EMPTY courseS LIST
+        // They can create courses or accept invitations
+        console.log('Continuing with empty courses list - user can create courses');
       }
 
-      setTeamMemberships(memberships as TeamMember[]);
+      setcourseMemberships(memberships as courseMember[]);
 
     } catch (error) {
-      console.error('Error loading user teams:', error);
-      // Just continue with empty teams list - user can still create teams
-      console.log('Error loading teams, continuing with empty list');
+      console.error('Error loading user courses:', error);
+      // Just continue with empty courses list - user can still create courses
+      console.log('Error loading courses, continuing with empty list');
     } finally {
-      setLoadingTeams(false);
+      setLoadingcourses(false);
     }
   };
 
   const loadPendingInvitations = async () => {
     try {
-      const response = await fetch('/api/teams/invite');
+      const response = await fetch('/api/courses/invite');
       
       if (response.ok) {
         const { invitations } = await response.json();
@@ -206,7 +206,7 @@ export default function HomePage() {
 
   const handleAcceptInvitation = async (invitationId: string) => {
     try {
-      const response = await fetch('/api/teams/accept-invitation', {
+      const response = await fetch('/api/courses/accept-invitation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -217,8 +217,8 @@ export default function HomePage() {
       });
 
       if (response.ok) {
-        // Reload teams and invitations
-        await loadUserTeams();
+        // Reload courses and invitations
+        await loadUsercourses();
         await loadPendingInvitations();
       } else {
         const errorData = await response.json();
@@ -239,17 +239,17 @@ export default function HomePage() {
     }
   };
 
-  const handleTeamSelect = async (membership: TeamMember) => {
-    // Store selected team in localStorage for other components to use
-    localStorage.setItem('selectedTeam', JSON.stringify({
-      teamId: membership.team_id,
-      teamName: membership.teams.name,
+  const handlecourseSelect = async (membership: courseMember) => {
+    // Store selected course in localStorage for other components to use
+    localStorage.setItem('selectedcourse', JSON.stringify({
+      courseId: membership.course_id,
+      courseName: membership.courses.name,
       userRole: membership.role,
       isOriginalManager: membership.is_original_manager
     }));
 
-    // Go to team dashboard
-    router.push(`/launcher/team?teamId=${membership.team_id}`);
+    // Go to course dashboard
+    router.push(`/launcher/course?courseId=${membership.course_id}`);
   };
 
   const handleGoToChat = () => {
@@ -260,11 +260,11 @@ export default function HomePage() {
     }
   };
 
-  if (loading || loadingTeams) {
+  if (loading || loadingcourses) {
     return (
       <LoadingScreen 
         title="HHB Assistant" 
-        subtitle={loading ? "Loading..." : "Loading teams..."} 
+        subtitle={loading ? "Loading..." : "Loading courses..."} 
       />
     );
   }
@@ -307,7 +307,7 @@ export default function HomePage() {
               </div>
             </div>
             <p className="text-xl text-slate-400 max-w-3xl mx-auto">
-              The intelligent AI assistant designed specifically for medical device sales representatives and field operations teams. 
+              The intelligent AI assistant designed specifically for educational courses and learning materials. 
             </p>
           </div>
         </section>
@@ -325,7 +325,7 @@ export default function HomePage() {
                 </div>
                 <h4 className="text-xl font-semibold mb-2">Intelligent AI</h4>
                 <p className="text-slate-400">
-                  Advanced AI that understands your team's context and provides relevant, accurate responses.
+                  Advanced AI that understands your course's context and provides relevant, accurate responses.
                 </p>
               </div>
               <div className="text-center">
@@ -334,9 +334,9 @@ export default function HomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <h4 className="text-xl font-semibold mb-2">Team Collaboration</h4>
+                <h4 className="text-xl font-semibold mb-2">course Collaboration</h4>
                 <p className="text-slate-400">
-                  Create teams, share knowledge, and collaborate seamlessly with your colleagues.
+                  Create courses, share knowledge, and collaborate seamlessly with your colleagues.
                 </p>
               </div>
               <div className="text-center">
@@ -369,7 +369,7 @@ export default function HomePage() {
     );
   }
 
-  // LOGGED IN USER - DASHBOARD WITH TEAM SELECTION
+  // LOGGED IN USER - DASHBOARD WITH course SELECTION
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       {/* HEADER */}
@@ -440,13 +440,13 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* TEAM MEMBERSHIPS SECTION */}
+        {/* course MEMBERSHIPS SECTION */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold">Your Teams</h3>
+            <h3 className="text-2xl font-bold">Your courses</h3>
             {user && (
               <button
-                onClick={() => router.push('/setup/team')}
+                onClick={() => router.push('/setup/course')}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center gap-2"
               >
                 <svg 
@@ -462,21 +462,21 @@ export default function HomePage() {
                     d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
                   />
                 </svg>
-                <span>Create New Team</span>
+                <span>Create New course</span>
               </button>
             )}
           </div>
-          {teamMemberships.length > 0 ? (
+          {courseMemberships.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-              {teamMemberships.map((membership) => (
+              {courseMemberships.map((membership) => (
                 <div
                   key={membership.id}
                   className="bg-slate-800 rounded-lg border border-slate-700 p-6 hover:border-blue-500 transition-colors cursor-pointer"
-                  onClick={() => handleTeamSelect(membership)}
+                  onClick={() => handlecourseSelect(membership)}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <h4 className="text-xl font-semibold text-slate-100">
-                      {membership.teams.name}
+                      {membership.courses.name}
                     </h4>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       membership.is_original_manager 
@@ -489,22 +489,22 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  {membership.teams.location && (
+                  {membership.courses.location && (
                     <p className="text-slate-400 mb-2 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
-                      {membership.teams.location}
+                      {membership.courses.location}
                     </p>
                   )}
 
-                  {membership.teams.description && (
+                  {membership.courses.description && (
                     <p className="text-slate-300 text-sm mb-4">
-                      {membership.teams.description}
+                      {membership.courses.description}
                     </p>
                   )}
 
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400 text-sm">
-                      {membership.role === 'manager' ? 'Manage Team' : 'Access Chat'}
+                      {membership.role === 'manager' ? 'Manage course' : 'Access Chat'}
                     </span>
                     <svg 
                       className="h-5 w-5 text-slate-400" 
@@ -525,9 +525,9 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="text-center py-8 bg-slate-800 rounded-lg border border-slate-700">
-              <h4 className="text-2xl font-bold text-slate-100 mb-4">No Teams Yet</h4>
+              <h4 className="text-2xl font-bold text-slate-100 mb-4">No courses Yet</h4>
               <p className="text-slate-400">
-                Create your first team to get started!
+                Create your first course to get started!
               </p>
             </div>
           )}
@@ -545,7 +545,7 @@ export default function HomePage() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <h4 className="text-xl font-semibold text-slate-100">
-                      {invitation.teams?.name || 'Unknown Team'}
+                      {invitation.courses?.name || 'Unknown course'}
                     </h4>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       invitation.role === 'manager' 
@@ -556,16 +556,16 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  {invitation.teams?.location && (
+                  {invitation.courses?.location && (
                     <p className="text-slate-400 mb-2 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
-                      {invitation.teams.location}
+                      {invitation.courses.location}
                     </p>
                   )}
 
-                  {invitation.teams?.description && (
+                  {invitation.courses?.description && (
                     <p className="text-slate-300 text-sm mb-4">
-                      {invitation.teams.description}
+                      {invitation.courses.description}
                     </p>
                   )}
 

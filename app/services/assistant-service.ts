@@ -21,7 +21,7 @@ export class AssistantService {
    */
   async createDynamicAssistant(params: CreateAssistantRequest): Promise<AssistantResult> {
     try {
-      const { teamId, portfolioId, userId } = params;
+      const { courseId, portfolioId, userId } = params;
       
       if (!userId) {
         return {
@@ -31,22 +31,22 @@ export class AssistantService {
       }
 
       // Get names for context
-      // Get team and portfolio names
-      const [teamResult, portfolioResult] = await Promise.all([
-        this.serviceClient.from('teams').select('name').eq('id', teamId).single(),
-        this.serviceClient.from('team_portfolios').select('name').eq('id', portfolioId).single()
+      // Get course and portfolio names
+      const [courseResult, portfolioResult] = await Promise.all([
+        this.serviceClient.from('courses').select('name').eq('id', courseId).single(),
+        this.serviceClient.from('course_portfolios').select('name').eq('id', portfolioId).single()
       ]);
       
       const names = {
-        teamName: teamResult.data?.name || 'Unknown Team',
+        courseName: courseResult.data?.name || 'Unknown course',
         portfolioName: portfolioResult.data?.name || 'Unknown Portfolio'
       };
 
       // Check if we already have a cached portfolio assistant
       const { data: existingAssistant, error: assistantError } = await this.serviceClient
-        .from('team_assistants')
+        .from('course_assistants')
         .select('*')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId)
         .single();
 
@@ -70,23 +70,23 @@ export class AssistantService {
         // Portfolio-specific assistant
         // Generate simple context without manual knowledge
         const generalContext = {
-          teamInfo: `Team: ${names.teamName}`,
+          courseInfo: `course: ${names.courseName}`,
           knowledgeText: 'Knowledge comes from uploaded documents only.'
         };
         context = this.buildPortfolioContext(generalContext, names);
         
         // Create vector store for portfolio documents
         const vectorResult = await this.vectorService.createPortfolioVectorStore(
-          teamId, 
+          courseId, 
           portfolioId, 
           names
         );
         vectorStoreId = vectorResult.vectorStoreId;
       } else {
-        // General team assistant
+        // General course assistant
         // Generate simple context without manual knowledge
         const generalContext = {
-          teamInfo: `Team: ${names.teamName}`,
+          courseInfo: `course: ${names.courseName}`,
           knowledgeText: 'Knowledge comes from uploaded documents only.'
         };
         context = this.buildGeneralContext(generalContext, names);
@@ -97,7 +97,7 @@ export class AssistantService {
 
       // Create assistant configuration
       const assistantConfig: AssistantConfig = {
-        name: `${names.teamName} - ${names.portfolioName} Assistant`,
+        name: `${names.courseName} - ${names.portfolioName} Assistant`,
         instructions,
         model: 'gpt-4.1',
         tools: [
@@ -115,9 +115,9 @@ export class AssistantService {
 
       // Cache the portfolio assistant
       const { data: cachedAssistant, error: cacheError } = await this.serviceClient
-        .from('team_assistants')
+        .from('course_assistants')
         .upsert({
-          team_id: teamId,
+          course_id: courseId,
           portfolio_id: portfolioId,
           assistant_id: assistant.id,
           assistant_name: assistantConfig.name,
@@ -155,7 +155,7 @@ export class AssistantService {
       // Get all chat_history records for this assistant
       const { data: chats, error: chatsError } = await this.serviceClient
         .from('chat_history')
-        .select('thread_id, title, user_id, team_id, portfolio_id, created_at')
+        .select('thread_id, title, user_id, course_id, portfolio_id, created_at')
         .eq('assistant_id', assistantId);
 
       if (chatsError) {
@@ -190,7 +190,7 @@ export class AssistantService {
             thread_id: chat.thread_id,
             title: chat.title,
             user_id: chat.user_id,
-            team_id: chat.team_id,
+            course_id: chat.course_id,
             portfolio_id: chat.portfolio_id,
             created_at: chat.created_at,
             messages: messages
@@ -203,7 +203,7 @@ export class AssistantService {
               thread_id: chat.thread_id,
               title: chat.title,
               user_id: chat.user_id,
-              team_id: chat.team_id,
+              course_id: chat.course_id,
               portfolio_id: chat.portfolio_id,
               created_at: chat.created_at,
               messages: JSON.stringify(backupData),
@@ -231,11 +231,11 @@ export class AssistantService {
    */
   private buildPortfolioContext(context: any, names: any): string {
     return `
-TEAM: ${names.teamName}
+course: ${names.courseName}
 PORTFOLIO: ${names.portfolioName}
 
-TEAM INFORMATION:
-${context.teamInfo}
+course INFORMATION:
+${context.courseInfo}
 
 GENERAL KNOWLEDGE:
 ${context.knowledgeText}
@@ -247,10 +247,10 @@ ${context.knowledgeText}
    */
   private buildGeneralContext(context: any, names: any): string {
     return `
-TEAM: ${names.teamName}
+course: ${names.courseName}
 
-TEAM INFORMATION:
-${context.teamInfo}
+course INFORMATION:
+${context.courseInfo}
 
 GENERAL KNOWLEDGE:
 ${context.knowledgeText}
@@ -267,7 +267,7 @@ ${context.knowledgeText}
     );
 
     return baseInstructions
-      .replace('{{TEAM_NAME}}', names.teamName)
+      .replace('{{course_NAME}}', names.courseName)
       .replace('{{PORTFOLIO_NAME}}', names.portfolioName)
       .replace('{{CONTEXT}}', context);
   }
@@ -276,7 +276,7 @@ ${context.knowledgeText}
    * UPDATE KNOWLEDGE MD FILE IF NEEDED
    */
   private async updateKnowledgeIfNeeded(
-    teamId: string,
+    courseId: string,
     portfolioId: string,
     vectorStoreId: string,
     userId: string

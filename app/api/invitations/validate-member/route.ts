@@ -17,12 +17,12 @@ export async function GET(request: NextRequest) {
     // Use service client to bypass RLS
     const serviceClient = createServiceClient();
 
-    // Find the team member invitation
+    // Find the course member invitation
     const { data: invitation, error: inviteError } = await serviceClient
-      .from('team_member_invitations')
+      .from('course_member_invitations')
       .select(`
         *,
-        teams:team_id (
+        courses:course_id (
           name
         )
       `)
@@ -52,13 +52,13 @@ export async function GET(request: NextRequest) {
       success: true,
       invitation: {
         id: invitation.id,
-        team_id: invitation.team_id,
+        course_id: invitation.course_id,
         email: invitation.email,
         name: invitation.name,
         role: invitation.role,
         status: invitation.status,
         expires_at: invitation.expires_at,
-        team_name: invitation.teams?.name || 'Unknown Team'
+        course_name: invitation.courses?.name || 'Unknown course'
       }
     });
 

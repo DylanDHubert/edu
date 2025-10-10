@@ -19,13 +19,13 @@ export async function POST(request: NextRequest) {
       threadId, 
       message, 
       assistantId, 
-      teamId, 
+      courseId, 
       portfolioId, 
       streaming = false 
     } = await request.json();
     
-    if (!threadId || !message || !assistantId || !teamId || !portfolioId) {
-      return handleValidationError('Thread ID, message, assistant ID, team ID, and portfolio ID are required');
+    if (!threadId || !message || !assistantId || !courseId || !portfolioId) {
+      return handleValidationError('Thread ID, message, assistant ID, course ID, and portfolio ID are required');
     }
 
     // SANITIZE USER INPUT TO PREVENT XSS
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       threadId,
       message: sanitizedMessage,
       assistantId,
-      teamId,
+      courseId,
       portfolioId,
       streaming
     };
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'course_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
     }
     console.error('Error in chat send route:', error);

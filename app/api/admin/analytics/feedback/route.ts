@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
-    const teamFilter = searchParams.get('team');
+    const courseFilter = searchParams.get('course');
     const accountFilter = searchParams.get('account');
     const portfolioFilter = searchParams.get('portfolio');
     const format = searchParams.get('format'); // 'display' | 'experiment'
@@ -56,8 +56,7 @@ export async function GET(request: NextRequest) {
         message_id,
         rating,
         feedback_text,
-        team_id,
-        account_id,
+        course_id,
         portfolio_id,
         created_at
       `)
@@ -70,8 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply filters
-    if (teamFilter) ratingsQuery = ratingsQuery.eq('team_id', teamFilter);
-    if (accountFilter) ratingsQuery = ratingsQuery.eq('account_id', accountFilter);
+    if (courseFilter) ratingsQuery = ratingsQuery.eq('course_id', courseFilter);
     if (portfolioFilter) ratingsQuery = ratingsQuery.eq('portfolio_id', portfolioFilter);
 
     const { data: ratings, error: ratingsError } = await ratingsQuery.order('created_at', { ascending: false });
@@ -93,8 +91,8 @@ export async function GET(request: NextRequest) {
     
     // Get chat history - include assistant_id for experiment format
     const chatHistorySelect = format === 'experiment' 
-      ? `thread_id, title, team_id, assistant_id`
-      : `thread_id, title, team_id`;
+      ? `thread_id, title, course_id, assistant_id`
+      : `thread_id, title, course_id`;
       
     const { data: chatHistory, error: chatError } = await serviceClient
       .from('chat_history')
@@ -106,21 +104,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
     }
 
-    // Get team, account, and portfolio names separately (since ratings has the foreign keys)
-    const teamIds = [...new Set(ratings.map(r => r.team_id).filter(Boolean))];
-    const accountIds = [...new Set(ratings.map(r => r.account_id).filter(Boolean))];
+    // Get course, account, and portfolio names separately (since ratings has the foreign keys)
+    const courseIds = [...new Set(ratings.map(r => r.course_id).filter(Boolean))];
     const portfolioIds = [...new Set(ratings.map(r => r.portfolio_id).filter(Boolean))];
 
-    const [teamsData, accountsData, portfoliosData] = await Promise.all([
-      serviceClient.from('teams').select('id, name').in('id', teamIds),
-      serviceClient.from('team_accounts').select('id, name').in('id', accountIds),
-      serviceClient.from('team_portfolios').select('id, name').in('id', portfolioIds)
+    const [coursesData, portfoliosData] = await Promise.all([
+      serviceClient.from('courses').select('id, name').in('id', courseIds),
+      serviceClient.from('course_portfolios').select('id, name').in('id', portfolioIds)
     ]);
 
     // Create lookup maps
     const chatLookup = new Map<string, any>();
-    const teamLookup = new Map();
-    const accountLookup = new Map();
+    const courseLookup = new Map();
     const portfolioLookup = new Map();
 
     if (chatHistory) {
@@ -129,17 +124,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (teamsData.data) {
-      teamsData.data.forEach(team => {
-        teamLookup.set(team.id, team.name);
+    if (coursesData.data) {
+      coursesData.data.forEach(course => {
+        courseLookup.set(course.id, course.name);
       });
     }
 
-    if (accountsData.data) {
-      accountsData.data.forEach(account => {
-        accountLookup.set(account.id, account.name);
-      });
-    }
 
     if (portfoliosData.data) {
       portfoliosData.data.forEach(portfolio => {
@@ -201,8 +191,7 @@ export async function GET(request: NextRequest) {
           original_query: originalQuery,
           ai_response: aiResponse,
           created_at: rating.created_at,
-          team_name: teamLookup.get(rating.team_id) || 'Unknown Team',
-          account_name: accountLookup.get(rating.account_id) || 'Unknown Account', 
+          course_name: courseLookup.get(rating.course_id) || 'Unknown course',
           portfolio_name: portfolioLookup.get(rating.portfolio_id) || 'Unknown Portfolio',
           chat_title: chatContext?.title || 'Untitled Chat'
         };
@@ -229,8 +218,7 @@ export async function GET(request: NextRequest) {
           original_query: "Error loading message",
           ai_response: "Error loading message",
           created_at: rating.created_at,
-          team_name: teamLookup.get(rating.team_id) || 'Unknown Team',
-          account_name: accountLookup.get(rating.account_id) || 'Unknown Account',
+          course_name: courseLookup.get(rating.course_id) || 'Unknown course',
           portfolio_name: portfolioLookup.get(rating.portfolio_id) || 'Unknown Portfolio', 
           chat_title: chatContext?.title || 'Untitled Chat'
         };

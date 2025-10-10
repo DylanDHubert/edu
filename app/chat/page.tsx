@@ -29,7 +29,7 @@ export default function ChatPage() {
       // CHECK IF USER HAS ACCESS VIA API
       const response = await fetch('/api/auth/check-access');
       if (response.ok) {
-        const { hasAccess, hasManagerPrivileges, hasTeamMemberships } = await response.json();
+        const { hasAccess, hasManagerPrivileges, hascourseMemberships } = await response.json();
         
         if (!hasAccess) {
           // This shouldn't happen since all authenticated users have access

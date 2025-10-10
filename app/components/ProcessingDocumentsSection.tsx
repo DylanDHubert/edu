@@ -15,13 +15,13 @@ interface ProcessingDocument {
 }
 
 interface ProcessingDocumentsSectionProps {
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   onDocumentCompleted?: (documentId: string) => void;
 }
 
 export function ProcessingDocumentsSection({ 
-  teamId, 
+  courseId, 
   portfolioId, 
   onDocumentCompleted 
 }: ProcessingDocumentsSectionProps) {
@@ -34,9 +34,9 @@ export function ProcessingDocumentsSection({
   const fetchProcessingDocuments = async () => {
     try {
       const { data, error } = await supabase
-        .from('team_documents')
+        .from('course_documents')
         .select('id, original_name, file_size, created_at, openai_file_id')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId)
         .in('openai_file_id', [null, 'processing', 'failed'])
         .order('created_at', { ascending: false });
@@ -56,7 +56,7 @@ export function ProcessingDocumentsSection({
 
   // SET UP REALTIME SUBSCRIPTION
   useEffect(() => {
-    if (!teamId || !portfolioId) return;
+    if (!courseId || !portfolioId) return;
 
     // FETCH INITIAL DATA
     fetchProcessingDocuments();
@@ -69,8 +69,8 @@ export function ProcessingDocumentsSection({
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'team_documents',
-          filter: `team_id=eq.${teamId} AND portfolio_id=eq.${portfolioId}`,
+          table: 'course_documents',
+          filter: `course_id=eq.${courseId} AND portfolio_id=eq.${portfolioId}`,
         },
         (payload) => {
           console.log('DOCUMENT STATUS UPDATED:', payload);
@@ -110,8 +110,8 @@ export function ProcessingDocumentsSection({
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'team_documents',
-          filter: `team_id=eq.${teamId} AND portfolio_id=eq.${portfolioId}`,
+          table: 'course_documents',
+          filter: `course_id=eq.${courseId} AND portfolio_id=eq.${portfolioId}`,
         },
         (payload) => {
           console.log('NEW DOCUMENT ADDED:', payload);
@@ -135,12 +135,12 @@ export function ProcessingDocumentsSection({
     return () => {
       subscription.unsubscribe();
     };
-  }, [teamId, portfolioId, onDocumentCompleted]);
+  }, [courseId, portfolioId, onDocumentCompleted]);
 
   // HANDLE RETRY
   const handleRetry = async (documentId: string) => {
     try {
-      const response = await fetch(`/api/teams/documents/processing-status/${documentId}`, {
+      const response = await fetch(`/api/courses/documents/processing-status/${documentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

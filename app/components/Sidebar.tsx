@@ -61,8 +61,8 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
           // Update the sidebar info elements
           const nameEl = document.getElementById('sidebar-assistant-name');
           const contextEl = document.getElementById('sidebar-assistant-context');
-          if (nameEl) nameEl.textContent = assistant.assistantName || 'Team Assistant';
-          if (contextEl) contextEl.textContent = assistant.teamName ? `Team: ${assistant.teamName}` : 'Team Mode';
+          if (nameEl) nameEl.textContent = assistant.assistantName || 'course Assistant';
+          if (contextEl) contextEl.textContent = assistant.courseName ? `course: ${assistant.courseName}` : 'course Mode';
         } catch (error) {
           console.error('Error parsing activeAssistant from localStorage:', error);
         }
@@ -139,13 +139,13 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
     
     try {
       // Create new chat with current activeAssistant configuration
-      const response = await fetch('/api/chat/create-team', {
+      const response = await fetch('/api/chat/create-course', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          teamId: activeAssistant.teamId,
+          courseId: activeAssistant.courseId,
           portfolioId: activeAssistant.portfolioId,
           assistantId: activeAssistant.assistantId,
           title: `Untitled ${activeAssistant.portfolioName || 'Chat'}`
@@ -272,10 +272,10 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
                         }}
                         className="w-full text-left text-sm"
                       >
-                        {/* TEAM CONTEXT BADGE */}
+                        {/* course CONTEXT BADGE */}
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs px-2 py-1 rounded bg-blue-500 text-white">
-                            {activeAssistant?.portfolioName?.toUpperCase() || 'TEAM CHAT'}
+                            {activeAssistant?.portfolioName?.toUpperCase() || 'course CHAT'}
                           </span>
                         </div>
 
@@ -331,7 +331,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, isDesktopOpen, 
         {/* FOOTER */}
         <div className="p-4 border-t border-slate-700">
           <div className="text-xs pb-2 text-slate-400 text-center">
-            WELCOME & THANKS, FROM THE HHB TEAM!
+            WELCOME & THANKS, FROM THE HHB course!
           </div>
         </div>
       </div>

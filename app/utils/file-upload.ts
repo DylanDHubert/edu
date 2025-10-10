@@ -16,7 +16,7 @@ interface UploadProgress {
 
 export async function uploadFilesToSupabase(
   files: File[],
-  teamId: string,
+  courseId: string,
   portfolioId: string,
   onProgress?: (progress: UploadProgress[]) => void
 ): Promise<UploadedFile[]> {
@@ -51,13 +51,13 @@ export async function uploadFilesToSupabase(
       }
 
       // GET SIGNED UPLOAD URL
-      const urlResponse = await fetch('/api/teams/documents/upload-url', {
+      const urlResponse = await fetch('/api/courses/documents/upload-url', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          teamId,
+          courseId,
           portfolioId,
           fileName: file.name,
           fileSize: file.size
@@ -120,16 +120,16 @@ export async function uploadFilesToSupabase(
 
 export async function processUploadedFiles(
   uploadedFiles: UploadedFile[],
-  teamId: string,
+  courseId: string,
   portfolioId: string
 ): Promise<any> {
-  const response = await fetch('/api/teams/documents/upload', {
+  const response = await fetch('/api/courses/documents/upload', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      teamId,
+      courseId,
       portfolioId,
       uploadedFiles
     }),

@@ -5,14 +5,14 @@
 
 ## Summary
 
-AI-powered team collaboration platform designed for medical device sales representatives and field operations teams.
+AI-powered course collaboration platform designed for medical device sales representatives and field operations courses.
 
 ## Features
 
-- Team-based AI assistants with document knowledge bases
+- course-based AI assistants with document knowledge bases
 - Portfolio management and document processing
 - Real-time chat interface with context-aware responses
-- Team collaboration and invitation system
+- course collaboration and invitation system
 - Admin dashboard with analytics
 - Secure authentication via Supabase
 

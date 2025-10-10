@@ -6,7 +6,7 @@ import { createClient } from "../utils/supabase/client";
 
 interface ChatHistory {
   id: string;
-  team_id: string;
+  course_id: string;
   portfolio_id: string;
   assistant_id: string;
   thread_id: string;
@@ -56,7 +56,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // Load initially
     loadActiveAssistant();
 
-    // Listen for storage changes (when user changes teams)
+    // Listen for storage changes (when user changes courses)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'activeAssistant') {
         loadActiveAssistant();
@@ -135,12 +135,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       let filteredData = data || [];
       
-      // TEAM-BASED CHAT FILTERING ONLY
+      // course-BASED CHAT FILTERING ONLY
       if (activeAssistant) {
-        // Show chats that match the current team/portfolio configuration
+        // Show chats that match the current course/portfolio configuration
         filteredData = filteredData.filter(chat => {
-          // MUST HAVE TEAM ID MATCH
-          if (chat.team_id !== activeAssistant.teamId) {
+          // MUST HAVE course ID MATCH
+          if (chat.course_id !== activeAssistant.courseId) {
             return false;
           }
           
@@ -149,11 +149,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return false;
           }
           
-          // BOTH MATCH - THIS IS A VALID TEAM CHAT
+          // BOTH MATCH - THIS IS A VALID course CHAT
           return true;
         });
         
-        // Filtered team chats
+        // Filtered course chats
       } else {
         // NO ACTIVE ASSISTANT - SHOW NO CHATS
         filteredData = [];
@@ -171,18 +171,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
     try {
-      // TEAM-BASED CHAT CREATION ONLY
-      if (!activeAssistant || !activeAssistant.teamId || !activeAssistant.portfolioId) {
-        throw new Error('NO ACTIVE TEAM ASSISTANT - PLEASE SELECT FROM HOME PAGE');
+      // course-BASED CHAT CREATION ONLY
+      if (!activeAssistant || !activeAssistant.courseId || !activeAssistant.portfolioId) {
+        throw new Error('NO ACTIVE course ASSISTANT - PLEASE SELECT FROM HOME PAGE');
       }
 
-      const response = await fetch('/api/chat/create-team', {
+      const response = await fetch('/api/chat/create-course', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          teamId: activeAssistant.teamId,
+          courseId: activeAssistant.courseId,
           portfolioId: activeAssistant.portfolioId,
           assistantId: activeAssistant.assistantId,
           title: `NEW ${activeAssistant.portfolioName} CHAT`
@@ -190,7 +190,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
-        throw new Error('FAILED TO CREATE NEW TEAM CHAT');
+        throw new Error('FAILED TO CREATE NEW course CHAT');
       }
 
       const newChat = await response.json();

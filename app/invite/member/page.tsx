@@ -8,17 +8,17 @@ import LoadingScreen from "../../components/LoadingScreen";
 
 interface InvitationData {
   id: string;
-  team_id: string;
+  course_id: string;
   email: string;
   name: string;
   role: string;
   status: string;
   expires_at: string;
-  team_name: string;
+  course_name: string;
   inviter_name: string;
 }
 
-function TeamMemberInviteContent() {
+function CourseMemberInviteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, loading: userLoading } = useAuth();
@@ -102,14 +102,14 @@ function TeamMemberInviteContent() {
       return;
     }
 
-    // Check if user is already a member of this team via secure API
+    // Check if user is already a member of this course via secure API
     try {
-      const response = await fetch(`/api/user/check-membership?teamId=${invitation.team_id}`);
+      const response = await fetch(`/api/user/check-membership?courseId=${invitation.course_id}`);
       const result = await response.json();
 
       if (response.ok && result.success) {
         if (result.isMember) {
-          setError('You are already a member of this team');
+          setError('You are already a member of this course');
           return;
         }
       } else {
@@ -187,7 +187,7 @@ function TeamMemberInviteContent() {
     setAccepting(true);
     try {
       // Call API to accept invitation
-      const response = await fetch('/api/teams/accept-member-invitation', {
+      const response = await fetch('/api/courses/accept-member-invitation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -202,7 +202,7 @@ function TeamMemberInviteContent() {
         throw new Error(errorData.error || 'Failed to accept invitation');
       }
 
-      // Success! Redirect to team dashboard or main app
+      // Success! Redirect to course dashboard or main app
               router.push('/');
       
     } catch (error) {
@@ -250,7 +250,7 @@ function TeamMemberInviteContent() {
         <div className="max-w-md w-full space-y-8 p-8">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-slate-100 mb-2">Course Invitation</h1>
-            <p className="text-slate-400">You've been invited to join <strong>{invitation.team_name}</strong></p>
+            <p className="text-slate-400">You've been invited to join <strong>{invitation.course_name}</strong></p>
             <p className="text-slate-300 text-sm mt-2">Role: <strong>{invitation.role === 'manager' ? 'Course TA' : 'Course Student'}</strong></p>
           </div>
 
@@ -361,8 +361,8 @@ function TeamMemberInviteContent() {
             
             <div className="space-y-3 text-left">
               <div>
-                <span className="text-slate-400">Team:</span>
-                <span className="text-slate-100 font-medium ml-2">{invitation.team_name}</span>
+                <span className="text-slate-400">course:</span>
+                <span className="text-slate-100 font-medium ml-2">{invitation.course_name}</span>
               </div>
               <div>
                 <span className="text-slate-400">Role:</span>
@@ -380,10 +380,10 @@ function TeamMemberInviteContent() {
               <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700 rounded text-blue-200 text-sm">
                 <strong>Course Student Access:</strong>
                 <ul className="mt-1 space-y-1 text-xs">
-                  <li>• View team knowledge and documents</li>
+                  <li>• View course knowledge and documents</li>
                   <li>• Use AI assistant for searches</li>
                   <li>• Create and share personal notes</li>
-                  <li>• Read-only access to team settings</li>
+                  <li>• Read-only access to course settings</li>
                 </ul>
               </div>
             )}
@@ -411,7 +411,7 @@ function TeamMemberInviteContent() {
   );
 }
 
-export default function TeamMemberInvitePage() {
+export default function courseMemberInvitePage() {
   return (
     <Suspense fallback={
       <LoadingScreen 
@@ -419,7 +419,7 @@ export default function TeamMemberInvitePage() {
         subtitle="Loading..." 
       />
     }>
-      <TeamMemberInviteContent />
+      <CourseMemberInviteContent />
     </Suspense>
   );
 } 

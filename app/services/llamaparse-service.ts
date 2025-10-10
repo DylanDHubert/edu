@@ -42,7 +42,7 @@ export class LlamaParseService {
   /**
    * SUBMIT DOCUMENT TO LLAMAPARSE FOR PROCESSING (GET JOB ID IMMEDIATELY)
    */
-  async submitDocument(pdfBuffer: Buffer, filename: string): Promise<string> {
+  async submitDocument(pdfBuffer: Buffer, filename: string, processingType: 'enhanced' | 'super' = 'enhanced'): Promise<string> {
     try {
       // CHECK API KEY
       if (!this.apiKey) {
@@ -51,11 +51,16 @@ export class LlamaParseService {
 
       console.log(`SUBMITTING DOCUMENT TO LLAMAPARSE: ${filename}`);
       
-      // CREATE FORM DATA WITH SCREENSHOTS + PAGE SEPARATORS + TECHNICAL PRESET
+      // CREATE FORM DATA WITH PROCESSING TYPE CONFIGURATION
       const formData = new FormData();
       formData.append('file', new Blob([new Uint8Array(pdfBuffer)]), filename);
-      // formData.append('preset', 'technicalDocumentation'); // COMMENTED OUT
-      formData.append('take_screenshot', 'true');
+      
+      // CONFIGURE PROCESSING TYPE
+      if (processingType === 'super') {
+        formData.append('preset', 'technicalDocumentation'); // SUPER: Technical preset ON
+      }
+      
+      formData.append('take_screenshot', 'false');
       formData.append('page_separator', '\n<<{pageNumber}>>\n');
 
       // SUBMIT TO LLAMAPARSE API

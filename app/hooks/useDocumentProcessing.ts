@@ -22,7 +22,7 @@ export function useDocumentProcessing(documentId: string) {
     if (!documentId) return;
 
     try {
-      const response = await fetch(`/api/teams/documents/processing-status/${documentId}`);
+      const response = await fetch(`/api/courses/documents/processing-status/${documentId}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch processing status');
@@ -47,7 +47,7 @@ export function useDocumentProcessing(documentId: string) {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/teams/documents/processing-status/${documentId}`, {
+      const response = await fetch(`/api/courses/documents/processing-status/${documentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

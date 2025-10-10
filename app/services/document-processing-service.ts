@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 
 export interface ProcessingJob {
   id: string;
-  teamId: string;
+  courseId: string;
   portfolioId: string | null;
   documentId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -30,18 +30,18 @@ export class DocumentProcessingService {
   /**
    * CREATE A NEW PROCESSING JOB
    */
-  async createJob(teamId: string, portfolioId: string, documentId: string): Promise<string> {
+  async createJob(courseId: string, portfolioId: string, documentId: string): Promise<string> {
     try {
       console.log(`CREATING PROCESSING JOB: ${documentId}`);
       
       // UPDATE DOCUMENT STATUS TO PROCESSING
       const { error: updateError } = await this.serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .update({ 
           openai_file_id: 'processing'
         })
         .eq('id', documentId)
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId);
 
       if (updateError) {
@@ -82,7 +82,7 @@ export class DocumentProcessingService {
       }
 
       const { error: updateError } = await this.serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .update(updateData)
         .eq('id', documentId);
 
@@ -107,8 +107,8 @@ export class DocumentProcessingService {
       
       // GET DOCUMENT INFO TO BUILD MARKDOWN FILE PATH
       const { data: document, error: docError } = await this.serviceClient
-        .from('team_documents')
-        .select('team_id, portfolio_id, original_name')
+        .from('course_documents')
+        .select('course_id, portfolio_id, original_name')
         .eq('id', documentId)
         .single();
 
@@ -119,11 +119,11 @@ export class DocumentProcessingService {
       // CREATE MARKDOWN FILE PATH
       const originalFileName = document.original_name.replace('.pdf', '');
       const markdownFileName = `processed_${originalFileName}.md`;
-      const markdownFilePath = `teams/${document.team_id}/portfolios/${document.portfolio_id}/${markdownFileName}`;
+      const markdownFilePath = `courses/${document.course_id}/portfolios/${document.portfolio_id}/${markdownFileName}`;
 
       // UPLOAD MARKDOWN TO SUPABASE STORAGE
       const { error: storageError } = await this.serviceClient.storage
-        .from('team-documents')
+        .from('course-documents')
         .upload(markdownFilePath, markdownContent, {
           contentType: 'text/markdown',
           upsert: true
@@ -146,7 +146,7 @@ export class DocumentProcessingService {
 
       // UPDATE DOCUMENT WITH OPENAI FILE ID
       const { error: updateError } = await this.serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .update({ 
           openai_file_id: openaiFile.id
         })
@@ -179,16 +179,16 @@ export class DocumentProcessingService {
   /**
    * PROCESS DOCUMENT WITH LLAMAPARSE
    */
-  async processDocument(teamId: string, portfolioId: string, documentId: string): Promise<ProcessingResult> {
+  async processDocument(courseId: string, portfolioId: string, documentId: string): Promise<ProcessingResult> {
     try {
       console.log(`STARTING DOCUMENT PROCESSING: ${documentId}`);
       
       // GET DOCUMENT INFO
       const { data: document, error: docError } = await this.serviceClient
-        .from('team_documents')
+        .from('course_documents')
         .select('*')
         .eq('id', documentId)
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId)
         .single();
 
@@ -198,7 +198,7 @@ export class DocumentProcessingService {
 
       // DOWNLOAD PDF FROM SUPABASE STORAGE
       const { data: fileData, error: downloadError } = await this.serviceClient.storage
-        .from('team-documents')
+        .from('course-documents')
         .download(document.file_path);
 
       if (downloadError) {
@@ -246,7 +246,7 @@ export class DocumentProcessingService {
       if (error || !job) {
         // NO JOB EXISTS - CHECK IF DOCUMENT EXISTS AND IS COMPLETED
         const { data: document, error: docError } = await this.serviceClient
-          .from('team_documents')
+          .from('course_documents')
           .select('*')
           .eq('id', documentId)
           .single();
@@ -259,7 +259,7 @@ export class DocumentProcessingService {
         if (document.openai_file_id && document.openai_file_id.startsWith('file-')) {
           return {
             id: documentId,
-            teamId: document.team_id,
+            courseId: document.course_id,
             portfolioId: document.portfolio_id,
             documentId: document.id,
             status: 'completed',
@@ -272,7 +272,7 @@ export class DocumentProcessingService {
         // NO JOB AND NO COMPLETED STATUS = PENDING
         return {
           id: documentId,
-          teamId: document.team_id,
+          courseId: document.course_id,
           portfolioId: document.portfolio_id,
           documentId: document.id,
           status: 'pending',
@@ -285,7 +285,7 @@ export class DocumentProcessingService {
       // RETURN JOB STATUS (GROUND TRUTH)
       return {
         id: job.id,
-        teamId: job.team_id,
+        courseId: job.course_id,
         portfolioId: job.portfolio_id,
         documentId: job.document_id,
         status: job.status,
@@ -303,7 +303,7 @@ export class DocumentProcessingService {
   /**
    * RETRY FAILED JOB
    */
-  async retryJob(teamId: string, portfolioId: string, documentId: string): Promise<ProcessingResult> {
+  async retryJob(courseId: string, portfolioId: string, documentId: string): Promise<ProcessingResult> {
     try {
       console.log(`RETRYING FAILED JOB: ${documentId}`);
       
@@ -311,7 +311,7 @@ export class DocumentProcessingService {
       await this.updateJobStatus(documentId, 'processing');
       
       // PROCESS DOCUMENT AGAIN
-      return await this.processDocument(teamId, portfolioId, documentId);
+      return await this.processDocument(courseId, portfolioId, documentId);
     } catch (error) {
       console.error('ERROR RETRYING JOB:', error);
       return {

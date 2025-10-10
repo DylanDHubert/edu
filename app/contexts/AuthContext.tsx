@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // CLEAR LOCALSTORAGE WHEN USER CHANGES OR SIGNS OUT
         if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
           localStorage.removeItem('activeAssistant');
-          localStorage.removeItem('selectedTeam');
+          localStorage.removeItem('selectedcourse');
         }
         setUser(session?.user ?? null);
         setLoading(false);
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // CLEAR LOCALSTORAGE DATA ON SIGNOUT
       localStorage.removeItem('activeAssistant');
-      localStorage.removeItem('selectedTeam');
+      localStorage.removeItem('selectedcourse');
       await supabase.auth.signOut();
     } catch (error) {
       console.error("ERROR SIGNING OUT:", error);

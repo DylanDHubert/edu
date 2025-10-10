@@ -50,17 +50,17 @@ The document should progress through these states:
 
 ### Upload with LlamaParse
 ```
-POST /api/teams/documents/upload-with-llamaparse
+POST /api/courses/documents/upload-with-llamaparse
 ```
 
 ### Check Processing Status
 ```
-GET /api/teams/documents/processing-status/{documentId}
+GET /api/courses/documents/processing-status/{documentId}
 ```
 
 ### Retry Failed Processing
 ```
-POST /api/teams/documents/processing-status/{documentId}
+POST /api/courses/documents/processing-status/{documentId}
 Body: { "action": "retry" }
 ```
 

@@ -25,10 +25,10 @@ function EditPortfoliosContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const teamId = searchParams.get('teamId');
+  const courseId = searchParams.get('courseId');
   const supabase = createClient();
 
-  const [team, setTeam] = useState<any>(null);
+  const [course, setcourse] = useState<any>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,18 +62,18 @@ function EditPortfoliosContent() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
-    } else if (!teamId) {
+    } else if (!courseId) {
               router.push("/");
-    } else if (user && teamId) {
+    } else if (user && courseId) {
       loadExistingData();
     }
-  }, [user, loading, teamId, router]);
+  }, [user, loading, courseId, router]);
 
   // FETCH STATUS FOR ALL PORTFOLIOS WHEN PORTFOLIOS ARE LOADED
   const fetchPortfolioStatus = async (portfolioId: string) => {
     try {
       const response = await fetch(
-        `/api/teams/portfolios/${portfolioId}/documents/status?teamId=${teamId}`
+        `/api/courses/portfolios/${portfolioId}/documents/status?courseId=${courseId}`
       );
 
       if (!response.ok) {
@@ -98,7 +98,7 @@ function EditPortfoliosContent() {
 
   // REFRESH ALL PORTFOLIO STATUSES
   const refreshAllPortfolioStatuses = async () => {
-    if (portfolios.length > 0 && teamId) {
+    if (portfolios.length > 0 && courseId) {
       await Promise.all(
         portfolios
           .filter(portfolio => portfolio.id)
@@ -108,28 +108,28 @@ function EditPortfoliosContent() {
   };
 
   useEffect(() => {
-    if (portfolios.length > 0 && teamId) {
+    if (portfolios.length > 0 && courseId) {
       portfolios.forEach(portfolio => {
         if (portfolio.id) {
           fetchPortfolioStatus(portfolio.id);
         }
       });
     }
-  }, [portfolios, teamId]);
+  }, [portfolios, courseId]);
 
   const loadExistingData = async () => {
     try {
-      // Use the secure team data API endpoint
-      const response = await fetch(`/api/teams/${teamId}/data`);
+      // Use the secure course data API endpoint
+      const response = await fetch(`/api/courses/${courseId}/data`);
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || 'Failed to load team data');
+        setError(result.error || 'Failed to load course data');
         return;
       }
 
       if (!result.success) {
-        setError('Failed to load team data');
+        setError('Failed to load course data');
         return;
       }
 
@@ -141,10 +141,10 @@ function EditPortfoliosContent() {
 
       setUserRole(result.data.userRole);
       setIsOriginalManager(result.data.isOriginalManager || false);
-      setTeam(result.data.team);
+      setcourse(result.data.course);
 
       // Load existing portfolios and their documents using service role via API
-      const portfoliosResponse = await fetch(`/api/teams/portfolios/list?teamId=${teamId}`);
+      const portfoliosResponse = await fetch(`/api/courses/portfolios/list?courseId=${courseId}`);
       const portfoliosResult = await portfoliosResponse.json();
 
       if (!portfoliosResponse.ok) {
@@ -161,7 +161,7 @@ function EditPortfoliosContent() {
         name: portfolio.name,
         description: portfolio.description || '',
         files: [],
-        existingDocuments: portfolio.team_documents || []
+        existingDocuments: portfolio.course_documents || []
       })) || [];
 
       // Add empty portfolio if none exist
@@ -173,7 +173,7 @@ function EditPortfoliosContent() {
 
     } catch (error) {
       console.error('Error loading existing data:', error);
-      setError('Failed to load team data');
+      setError('Failed to load course data');
     }
   };
 
@@ -256,31 +256,7 @@ function EditPortfoliosContent() {
     return dismissedWarnings.has(key);
   };
 
-  // HANDLE LLAMAPARSE FILE UPLOAD
-  const processUploadedFilesWithLlamaParse = async (
-    uploadedFiles: any[],
-    teamId: string,
-    portfolioId: string
-  ): Promise<any> => {
-    const response = await fetch('/api/teams/documents/upload-with-llamaparse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        teamId,
-        portfolioId,
-        uploadedFiles
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to process uploaded files with LlamaParse');
-    }
-
-    return response.json();
-  };
+  // LEGACY LLAMAPARSE FUNCTION REMOVED - USING UNIFIED ENDPOINT
 
   const removePortfolio = async (index: number) => {
     const portfolio = portfolios[index];
@@ -298,14 +274,14 @@ function EditPortfoliosContent() {
             setError(null);
 
             // DELETE VIA API ROUTE
-            const response = await fetch('/api/teams/portfolios/delete', {
+            const response = await fetch('/api/courses/portfolios/delete', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
                 portfolioId: portfolio.id,
-                teamId: teamId
+                courseId: courseId
               }),
             });
 
@@ -374,14 +350,14 @@ function EditPortfoliosContent() {
       async () => {
         try {
           // DELETE VIA API ROUTE
-          const response = await fetch('/api/teams/documents/delete', {
+          const response = await fetch('/api/courses/documents/delete', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
               documentId: documentId,
-              teamId: teamId
+              courseId: courseId
             }),
           });
 
@@ -453,14 +429,14 @@ function EditPortfoliosContent() {
       for (const portfolio of portfolios) {
         if (portfolio.id) {
           // UPDATE EXISTING PORTFOLIO VIA API ROUTE
-          const updateResponse = await fetch('/api/teams/portfolios/update', {
+          const updateResponse = await fetch('/api/courses/portfolios/update', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
               portfolioId: portfolio.id,
-              teamId: teamId,
+              courseId: courseId,
               name: portfolio.name.trim(),
               description: portfolio.description?.trim() || null
             }),
@@ -472,13 +448,13 @@ function EditPortfoliosContent() {
           }
         } else if (portfolio.name.trim()) {
           // CREATE NEW PORTFOLIO VIA API ROUTE
-          const createResponse = await fetch('/api/teams/portfolios/create', {
+          const createResponse = await fetch('/api/courses/portfolios/create', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              teamId: teamId,
+              courseId: courseId,
               portfolios: [{
                 name: portfolio.name.trim(),
                 description: portfolio.description?.trim() || null
@@ -504,14 +480,14 @@ function EditPortfoliosContent() {
             // UPLOAD FILES DIRECTLY TO SUPABASE
             const uploadedFiles = await uploadFilesToSupabase(
               portfolio.files,
-              teamId!,
+              courseId!,
               portfolio.id
             );
 
-            // PROCESS UPLOADED FILES WITH LLAMAPARSE
-            await processUploadedFilesWithLlamaParse(
+            // PROCESS UPLOADED FILES WITH STANDARD PROCESSING
+            await processUploadedFiles(
               uploadedFiles,
-              teamId!,
+              courseId!,
               portfolio.id
             );
           } catch (error) {
@@ -559,7 +535,7 @@ function EditPortfoliosContent() {
           <h1 className="text-4xl font-bold text-red-400 mb-4">Error</h1>
           <p className="text-slate-400 mb-6">{error}</p>
           <button
-            onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
+            onClick={() => router.push(`/launcher/course?courseId=${courseId}`)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
             ←
@@ -569,18 +545,18 @@ function EditPortfoliosContent() {
     );
   }
 
-  if (!user || !teamId || !team) {
+  if (!user || !courseId || !course) {
     return null;
   }
 
   return (
     <div className="min-h-screen bg-slate-900">
       <StandardHeader
-        teamName={team.name}
-        teamLocation={team.location}
+        courseName={course.name}
+        courseLocation={course.location}
         userRole={userRole}
         isOriginalManager={isOriginalManager}
-        backUrl={`/launcher/team?teamId=${teamId}`}
+        backUrl={`/launcher/course?courseId=${courseId}`}
       />
 
       {/* Main Content */}
@@ -680,7 +656,7 @@ function EditPortfoliosContent() {
               {/* Processing Documents Section */}
               {portfolio.id && (
                 <ProcessingDocumentsSection
-                  teamId={teamId!}
+                  courseId={courseId!}
                   portfolioId={portfolio.id}
                   onDocumentCompleted={(documentId) => {
                     // RELOAD DATA WHEN DOCUMENT COMPLETES PROCESSING
@@ -717,9 +693,9 @@ function EditPortfoliosContent() {
                   {expandedPortfolios.has(portfolio.id || `new-${index}`) && (
                     <div className="space-y-4 transition-all duration-200 ease-in-out">
                       {/* Portfolio Processing Summary */}
-                      {portfolio.id && teamId && portfolioStatuses[portfolio.id] && (
+                      {portfolio.id && courseId && portfolioStatuses[portfolio.id] && (
                         <PortfolioProcessingSummary
-                          teamId={teamId}
+                          courseId={courseId}
                           portfolioId={portfolio.id}
                           summary={portfolioStatuses[portfolio.id].summary || {
                             total: 0,

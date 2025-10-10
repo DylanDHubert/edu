@@ -6,7 +6,7 @@ export interface StorageCleanupResult {
   errors: string[];
 }
 
-export interface TeamStorageCleanupResult {
+export interface courseStorageCleanupResult {
   success: boolean;
   documentsDeleted: number;
   imagesDeleted: number;
@@ -27,7 +27,7 @@ export class StorageCleanupService {
   /**
    * CLEAN UP STORAGE FILES FOR A PORTFOLIO
    */
-  async cleanupPortfolioStorage(portfolioId: string, teamId: string): Promise<StorageCleanupResult> {
+  async cleanupPortfolioStorage(portfolioId: string, courseId: string): Promise<StorageCleanupResult> {
     const result: StorageCleanupResult = {
       success: true,
       deletedFiles: 0,
@@ -39,10 +39,10 @@ export class StorageCleanupService {
 
       // GET ALL DOCUMENTS FOR THIS PORTFOLIO
       const { data: documents, error: documentsError } = await this.supabase
-        .from('team_documents')
+        .from('course_documents')
         .select('file_path, original_name')
         .eq('portfolio_id', portfolioId)
-        .eq('team_id', teamId);
+        .eq('course_id', courseId);
 
       if (documentsError) {
         result.errors.push(`Failed to fetch documents: ${documentsError.message}`);
@@ -61,7 +61,7 @@ export class StorageCleanupService {
       for (const document of documents) {
         try {
           // EXTRACT BUCKET AND FILE PATH FROM file_path
-          // EXPECTED FORMAT: "team-documents/teamId/portfolioId/filename"
+          // EXPECTED FORMAT: "course-documents/courseId/portfolioId/filename"
           const filePath = document.file_path;
           
           if (!filePath) {
@@ -71,7 +71,7 @@ export class StorageCleanupService {
 
           // DELETE FROM STORAGE
           const { error: deleteError } = await this.supabase.storage
-            .from('team-documents')
+            .from('course-documents')
             .remove([filePath]);
 
           if (deleteError) {
@@ -122,7 +122,7 @@ export class StorageCleanupService {
 
       // GET DOCUMENTS BY IDS
       const { data: documents, error: documentsError } = await this.supabase
-        .from('team_documents')
+        .from('course_documents')
         .select('file_path, original_name')
         .in('id', documentIds);
 
@@ -148,7 +148,7 @@ export class StorageCleanupService {
           }
 
           const { error: deleteError } = await this.supabase.storage
-            .from('team-documents')
+            .from('course-documents')
             .remove([filePath]);
 
           if (deleteError) {
@@ -177,10 +177,10 @@ export class StorageCleanupService {
   }
 
   /**
-   * CLEAN UP STORAGE FILES FOR AN ENTIRE TEAM
+   * CLEAN UP STORAGE FILES FOR AN ENTIRE course
    */
-  async cleanupTeamStorage(teamData: any): Promise<TeamStorageCleanupResult> {
-    const result: TeamStorageCleanupResult = {
+  async cleanupcourseStorage(courseData: any): Promise<courseStorageCleanupResult> {
+    const result: courseStorageCleanupResult = {
       success: true,
       documentsDeleted: 0,
       imagesDeleted: 0,
@@ -188,12 +188,12 @@ export class StorageCleanupService {
     };
 
     try {
-      console.log(`🗂️ STARTING TEAM STORAGE CLEANUP`);
+      console.log(`🗂️ STARTING course STORAGE CLEANUP`);
 
-      const documents = teamData.documents || [];
+      const documents = courseData.documents || [];
       
       if (documents.length === 0) {
-        console.log('📁 NO DOCUMENTS FOUND FOR TEAM STORAGE CLEANUP');
+        console.log('📁 NO DOCUMENTS FOUND FOR course STORAGE CLEANUP');
         return result;
       }
 
@@ -211,7 +211,7 @@ export class StorageCleanupService {
 
           // DELETE FROM STORAGE
           const { error: deleteError } = await this.supabase.storage
-            .from('team-documents')
+            .from('course-documents')
             .remove([filePath]);
 
           if (deleteError) {
@@ -231,14 +231,14 @@ export class StorageCleanupService {
       // DETERMINE OVERALL SUCCESS
       result.success = result.errors.length === 0;
 
-      console.log(`🗂️ TEAM STORAGE CLEANUP COMPLETED: ${result.documentsDeleted} documents deleted, ${result.errors.length} errors`);
+      console.log(`🗂️ course STORAGE CLEANUP COMPLETED: ${result.documentsDeleted} documents deleted, ${result.errors.length} errors`);
 
       return result;
 
     } catch (error: any) {
-      console.error('💥 CRITICAL ERROR DURING TEAM STORAGE CLEANUP:', error);
+      console.error('💥 CRITICAL ERROR DURING course STORAGE CLEANUP:', error);
       result.success = false;
-      result.errors.push(`Critical team storage cleanup error: ${error.message}`);
+      result.errors.push(`Critical course storage cleanup error: ${error.message}`);
       return result;
     }
   }

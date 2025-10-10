@@ -19,7 +19,7 @@ interface Portfolio {
 }
 
 
-interface TeamData {
+interface courseData {
   id: string;
   name: string;
   location: string;
@@ -29,11 +29,11 @@ function PortfolioSelectContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const teamId = searchParams.get('teamId');
+  const courseId = searchParams.get('courseId');
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
-  const [team, setTeam] = useState<TeamData | null>(null);
+  const [course, setcourse] = useState<courseData | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -51,48 +51,48 @@ function PortfolioSelectContent() {
   const [checkingProcessing, setCheckingProcessing] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user && teamId) {
-      loadTeamData();
+    if (!authLoading && user && courseId) {
+      loadcourseData();
     } else if (!authLoading && !user) {
       router.push('/login');
-    } else if (!authLoading && !teamId) {
+    } else if (!authLoading && !courseId) {
       router.push('/');
     }
-  }, [authLoading, user, teamId, router]);
+  }, [authLoading, user, courseId, router]);
 
   // CHECK PROCESSING STATUS WHEN PORTFOLIO CHANGES
   useEffect(() => {
-    if (selectedPortfolio && teamId) {
+    if (selectedPortfolio && courseId) {
       checkProcessingStatus();
     }
-  }, [selectedPortfolio, teamId]);
+  }, [selectedPortfolio, courseId]);
 
   // NO POLLING - ONLY CHECK ON PORTFOLIO CHANGE
 
-  const loadTeamData = async () => {
+  const loadcourseData = async () => {
     try {
       setLoading(true);
       
-      // Use the secure team data API endpoint
-      const response = await fetch(`/api/teams/${teamId}/data`);
+      // Use the secure course data API endpoint
+      const response = await fetch(`/api/courses/${courseId}/data`);
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || 'Failed to load team data');
+        setError(result.error || 'Failed to load course data');
         return;
       }
 
       if (!result.success) {
-        setError('Failed to load team data');
+        setError('Failed to load course data');
         return;
       }
 
       setUserRole(result.data.userRole);
       setIsOriginalManager(result.data.isOriginalManager || false);
-      setTeam({
-        id: result.data.team.id,
-        name: result.data.team.name,
-        location: result.data.team.location
+      setcourse({
+        id: result.data.course.id,
+        name: result.data.course.name,
+        location: result.data.course.location
       });
 
       // Transform portfolios data for the select interface
@@ -100,8 +100,8 @@ function PortfolioSelectContent() {
         id: portfolio.id,
         name: portfolio.name,
         description: portfolio.description || '',
-        documentCount: portfolio.team_documents?.length || 0,
-        documents: portfolio.team_documents || []
+        documentCount: portfolio.course_documents?.length || 0,
+        documents: portfolio.course_documents || []
       }));
 
       setPortfolios(transformedPortfolios);
@@ -112,8 +112,8 @@ function PortfolioSelectContent() {
       }
 
     } catch (error) {
-      console.error('Error loading team data:', error);
-      setError('Failed to load team data');
+      console.error('Error loading course data:', error);
+      setError('Failed to load course data');
     } finally {
       setLoading(false);
     }
@@ -127,11 +127,11 @@ function PortfolioSelectContent() {
 
 
   const checkProcessingStatus = async () => {
-    if (!selectedPortfolio || !teamId) return;
+    if (!selectedPortfolio || !courseId) return;
     
     setCheckingProcessing(true);
     try {
-      const response = await fetch(`/api/teams/portfolios/processing-status?teamId=${teamId}&portfolioId=${selectedPortfolio}`);
+      const response = await fetch(`/api/courses/portfolios/processing-status?courseId=${courseId}&portfolioId=${selectedPortfolio}`);
       const result = await response.json();
       
       if (response.ok && result.success) {
@@ -166,14 +166,14 @@ function PortfolioSelectContent() {
     setError(null);
 
     try {
-      // Call API to create/get dynamic assistant for this team+portfolio combination
+      // Call API to create/get dynamic assistant for this course+portfolio combination
       const response = await fetch('/api/assistants/create-dynamic', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          teamId,
+          courseId,
           portfolioId: selectedPortfolio
         }),
       });
@@ -192,11 +192,11 @@ function PortfolioSelectContent() {
       const activeAssistant = {
         assistantId,
         assistantName,
-        teamId,
+        courseId,
         portfolioId: selectedPortfolio,
         portfolioName: selectedPortfolioData?.name,
-        teamName: team?.name,
-        teamLocation: team?.location,
+        courseName: course?.name,
+        courseLocation: course?.location,
         userRole: userRole,
         isOriginalManager: isOriginalManager
       };
@@ -238,7 +238,7 @@ function PortfolioSelectContent() {
           <h1 className="text-4xl font-bold text-red-400 mb-4">Error</h1>
           <p className="text-slate-400 mb-6">{error}</p>
           <button
-            onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
+            onClick={() => router.push(`/launcher/course?courseId=${courseId}`)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
             ←
@@ -248,7 +248,7 @@ function PortfolioSelectContent() {
     );
   }
 
-  if (!team || portfolios.length === 0) {
+  if (!course || portfolios.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center max-w-md">
@@ -257,7 +257,7 @@ function PortfolioSelectContent() {
             This course doesn't have any portfolios set up yet. Please contact your course instructor.
           </p>
           <button
-            onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
+            onClick={() => router.push(`/launcher/course?courseId=${courseId}`)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
             ←
@@ -270,11 +270,11 @@ function PortfolioSelectContent() {
   return (
     <div className="min-h-screen bg-slate-900">
       <StandardHeader
-        teamName={team.name}
-        teamLocation={team.location}
+        courseName={course.name}
+        courseLocation={course.location}
         userRole={userRole}
         isOriginalManager={isOriginalManager}
-        backUrl={`/launcher/team?teamId=${teamId}`}
+        backUrl={`/launcher/course?courseId=${courseId}`}
       />
 
       {/* Main Content */}
@@ -312,9 +312,9 @@ function PortfolioSelectContent() {
           )}
 
           {/* Processing Summary */}
-          {selectedPortfolio && teamId && processingStatus && (
+          {selectedPortfolio && courseId && processingStatus && (
             <PortfolioProcessingSummary
-              teamId={teamId}
+              courseId={courseId}
               portfolioId={selectedPortfolio}
               summary={{
                 total: processingStatus.totalJobs,

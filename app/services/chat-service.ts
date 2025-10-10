@@ -1,5 +1,5 @@
 import { createClient } from '../utils/supabase/server';
-import { verifyUserAuth, verifyTeamAccess } from '../utils/auth-helpers';
+import { verifyUserAuth, verifycourseAccess } from '../utils/auth-helpers';
 import { cookies } from 'next/headers';
 import { sendMessage, sendMessageStreaming, getThreadMessages } from '../utils/openai';
 import { 
@@ -60,7 +60,7 @@ export class ChatService {
    * BUILD MESSAGE CONTEXT (KNOWLEDGE IS NOW IN VECTOR STORE)
    */
   async buildMessageContext(
-    teamId: string, 
+    courseId: string, 
     portfolioId: string, 
     userId: string, 
     message: string
@@ -85,7 +85,7 @@ export class ChatService {
 
       // BUILD MESSAGE CONTEXT
       const messageWithContext = await this.buildMessageContext(
-        request.teamId,
+        request.courseId,
         request.portfolioId,
         userId,
         request.message
@@ -120,7 +120,7 @@ export class ChatService {
 
       // BUILD MESSAGE CONTEXT
       const messageWithContext = await this.buildMessageContext(
-        request.teamId,
+        request.courseId,
         request.portfolioId,
         userId,
         request.message
@@ -200,15 +200,15 @@ export class ChatService {
         };
       }
 
-      // VERIFY USER HAS ACCESS TO THIS TEAM
-      await verifyTeamAccess(request.teamId, userId);
+      // VERIFY USER HAS ACCESS TO THIS course
+      await verifycourseAccess(request.courseId, userId);
 
       // UPSERT RATING (INSERT OR UPDATE IF EXISTS)
       const upsertData: any = {
         user_id: userId,
         thread_id: request.threadId,
         message_id: request.messageId,
-        team_id: request.teamId,
+        course_id: request.courseId,
         portfolio_id: request.portfolioId,
         response_time_ms: request.responseTimeMs || null,
         citations: request.citations || [],
@@ -268,7 +268,7 @@ export class ChatService {
       const supabase = await this.getSupabase();
       const { data: ratings, error: ratingsError } = await supabase
         .from('message_ratings')
-        .select('message_id, rating, team_id, portfolio_id, response_time_ms, citations, feedback_text')
+        .select('message_id, rating, course_id, portfolio_id, response_time_ms, citations, feedback_text')
         .eq('thread_id', request.threadId)
         .eq('user_id', userId);
 
@@ -284,7 +284,7 @@ export class ChatService {
       const ratingsMap = (ratings || []).reduce((acc: Record<string, any>, rating: any) => {
         acc[rating.message_id] = {
           rating: rating.rating,
-          teamId: rating.team_id,
+          courseId: rating.course_id,
           portfolioId: rating.portfolio_id,
           responseTimeMs: rating.response_time_ms,
           citations: rating.citations || [],

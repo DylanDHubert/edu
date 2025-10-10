@@ -8,7 +8,7 @@ import StandardHeader from "../../components/StandardHeader";
 import InviteModal from "../../components/InviteModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 
-interface TeamMember {
+interface courseMember {
   id: string;
   user_id: string;
   role: string;
@@ -36,11 +36,11 @@ function EditMembersContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const teamId = searchParams.get('teamId');
+  const courseId = searchParams.get('courseId');
   const supabase = createClient();
 
-  const [team, setTeam] = useState<any>(null);
-  const [existingMembers, setExistingMembers] = useState<TeamMember[]>([]);
+  const [course, setcourse] = useState<any>(null);
+  const [existingMembers, setExistingMembers] = useState<courseMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,26 +61,26 @@ function EditMembersContent() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
-    } else if (!teamId) {
+    } else if (!courseId) {
               router.push("/");
-    } else if (user && teamId) {
+    } else if (user && courseId) {
       loadExistingData();
     }
-  }, [user, loading, teamId, router]);
+  }, [user, loading, courseId, router]);
 
   const loadExistingData = async () => {
     try {
-      // Use the secure team data API endpoint
-      const response = await fetch(`/api/teams/${teamId}/data`);
+      // Use the secure course data API endpoint
+      const response = await fetch(`/api/courses/${courseId}/data`);
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || 'Failed to load team data');
+        setError(result.error || 'Failed to load course data');
         return;
       }
 
       if (!result.success) {
-        setError('Failed to load team data');
+        setError('Failed to load course data');
         return;
       }
 
@@ -92,7 +92,7 @@ function EditMembersContent() {
 
       setUserRole(result.data.userRole);
       setIsOriginalManager(result.data.isOriginalManager || false);
-      setTeam(result.data.team);
+      setcourse(result.data.course);
 
       // DEBUG: LOG THE MEMBERS DATA TO SEE WHAT'S BEING RECEIVED
       console.log('DEBUG: Members data received:', JSON.stringify(result.data.members, null, 2));
@@ -101,12 +101,12 @@ function EditMembersContent() {
       // MEMBERS DATA NOW COMES WITH USER EMAIL FROM API
       setExistingMembers(result.data.members || []);
 
-      // Set pending invitations from the team data
+      // Set pending invitations from the course data
       setPendingInvites(result.data.invitations || []);
 
     } catch (error) {
       console.error('Error loading existing data:', error);
-      setError('Failed to load team data');
+      setError('Failed to load course data');
     }
   };
 
@@ -134,20 +134,20 @@ function EditMembersContent() {
     
     try {
       // Call API route to remove member
-      const response = await fetch('/api/teams/members/remove', {
+      const response = await fetch('/api/courses/members/remove', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           memberId,
-          teamId
+          courseId
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to remove team member');
+        setError(errorData.error || 'Failed to remove course member');
         setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
         return;
       }
@@ -155,7 +155,7 @@ function EditMembersContent() {
       const result = await response.json();
 
       // Check if it's an original manager error
-      if (result.error && result.error.includes('original team manager')) {
+      if (result.error && result.error.includes('original course manager')) {
         setError(result.error);
         setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
         return;
@@ -164,12 +164,12 @@ function EditMembersContent() {
       // Member was removed successfully
       setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
       loadExistingData();
-      setSuccessMessage('Team member removed successfully');
+      setSuccessMessage('course member removed successfully');
       setTimeout(() => setSuccessMessage(null), 3000);
 
     } catch (error) {
       console.error('Error removing member:', error);
-      setError('Failed to remove team member');
+      setError('Failed to remove course member');
       setConfirmationModal({ isOpen: false, type: 'remove', data: {} });
     }
   };
@@ -187,7 +187,7 @@ function EditMembersContent() {
     
     try {
       const { error } = await supabase
-        .from('team_member_invitations')
+        .from('course_member_invitations')
         .update({ status: 'declined' })
         .eq('id', inviteId);
 
@@ -229,7 +229,7 @@ function EditMembersContent() {
           <h1 className="text-4xl font-bold text-red-400 mb-4">Error</h1>
           <p className="text-slate-400 mb-6">{error}</p>
           <button
-            onClick={() => router.push(`/launcher/team?teamId=${teamId}`)}
+            onClick={() => router.push(`/launcher/course?courseId=${courseId}`)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
           >
             ←
@@ -239,18 +239,18 @@ function EditMembersContent() {
     );
   }
 
-  if (!user || !teamId || !team) {
+  if (!user || !courseId || !course) {
     return null;
   }
 
   return (
     <div className="min-h-screen bg-slate-900">
       <StandardHeader
-        teamName={team.name}
-        teamLocation={team.location}
+        courseName={course.name}
+        courseLocation={course.location}
         userRole={userRole}
         isOriginalManager={isOriginalManager}
-        backUrl={`/launcher/team?teamId=${teamId}`}
+        backUrl={`/launcher/course?courseId=${courseId}`}
       />
 
       {/* Main Content */}
@@ -368,7 +368,7 @@ function EditMembersContent() {
             
             <div className="text-center py-8">
               <p className="text-slate-400 mb-6">
-                Invite new members to join your team. They'll receive an in-app invitation that they can accept or decline.
+                Invite new members to join your course. They'll receive an in-app invitation that they can accept or decline.
               </p>
               
               <button
@@ -390,8 +390,8 @@ function EditMembersContent() {
         <InviteModal
           isOpen={showInviteModal}
           onClose={() => setShowInviteModal(false)}
-          teamId={teamId!}
-          teamName={team.name}
+          courseId={courseId!}
+          courseName={course.name}
           onInviteSent={handleInviteSent}
         />
       )}
@@ -401,7 +401,7 @@ function EditMembersContent() {
         isOpen={confirmationModal.isOpen}
         onClose={() => setConfirmationModal({ isOpen: false, type: 'remove', data: {} })}
         onConfirm={confirmationModal.type === 'remove' ? handleRemoveMemberConfirm : handleCancelInviteConfirm}
-        title={confirmationModal.type === 'remove' ? 'REMOVE TEAM MEMBER' : 'CANCEL INVITATION'}
+        title={confirmationModal.type === 'remove' ? 'REMOVE course MEMBER' : 'CANCEL INVITATION'}
         message={
           confirmationModal.type === 'remove' 
             ? `Are you sure you want to remove ${confirmationModal.data.memberEmail?.includes('@unknown.com') ? 'this course member' : confirmationModal.data.memberEmail} (${confirmationModal.data.role}) from the course? This action cannot be undone.`

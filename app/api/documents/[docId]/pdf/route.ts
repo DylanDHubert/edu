@@ -12,11 +12,11 @@ export async function GET(
     
     console.log(`PDF REQUEST: Document ${docId}, Page ${page || 'all'}`);
     
-    // Get document info from team_documents table
+    // Get document info from course_documents table
     const serviceClient = createServiceClient();
     const { data: document, error: documentError } = await serviceClient
-      .from('team_documents')
-      .select('file_path, original_name, team_id, portfolio_id')
+      .from('course_documents')
+      .select('file_path, original_name, course_id, portfolio_id')
       .eq('id', docId)
       .single();
     
@@ -32,7 +32,7 @@ export async function GET(
     
     // Generate a signed URL for the PDF (works with private buckets)
     const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
-      .from('team-documents')
+      .from('course-documents')
       .createSignedUrl(document.file_path, 3600); // 1 hour expiry
     
     if (signedUrlError || !signedUrlData) {

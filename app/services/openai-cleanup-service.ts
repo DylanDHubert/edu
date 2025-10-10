@@ -17,9 +17,9 @@ export class OpenAICleanupService {
   }
 
   /**
-   * CLEANUP ALL OPENAI RESOURCES FOR A TEAM
+   * CLEANUP ALL OPENAI RESOURCES FOR A course
    */
-  async cleanupTeamResources(teamData: any): Promise<OpenAICleanupResult> {
+  async cleanupcourseResources(courseData: any): Promise<OpenAICleanupResult> {
     const result: OpenAICleanupResult = {
       assistantsDeleted: 0,
       vectorStoresDeleted: 0,
@@ -30,22 +30,22 @@ export class OpenAICleanupService {
 
     try {
       // CLEANUP ASSISTANTS
-      if (teamData.assistantIds.length > 0) {
-        const assistantResult = await this.cleanupAssistants(teamData.assistantIds);
+      if (courseData.assistantIds.length > 0) {
+        const assistantResult = await this.cleanupAssistants(courseData.assistantIds);
         result.assistantsDeleted = assistantResult.deleted;
         result.errors.push(...assistantResult.errors);
       }
 
       // CLEANUP VECTOR STORES
-      if (teamData.vectorStoreIds.length > 0) {
-        const vectorStoreResult = await this.cleanupVectorStores(teamData.vectorStoreIds);
+      if (courseData.vectorStoreIds.length > 0) {
+        const vectorStoreResult = await this.cleanupVectorStores(courseData.vectorStoreIds);
         result.vectorStoresDeleted = vectorStoreResult.deleted;
         result.errors.push(...vectorStoreResult.errors);
       }
 
       // CLEANUP FILES
-      if (teamData.fileIds.length > 0) {
-        const fileResult = await this.cleanupFiles(teamData.fileIds);
+      if (courseData.fileIds.length > 0) {
+        const fileResult = await this.cleanupFiles(courseData.fileIds);
         result.filesDeleted = fileResult.deleted;
         result.errors.push(...fileResult.errors);
       }
@@ -118,7 +118,7 @@ export class OpenAICleanupService {
   /**
    * VERIFY CLEANUP (OPTIONAL - FOR DEBUGGING)
    */
-  async verifyCleanup(teamData: any): Promise<{
+  async verifyCleanup(courseData: any): Promise<{
     assistantsRemaining: number;
     vectorStoresRemaining: number;
     filesRemaining: number;
@@ -131,7 +131,7 @@ export class OpenAICleanupService {
 
     try {
       // CHECK ASSISTANTS
-      for (const assistantId of teamData.assistantIds) {
+      for (const assistantId of courseData.assistantIds) {
         try {
           await this.client.beta.assistants.retrieve(assistantId);
           result.assistantsRemaining++;
@@ -141,7 +141,7 @@ export class OpenAICleanupService {
       }
 
       // CHECK VECTOR STORES
-      for (const vectorStoreId of teamData.vectorStoreIds) {
+      for (const vectorStoreId of courseData.vectorStoreIds) {
         try {
           await (this.client as any).vectorStores.retrieve(vectorStoreId);
           result.vectorStoresRemaining++;
@@ -151,7 +151,7 @@ export class OpenAICleanupService {
       }
 
       // CHECK FILES
-      for (const fileId of teamData.fileIds) {
+      for (const fileId of courseData.fileIds) {
         try {
           await this.client.files.retrieve(fileId);
           result.filesRemaining++;

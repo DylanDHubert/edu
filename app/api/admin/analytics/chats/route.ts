@@ -42,9 +42,9 @@ export async function GET(request: NextRequest) {
     const feedbackFilter = url.searchParams.get('feedback_filter') || 'all';
     const startDate = url.searchParams.get('start_date');
     const endDate = url.searchParams.get('end_date');
-    const teamId = url.searchParams.get('team_id');
+    const courseId = url.searchParams.get('course_id');
 
-    console.log('🔍 Admin Analytics - Chat Request:', { feedbackFilter, startDate, endDate, teamId });
+    console.log('🔍 Admin Analytics - Chat Request:', { feedbackFilter, startDate, endDate, courseId });
 
     const startTime = Date.now();
 
@@ -57,8 +57,7 @@ export async function GET(request: NextRequest) {
         title,
         created_at,
         updated_at,
-        team_id,
-        account_id,
+        course_id,
         portfolio_id,
         user_id
       `)
@@ -71,8 +70,8 @@ export async function GET(request: NextRequest) {
     if (endDate) {
       chatQuery = chatQuery.lte('created_at', endDate);
     }
-    if (teamId) {
-      chatQuery = chatQuery.eq('team_id', teamId);
+    if (courseId) {
+      chatQuery = chatQuery.eq('course_id', courseId);
     }
 
     const { data: chats, error: chatError } = await chatQuery;
@@ -97,34 +96,23 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get team names
-    const teamIds = [...new Set(chats?.map(chat => chat.team_id).filter(Boolean) || [])];
-    const { data: teams } = await serviceClient
-      .from('teams')
+    // Get course names
+    const courseIds = [...new Set(chats?.map(chat => chat.course_id).filter(Boolean) || [])];
+    const { data: courses } = await serviceClient
+      .from('courses')
       .select('id, name')
-      .in('id', teamIds);
+      .in('id', courseIds);
     
-    const teamMap: Record<string, string> = {};
-    teams?.forEach(team => {
-      teamMap[team.id] = team.name;
+    const courseMap: Record<string, string> = {};
+    courses?.forEach(course => {
+      courseMap[course.id] = course.name;
     });
 
-    // Get account names
-    const accountIds = [...new Set(chats?.map(chat => chat.account_id).filter(Boolean) || [])];
-    const { data: accounts } = await serviceClient
-      .from('team_accounts')
-      .select('id, name')
-      .in('id', accountIds);
-    
-    const accountMap: Record<string, string> = {};
-    accounts?.forEach(account => {
-      accountMap[account.id] = account.name;
-    });
 
     // Get portfolio names
     const portfolioIds = [...new Set(chats?.map(chat => chat.portfolio_id).filter(Boolean) || [])];
     const { data: portfolios } = await serviceClient
-      .from('team_portfolios')
+      .from('course_portfolios')
       .select('id, name')
       .in('id', portfolioIds);
     
@@ -191,8 +179,7 @@ export async function GET(request: NextRequest) {
 
           const enrichedPair = {
             user_email: userMap[chat.user_id] || 'Unknown',
-            team_name: teamMap[chat.team_id] || 'Unknown',
-            account_name: accountMap[chat.account_id] || 'Unknown',
+            course_name: courseMap[chat.course_id] || 'Unknown',
             portfolio_name: portfolioMap[chat.portfolio_id] || 'Unknown',
             chat_title: chat.title,
             thread_id: chat.thread_id,
@@ -236,7 +223,7 @@ export async function GET(request: NextRequest) {
           feedback_filter: feedbackFilter,
           start_date: startDate,
           end_date: endDate,
-          team_id: teamId
+          course_id: courseId
         }
       }
     });

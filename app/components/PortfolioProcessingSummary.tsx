@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import { AssistantStatusIndicator } from './AssistantStatusIndicator';
 
 interface PortfolioProcessingSummaryProps {
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   summary: {
     total: number;
@@ -20,7 +20,7 @@ interface PortfolioProcessingSummaryProps {
 }
 
 export function PortfolioProcessingSummary({ 
-  teamId, 
+  courseId, 
   portfolioId, 
   summary, 
   onRefresh,
@@ -152,7 +152,7 @@ export function PortfolioProcessingSummary({
       {/* Assistant Status */}
       <div className="mt-2">
         <AssistantStatusIndicator 
-          teamId={teamId} 
+          courseId={courseId} 
           portfolioId={portfolioId} 
         />
       </div>

@@ -6,8 +6,8 @@ import { X } from 'lucide-react';
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  teamId: string;
-  teamName: string;
+  courseId: string;
+  courseName: string;
   onInviteSent: () => void;
 }
 
@@ -17,7 +17,7 @@ interface InviteFormData {
   role: 'manager' | 'member';
 }
 
-export default function InviteModal({ isOpen, onClose, teamId, teamName, onInviteSent }: InviteModalProps) {
+export default function InviteModal({ isOpen, onClose, courseId, courseName, onInviteSent }: InviteModalProps) {
   const [formData, setFormData] = useState<InviteFormData>({
     email: '',
     name: '',
@@ -54,13 +54,13 @@ export default function InviteModal({ isOpen, onClose, teamId, teamName, onInvit
       }
 
       // Send invitation via API
-      const response = await fetch('/api/teams/invite', {
+      const response = await fetch('/api/courses/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          teamId,
+          courseId,
           email: formData.email.trim(),
           name: formData.name.trim(),
           role: formData.role
@@ -130,7 +130,7 @@ export default function InviteModal({ isOpen, onClose, teamId, teamName, onInvit
 
         <div className="mb-4">
           <p className="text-slate-300 text-sm">
-            Invite someone to join <span className="font-medium text-slate-100">{teamName}</span>
+            Invite someone to join <span className="font-medium text-slate-100">{courseName}</span>
           </p>
         </div>
 

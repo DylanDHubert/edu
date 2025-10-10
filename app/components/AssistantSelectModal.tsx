@@ -14,7 +14,7 @@ interface Portfolio {
 }
 
 
-interface TeamData {
+interface courseData {
   id: string;
   name: string;
   location: string;
@@ -23,11 +23,11 @@ interface TeamData {
 interface ActiveAssistant {
   assistantId: string;
   assistantName: string;
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   portfolioName?: string;
-  teamName?: string;
-  teamLocation?: string;
+  courseName?: string;
+  courseLocation?: string;
   userRole?: string;
   isOriginalManager?: boolean;
 }
@@ -44,7 +44,7 @@ export default function AssistantSelectModal({
   currentAssistant 
 }: AssistantSelectModalProps) {
   const [loading, setLoading] = useState(false);
-  const [team, setTeam] = useState<TeamData | null>(null);
+  const [course, setcourse] = useState<courseData | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -66,10 +66,10 @@ export default function AssistantSelectModal({
     if (isOpen && currentAssistant) {
       // PRE-SELECT CURRENT ASSISTANT'S PORTFOLIO
       setSelectedPortfolio(currentAssistant.portfolioId);
-      loadTeamData();
+      loadcourseData();
     } else if (!isOpen) {
       // RESET STATE WHEN MODAL CLOSES
-      setTeam(null);
+      setcourse(null);
       setPortfolios([]);
       setSelectedPortfolio('');
       setError(null);
@@ -82,40 +82,40 @@ export default function AssistantSelectModal({
 
   // CHECK PROCESSING STATUS WHEN PORTFOLIO CHANGES
   useEffect(() => {
-    if (selectedPortfolio && currentAssistant?.teamId) {
+    if (selectedPortfolio && currentAssistant?.courseId) {
       checkProcessingStatus();
     }
-  }, [selectedPortfolio, currentAssistant?.teamId]);
+  }, [selectedPortfolio, currentAssistant?.courseId]);
 
   // NO POLLING - ONLY CHECK ON PORTFOLIO CHANGE
 
-  const loadTeamData = async () => {
-    if (!currentAssistant?.teamId) return;
+  const loadcourseData = async () => {
+    if (!currentAssistant?.courseId) return;
     
     try {
       setLoading(true);
       setError(null);
       
-      // USE THE SECURE TEAM DATA API ENDPOINT
-      const response = await fetch(`/api/teams/${currentAssistant.teamId}/data`);
+      // USE THE SECURE course DATA API ENDPOINT
+      const response = await fetch(`/api/courses/${currentAssistant.courseId}/data`);
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || 'Failed to load team data');
+        setError(result.error || 'Failed to load course data');
         return;
       }
 
       if (!result.success) {
-        setError('Failed to load team data');
+        setError('Failed to load course data');
         return;
       }
 
       setUserRole(result.data.userRole);
       setIsOriginalManager(result.data.isOriginalManager || false);
-      setTeam({
-        id: result.data.team.id,
-        name: result.data.team.name,
-        location: result.data.team.location
+      setcourse({
+        id: result.data.course.id,
+        name: result.data.course.name,
+        location: result.data.course.location
       });
 
       // TRANSFORM PORTFOLIOS DATA FOR THE SELECT INTERFACE
@@ -123,8 +123,8 @@ export default function AssistantSelectModal({
         id: portfolio.id,
         name: portfolio.name,
         description: portfolio.description || '',
-        documentCount: portfolio.team_documents?.length || 0,
-        documents: portfolio.team_documents || []
+        documentCount: portfolio.course_documents?.length || 0,
+        documents: portfolio.course_documents || []
       }));
 
       setPortfolios(transformedPortfolios);
@@ -137,8 +137,8 @@ export default function AssistantSelectModal({
       }
 
     } catch (error) {
-      console.error('Error loading team data:', error);
-      setError('Failed to load team data');
+      console.error('Error loading course data:', error);
+      setError('Failed to load course data');
     } finally {
       setLoading(false);
     }
@@ -152,11 +152,11 @@ export default function AssistantSelectModal({
 
 
   const checkProcessingStatus = async () => {
-    if (!selectedPortfolio || !currentAssistant?.teamId) return;
+    if (!selectedPortfolio || !currentAssistant?.courseId) return;
     
     setCheckingProcessing(true);
     try {
-      const response = await fetch(`/api/teams/portfolios/processing-status?teamId=${currentAssistant.teamId}&portfolioId=${selectedPortfolio}`);
+      const response = await fetch(`/api/courses/portfolios/processing-status?courseId=${currentAssistant.courseId}&portfolioId=${selectedPortfolio}`);
       const result = await response.json();
       
       if (response.ok && result.success) {
@@ -174,7 +174,7 @@ export default function AssistantSelectModal({
   };
 
   const handleSwitchAssistant = async () => {
-    if (!selectedPortfolio || !currentAssistant?.teamId) {
+    if (!selectedPortfolio || !currentAssistant?.courseId) {
       setError('Please select a portfolio');
       return;
     }
@@ -191,14 +191,14 @@ export default function AssistantSelectModal({
     setError(null);
 
     try {
-      // CALL API TO CREATE/GET DYNAMIC ASSISTANT FOR THIS TEAM+PORTFOLIO COMBINATION
+      // CALL API TO CREATE/GET DYNAMIC ASSISTANT FOR THIS course+PORTFOLIO COMBINATION
       const response = await fetch('/api/assistants/create-dynamic', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          teamId: currentAssistant.teamId,
+          courseId: currentAssistant.courseId,
           portfolioId: selectedPortfolio
         }),
       });
@@ -217,11 +217,11 @@ export default function AssistantSelectModal({
       const newActiveAssistant = {
         assistantId,
         assistantName,
-        teamId: currentAssistant.teamId,
+        courseId: currentAssistant.courseId,
         portfolioId: selectedPortfolio,
         portfolioName: selectedPortfolioData?.name,
-        teamName: team?.name,
-        teamLocation: team?.location,
+        courseName: course?.name,
+        courseLocation: course?.location,
         userRole: userRole,
         isOriginalManager: isOriginalManager
       };
@@ -274,24 +274,24 @@ export default function AssistantSelectModal({
         <div className="p-6 space-y-6">
           {loading ? (
             <div className="text-center py-8">
-              <div className="text-slate-400">Loading portfolios and accounts...</div>
+              <div className="text-slate-400">Loading portfolios...</div>
             </div>
           ) : error ? (
             <div className="bg-red-900/50 border border-red-700 rounded-md p-4">
               <p className="text-red-400 text-sm">{error}</p>
             </div>
-          ) : !team || portfolios.length === 0 ? (
+          ) : !course || portfolios.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-slate-400">
-                No portfolios found for this team. Please contact your team manager.
+                No portfolios found for this course. Please contact your course manager.
               </p>
             </div>
           ) : (
             <>
-              {/* TEAM INFO */}
+              {/* course INFO */}
               <div className="bg-slate-700 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-slate-100 mb-2">{team.name}</h3>
-                <p className="text-slate-400 text-sm">{team.location}</p>
+                <h3 className="text-lg font-medium text-slate-100 mb-2">{course.name}</h3>
+                <p className="text-slate-400 text-sm">{course.location}</p>
               </div>
 
               {/* PORTFOLIO SELECTION */}
@@ -325,9 +325,9 @@ export default function AssistantSelectModal({
               )}
 
               {/* Processing Summary */}
-              {selectedPortfolio && currentAssistant?.teamId && processingStatus && (
+              {selectedPortfolio && currentAssistant?.courseId && processingStatus && (
                 <PortfolioProcessingSummary
-                  teamId={currentAssistant.teamId}
+                  courseId={currentAssistant.courseId}
                   portfolioId={selectedPortfolio}
                   summary={{
                     total: processingStatus.totalJobs,

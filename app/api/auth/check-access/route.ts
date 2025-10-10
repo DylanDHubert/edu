@@ -26,24 +26,24 @@ export async function GET(request: NextRequest) {
 
     const isAdmin = !adminError && !!adminUser;
 
-    // Check if user has any team memberships - USE SERVICE CLIENT TO AVOID RLS CIRCULAR REFERENCE
+    // Check if user has any course memberships - USE SERVICE CLIENT TO AVOID RLS CIRCULAR REFERENCE
     const { data: memberships, error: membershipError } = await serviceClient
-      .from('team_members')
+      .from('course_members')
       .select('id')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .limit(1);
 
-    const hasTeamMemberships = !membershipError && memberships && memberships.length > 0;
+    const hascourseMemberships = !membershipError && memberships && memberships.length > 0;
 
     // Determine if user has access
-    // ANY AUTHENTICATED USER CAN ACCESS THE APP AND CREATE TEAMS
+    // ANY AUTHENTICATED USER CAN ACCESS THE APP AND CREATE courseS
     const hasAccess = true; // All authenticated users have access
 
     return NextResponse.json({
       success: true,
       hasAccess,
-      hasTeamMemberships,
+      hascourseMemberships,
       isAdmin,
       userEmail: user.email
     });

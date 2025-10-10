@@ -15,15 +15,15 @@ export default function DynamicThemeColor() {
       document.head.appendChild(themeColorMeta);
     }
 
-    // SET COLOR BASED ON TEAM MODE
+    // SET COLOR BASED ON course MODE
     let color = '#1e293b'; // DEFAULT SLATE-800 (MATCHES SIDEBAR)
     
-    // Check for team mode
+    // Check for course mode
     const activeAssistant = localStorage.getItem('activeAssistant');
     if (activeAssistant) {
       try {
         const assistant = JSON.parse(activeAssistant);
-        // Team mode - use header background color for seamless look
+        // course mode - use header background color for seamless look
         color = '#1e293b'; // SLATE-800 (matches header background)
       } catch (error) {
         console.error('Error parsing activeAssistant:', error);

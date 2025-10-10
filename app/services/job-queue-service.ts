@@ -3,7 +3,7 @@ import { createServiceClient } from '../utils/supabase/server';
 export interface ProcessingJob {
   id: string;
   document_id: string;
-  team_id: string;
+  course_id: string;
   portfolio_id: string | null;
   llamaparse_job_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -25,7 +25,7 @@ export class JobQueueService {
    */
   async createJob(
     documentId: string, 
-    teamId: string, 
+    courseId: string, 
     portfolioId: string | null, 
     llamaparseJobId: string
   ): Promise<string> {
@@ -36,7 +36,7 @@ export class JobQueueService {
         .from('processing_jobs')
         .insert({
           document_id: documentId,
-          team_id: teamId,
+          course_id: courseId,
           portfolio_id: portfolioId,
           llamaparse_job_id: llamaparseJobId,
           status: 'pending',
@@ -74,8 +74,8 @@ export class JobQueueService {
         .from('processing_jobs')
         .select(`
           *,
-          team_documents!inner(
-            id, original_name, file_path, team_id, portfolio_id
+          course_documents!inner(
+            id, original_name, file_path, course_id, portfolio_id
           )
         `)
         .in('status', ['pending', 'processing'])
@@ -250,7 +250,7 @@ export class JobQueueService {
   /**
    * CHECK IF ALL JOBS FOR A PORTFOLIO ARE COMPLETED
    */
-  async isPortfolioProcessingComplete(teamId: string, portfolioId: string): Promise<{
+  async isPortfolioProcessingComplete(courseId: string, portfolioId: string): Promise<{
     isComplete: boolean;
     totalJobs: number;
     completedJobs: number;
@@ -262,7 +262,7 @@ export class JobQueueService {
       const { data: jobs, error } = await this.serviceClient
         .from('processing_jobs')
         .select('status')
-        .eq('team_id', teamId)
+        .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId);
 
       if (error) {

@@ -13,7 +13,7 @@ export interface SendMessageRequest {
   threadId: string;
   message: string;
   assistantId: string;
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   streaming?: boolean;
 }
@@ -22,7 +22,7 @@ export interface RateMessageRequest {
   threadId: string;
   messageId: string;
   rating?: number | null;
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   responseTimeMs?: number;
   citations?: string[];

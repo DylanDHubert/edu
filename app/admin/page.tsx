@@ -7,7 +7,7 @@ import { createClient } from "../utils/supabase/client";
 import { Trash2, AlertTriangle } from "lucide-react";
 import StandardHeader from "../components/StandardHeader";
 
-interface Team {
+interface course {
   id: string;
   name: string;
   description: string;
@@ -21,13 +21,13 @@ interface Team {
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [courses, setcourses] = useState<course[]>([]);
   const [isAdminLoading, setIsAdminLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [stats, setStats] = useState({
-    totalTeams: 0,
+    totalcourses: 0,
     totalMembers: 0,
-    activeTeams: 0,
+    activecourses: 0,
   });
 
   const supabase = createClient();
@@ -64,8 +64,8 @@ export default function AdminDashboard() {
       setIsAdmin(true);
       
       // Set data from the secure API response
-      setTeams(result.data.teams || []);
-      setStats(result.data.stats || { totalTeams: 0, totalMembers: 0, activeTeams: 0 });
+      setcourses(result.data.courses || []);
+      setStats(result.data.stats || { totalcourses: 0, totalMembers: 0, activecourses: 0 });
 
     } catch (error) {
       console.error('Error checking admin access:', error);
@@ -100,8 +100,8 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <StandardHeader
-        teamName="HHB Admin Dashboard"
-        teamLocation="Manage teams and monitor system usage"
+        courseName="HHB Admin Dashboard"
+        courseLocation="Manage courses and monitor system usage"
         showBackButton={true}
         backText="Analytics Dashboard"
         backUrl="/admin/dashboard"
@@ -118,8 +118,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-400">Total Teams</p>
-                <p className="text-2xl font-bold text-slate-100">{stats.totalTeams}</p>
+                <p className="text-sm font-medium text-slate-400">Total courses</p>
+                <p className="text-2xl font-bold text-slate-100">{stats.totalcourses}</p>
               </div>
             </div>
           </div>
@@ -146,24 +146,24 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-400">Active Teams</p>
-                <p className="text-2xl font-bold text-slate-100">{stats.activeTeams}</p>
+                <p className="text-sm font-medium text-slate-400">Active courses</p>
+                <p className="text-2xl font-bold text-slate-100">{stats.activecourses}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Teams Table */}
+        {/* courses Table */}
         <div className="bg-slate-800 rounded-lg border border-slate-700">
           <div className="px-6 py-4 border-b border-slate-700">
-            <h2 className="text-xl font-semibold text-slate-100">Teams</h2>
+            <h2 className="text-xl font-semibold text-slate-100">courses</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-700">
               <thead className="bg-slate-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
-                    Team Name
+                    course Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
                     Location
@@ -183,37 +183,37 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-slate-800 divide-y divide-slate-700">
-                {teams.map((team) => (
-                  <tr key={team.id} className="hover:bg-slate-700">
+                {courses.map((course) => (
+                  <tr key={course.id} className="hover:bg-slate-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-slate-100">{team.name}</div>
-                        {team.description && (
-                          <div className="text-sm text-slate-400">{team.description}</div>
+                        <div className="text-sm font-medium text-slate-100">{course.name}</div>
+                        {course.description && (
+                          <div className="text-sm text-slate-400">{course.description}</div>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {team.location || 'Not specified'}
+                      {course.location || 'Not specified'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {team.member_count}
+                      {course.member_count}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        team.status === 'Active' 
+                        course.status === 'Active' 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {team.status}
+                        {course.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      {new Date(team.created_at).toLocaleDateString()}
+                      {new Date(course.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                       <button
-                        onClick={() => router.push(`/launcher/team?teamId=${team.id}&admin=true`)}
+                        onClick={() => router.push(`/launcher/course?courseId=${course.id}&admin=true`)}
                         className="text-blue-400 hover:text-blue-300"
                       >
                         View
@@ -224,11 +224,11 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
-          {teams.length === 0 && (
+          {courses.length === 0 && (
             <div className="px-6 py-12 text-center">
-              <p className="text-slate-400">No teams created yet.</p>
+              <p className="text-slate-400">No courses created yet.</p>
               <button
-                onClick={() => router.push('/admin/create-team')}
+                onClick={() => router.push('/admin/create-course')}
                 className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
               >
                 Invite First Manager

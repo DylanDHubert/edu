@@ -3,23 +3,23 @@
 import { useState, useEffect } from 'react';
 
 interface AssistantStatusIndicatorProps {
-  teamId: string;
+  courseId: string;
   portfolioId: string;
   className?: string;
 }
 
 export function AssistantStatusIndicator({ 
-  teamId, 
+  courseId, 
   portfolioId, 
   className = "" 
 }: AssistantStatusIndicatorProps) {
   const [status, setStatus] = useState<'ready' | 'outdated' | 'none' | 'loading'>('loading');
 
   const checkAssistantStatus = async () => {
-    if (!teamId || !portfolioId) return;
+    if (!courseId || !portfolioId) return;
     
     try {
-      const response = await fetch(`/api/assistants/status?teamId=${teamId}&portfolioId=${portfolioId}`);
+      const response = await fetch(`/api/assistants/status?courseId=${courseId}&portfolioId=${portfolioId}`);
       const result = await response.json();
       
       if (response.ok && result.success) {
@@ -36,7 +36,7 @@ export function AssistantStatusIndicator({
 
   useEffect(() => {
     checkAssistantStatus();
-  }, [teamId, portfolioId]);
+  }, [courseId, portfolioId]);
 
   const getStatusColor = () => {
     switch (status) {

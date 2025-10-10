@@ -65,7 +65,7 @@ export class SourceExtractionService {
             if (pageNumbers.length > 0) {
               // Look up document by openai_file_id
               const { data: document, error: docError } = await supabase
-                .from('team_documents')
+                .from('course_documents')
                 .select('id, original_name')
                 .eq('openai_file_id', result.file_id)
                 .single();

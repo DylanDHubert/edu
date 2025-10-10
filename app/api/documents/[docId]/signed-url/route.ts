@@ -10,11 +10,11 @@ export async function GET(
     
     console.log(`📄 SIGNED URL REQUEST: Document ${docId}`);
     
-    // Get document info from team_documents table
+    // Get document info from course_documents table
     const serviceClient = createServiceClient();
     const { data: document, error: documentError } = await serviceClient
-      .from('team_documents')
-      .select('file_path, original_name, team_id, portfolio_id')
+      .from('course_documents')
+      .select('file_path, original_name, course_id, portfolio_id')
       .eq('id', docId)
       .single();
     
@@ -30,7 +30,7 @@ export async function GET(
     
     // Generate signed URL from Supabase Storage
     const { data: signedUrlData, error: signedUrlError } = await serviceClient.storage
-      .from('team-documents')
+      .from('course-documents')
       .createSignedUrl(document.file_path, 3600); // 1 hour expiry
     
     if (signedUrlError || !signedUrlData) {

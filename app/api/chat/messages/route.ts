@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'course_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
     }
     console.error('Error getting messages:', error);

@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateWithTeamAccess } from '../../../utils/auth-helpers';
+import { authenticateWithcourseAccess } from '../../../utils/auth-helpers';
 import { handleAuthError, handleDatabaseError, handleValidationError } from '../../../utils/error-responses';
 import { AssistantService } from '../../../services/assistant-service';
 import { CreateAssistantRequest } from '../../../types/assistant';
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamId, portfolioId } = await request.json();
+    const { courseId, portfolioId } = await request.json();
 
     // VALIDATE REQUIRED FIELDS
-    if (!teamId || !portfolioId) {
-      return handleValidationError('Team ID and Portfolio ID are required');
+    if (!courseId || !portfolioId) {
+      return handleValidationError('course ID and Portfolio ID are required');
     }
 
-    // AUTHENTICATE USER AND VERIFY TEAM ACCESS
-    const { user, membership, serviceClient } = await authenticateWithTeamAccess(teamId);
+    // AUTHENTICATE USER AND VERIFY course ACCESS
+    const { user, membership, serviceClient } = await authenticateWithcourseAccess(courseId);
 
     // CREATE ASSISTANT SERVICE AND DELEGATE TO IT
     const assistantService = new AssistantService();
     const result = await assistantService.createDynamicAssistant({
-      teamId,
+      courseId,
       portfolioId,
       userId: user.id
     });
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    if (error instanceof Error && ['UNAUTHORIZED', 'TEAM_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
+    if (error instanceof Error && ['UNAUTHORIZED', 'course_ACCESS_DENIED', 'INSUFFICIENT_PERMISSIONS'].includes(error.message)) {
       return handleAuthError(error);
     }
     console.error('Error in create dynamic assistant route:', error);

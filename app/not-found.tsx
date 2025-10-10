@@ -54,7 +54,7 @@ export default function NotFound() {
                 <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
                 <div>
                   <p className="text-slate-200 font-medium">Go back to the home page</p>
-                  <p className="text-slate-400 text-sm">Return to your dashboard and team selection</p>
+                  <p className="text-slate-400 text-sm">Return to your dashboard and course selection</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">

@@ -7,39 +7,39 @@ export async function GET(request: NextRequest) {
     // AUTHENTICATE USER AS ADMIN
     const { user, serviceClient } = await authenticateAsAdmin();
 
-    // Load teams with member counts using service client
-    const { data: teamsData, error: teamsError } = await serviceClient
-      .from('teams')
+    // Load courses with member counts using service client
+    const { data: coursesData, error: coursesError } = await serviceClient
+      .from('courses')
       .select(`
         *,
-        team_members(count)
+        course_members(count)
       `)
       .order('created_at', { ascending: false });
 
-    if (teamsError) {
-      return handleDatabaseError(teamsError, 'load teams data');
+    if (coursesError) {
+      return handleDatabaseError(coursesError, 'load courses data');
     }
 
-    // Format teams data
-    const formattedTeams = teamsData?.map((team: any) => ({
-      ...team,
-      member_count: team.team_members?.[0]?.count || 0,
-      status: team.team_members?.[0]?.count > 0 ? 'Active' : 'Pending'
+    // Format courses data
+    const formattedcourses = coursesData?.map((course: any) => ({
+      ...course,
+      member_count: course.course_members?.[0]?.count || 0,
+      status: course.course_members?.[0]?.count > 0 ? 'Active' : 'Pending'
     })) || [];
 
     // Calculate stats
-    const totalTeams = formattedTeams.length;
-    const totalMembers = formattedTeams.reduce((sum: number, team: any) => sum + team.member_count, 0);
-    const activeTeams = formattedTeams.filter((team: any) => team.member_count > 0).length;
+    const totalcourses = formattedcourses.length;
+    const totalMembers = formattedcourses.reduce((sum: number, course: any) => sum + course.member_count, 0);
+    const activecourses = formattedcourses.filter((course: any) => course.member_count > 0).length;
 
     return NextResponse.json({
       success: true,
       data: {
-        teams: formattedTeams,
+        courses: formattedcourses,
         stats: {
-          totalTeams,
+          totalcourses,
           totalMembers,
-          activeTeams
+          activecourses
         }
       }
     });

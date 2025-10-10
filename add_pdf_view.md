@@ -105,7 +105,7 @@ function addPageMarkersEvery400Tokens(markdown: string): string {
 **Changes needed:**
 - Extract retrieved chunks from run steps using existing analytics code
 - Parse chunks to extract page numbers from `--- Page N ---` markers
-- Look up document info from `team_documents` table
+- Look up document info from `course_documents` table
 - Return sources alongside the answer
 
 **Implementation:**
@@ -144,7 +144,7 @@ function extractPageNumbersFromChunks(chunks: any[]): Array<{fileId: string, pag
 // Look up document info
 async function getDocumentInfo(fileId: string): Promise<{originalName: string, docId: string}> {
   const { data: document } = await serviceClient
-    .from('team_documents')
+    .from('course_documents')
     .select('id, original_name')
     .eq('openai_file_id', fileId)
     .single();
@@ -159,7 +159,7 @@ async function getDocumentInfo(fileId: string): Promise<{originalName: string, d
 **Key Points:**
 - Uses existing analytics code from `chunks-experiment-service.ts`
 - Regex extracts page numbers from `--- Page N ---` markers
-- Looks up document info from `team_documents` table using `openai_file_id`
+- Looks up document info from `course_documents` table using `openai_file_id`
 - Returns top 5 sources with document names and page numbers
 
 ---
@@ -174,16 +174,16 @@ export async function GET(request: NextRequest, { params }: { params: { docId: s
   const { searchParams } = new URL(request.url);
   const page = searchParams.get('page');
   
-  // Get document info from team_documents table
+  // Get document info from course_documents table
   const { data: document } = await serviceClient
-    .from('team_documents')
+    .from('course_documents')
     .select('file_path, original_name')
     .eq('id', params.docId)
     .single();
     
   // Get PDF from Supabase Storage
   const { data: pdfData } = await serviceClient.storage
-    .from('team-documents')
+    .from('course-documents')
     .download(document.file_path);
     
   // Return PDF with page anchor
@@ -286,7 +286,7 @@ const sources = [
 ## Data Structure Analysis
 
 **✅ Perfect Setup Confirmed:**
-- `team_documents` table has all required fields: `id`, `openai_file_id`, `original_name`, `file_path`
+- `course_documents` table has all required fields: `id`, `openai_file_id`, `original_name`, `file_path`
 - Supabase Storage contains original PDFs at `file_path` locations
 - OpenAI file IDs link processed markdown to original documents
 - No database changes needed - uses existing structure
@@ -342,10 +342,10 @@ const sources = [
 - Verify file_search tool enabled on Assistant
 - Ensure vector store attached to Assistant
 - Confirm post-processing step completed successfully
-- Check `team_documents` table has correct `openai_file_id` mappings
+- Check `course_documents` table has correct `openai_file_id` mappings
 
 ### Document lookup fails
-- Verify `openai_file_id` exists in `team_documents` table
+- Verify `openai_file_id` exists in `course_documents` table
 - Check document status is "Processed" not "Failed"
 - Ensure `file_path` points to valid Supabase Storage location
 - Test PDF download from Supabase Storage directly
