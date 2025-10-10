@@ -52,11 +52,11 @@ export class AssistantService {
 
       if (existingAssistant && !assistantError) {
         // Check if cache is stale
-        console.log('Using cached assistant:', existingAssistant.assistant_id);
+        console.log('Using cached assistant:', existingAssistant.openai_assistant_id);
         
         return {
           success: true,
-          assistantId: existingAssistant.assistant_id
+          assistantId: existingAssistant.openai_assistant_id
         };
       } else {
         console.log('No cached assistant found, creating new one...');
@@ -64,7 +64,7 @@ export class AssistantService {
 
       // Generate context based on portfolio
       let context: string;
-      let vectorStoreId: string | undefined;
+      let vectorStoreId: string | null | undefined;
 
       if (portfolioId) {
         // Portfolio-specific assistant
@@ -82,6 +82,14 @@ export class AssistantService {
           names
         );
         vectorStoreId = vectorResult.vectorStoreId;
+        
+        // Update portfolio with vector store ID if created
+        if (vectorStoreId) {
+          await this.serviceClient
+            .from('course_portfolios')
+            .update({ vector_store_id: vectorStoreId })
+            .eq('id', portfolioId);
+        }
       } else {
         // General course assistant
         // Generate simple context without manual knowledge
@@ -100,9 +108,9 @@ export class AssistantService {
         name: `${names.courseName} - ${names.portfolioName} Assistant`,
         instructions,
         model: 'gpt-4.1',
-        tools: [
+        tools: vectorStoreId ? [
           { type: 'file_search' }
-        ],
+        ] : [],
         tool_resources: vectorStoreId ? {
           file_search: {
             vector_store_ids: [vectorStoreId]
@@ -113,17 +121,14 @@ export class AssistantService {
       // Create the assistant
       const assistant = await this.openaiService.createAssistant(assistantConfig);
 
-      // Cache the portfolio assistant
+      // Cache the portfolio assistant (no vector store ID - use portfolio's vector store)
       const { data: cachedAssistant, error: cacheError } = await this.serviceClient
         .from('course_assistants')
         .upsert({
           course_id: courseId,
           portfolio_id: portfolioId,
-          assistant_id: assistant.id,
-          assistant_name: assistantConfig.name,
-          general_vector_store_id: '', // Not used for portfolio assistants
-          account_portfolio_vector_store_id: '', // Not used for portfolio assistants
-          portfolio_vector_store_id: vectorStoreId || '',
+          openai_assistant_id: assistant.id,
+          name: assistantConfig.name,
           created_at: new Date().toISOString()
         });
 

@@ -11,7 +11,9 @@ interface ProcessingDocument {
   original_name: string;
   file_size: number;
   created_at: string;
-  openai_file_id: string | null;
+  status: string;
+  progress: number;
+  error?: string;
 }
 
 interface ProcessingDocumentsSectionProps {
@@ -33,12 +35,27 @@ export function ProcessingDocumentsSection({
   // FETCH PROCESSING DOCUMENTS
   const fetchProcessingDocuments = async () => {
     try {
+      // GET PROCESSING JOBS WITH DOCUMENT INFO
       const { data, error } = await supabase
-        .from('course_documents')
-        .select('id, original_name, file_size, created_at, openai_file_id')
+        .from('processing_jobs')
+        .select(`
+          id,
+          document_id,
+          status,
+          progress,
+          current_step,
+          error_message,
+          created_at,
+          course_documents!inner(
+            id,
+            original_name,
+            file_size,
+            created_at
+          )
+        `)
         .eq('course_id', courseId)
         .eq('portfolio_id', portfolioId)
-        .in('openai_file_id', [null, 'processing', 'failed'])
+        .in('status', ['pending', 'processing', 'failed'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -46,7 +63,18 @@ export function ProcessingDocumentsSection({
         return;
       }
 
-      setProcessingDocuments(data || []);
+      // TRANSFORM DATA TO MATCH EXPECTED FORMAT
+      const transformedData = (data || []).map(job => ({
+        id: job.document_id, // Use document_id for the document ID
+        original_name: job.course_documents[0]?.original_name || 'Unknown',
+        file_size: job.course_documents[0]?.file_size || 0,
+        created_at: job.course_documents[0]?.created_at || job.created_at,
+        status: job.status,
+        progress: job.progress,
+        error: job.error_message
+      }));
+
+      setProcessingDocuments(transformedData);
     } catch (error) {
       console.error('ERROR FETCHING PROCESSING DOCUMENTS:', error);
     } finally {
@@ -63,46 +91,20 @@ export function ProcessingDocumentsSection({
 
     // SET UP REALTIME SUBSCRIPTION
     const subscription = supabase
-      .channel(`processing-documents-${portfolioId}`)
+      .channel(`processing-jobs-${portfolioId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'course_documents',
+          table: 'processing_jobs',
           filter: `course_id=eq.${courseId} AND portfolio_id=eq.${portfolioId}`,
         },
         (payload) => {
-          console.log('DOCUMENT STATUS UPDATED:', payload);
+          console.log('PROCESSING JOB UPDATED:', payload);
           
-          // UPDATE LOCAL STATE
-          setProcessingDocuments(prev => {
-            const updated = prev.map(doc => 
-              doc.id === payload.new.id 
-                ? { ...doc, openai_file_id: payload.new.openai_file_id }
-                : doc
-            );
-
-            // REMOVE COMPLETED DOCUMENTS
-            const filtered = updated.filter(doc => 
-              doc.openai_file_id === null || 
-              doc.openai_file_id === 'processing' || 
-              doc.openai_file_id === 'failed'
-            );
-
-            // NOTIFY PARENT OF COMPLETED DOCUMENTS
-            const completed = updated.filter(doc => 
-              doc.openai_file_id !== null && 
-              doc.openai_file_id !== 'processing' && 
-              doc.openai_file_id !== 'failed'
-            );
-
-            completed.forEach(doc => {
-              onDocumentCompleted?.(doc.id);
-            });
-
-            return filtered;
-          });
+          // REFETCH PROCESSING DOCUMENTS TO GET UPDATED STATUS
+          fetchProcessingDocuments();
         }
       )
       .on(
@@ -110,23 +112,14 @@ export function ProcessingDocumentsSection({
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'course_documents',
+          table: 'processing_jobs',
           filter: `course_id=eq.${courseId} AND portfolio_id=eq.${portfolioId}`,
         },
         (payload) => {
-          console.log('NEW DOCUMENT ADDED:', payload);
+          console.log('NEW PROCESSING JOB ADDED:', payload);
           
-          // ADD NEW DOCUMENT TO PROCESSING LIST
-          setProcessingDocuments(prev => [
-            {
-              id: payload.new.id,
-              original_name: payload.new.original_name,
-              file_size: payload.new.file_size,
-              created_at: payload.new.created_at,
-              openai_file_id: payload.new.openai_file_id,
-            },
-            ...prev
-          ]);
+          // REFETCH PROCESSING DOCUMENTS TO GET NEW JOB
+          fetchProcessingDocuments();
         }
       )
       .subscribe();

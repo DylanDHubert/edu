@@ -7,7 +7,7 @@ import { RateMessageRequest } from '../../../types/chat';
 
 export async function POST(request: NextRequest) {
   try {
-    const { threadId, messageId, rating, courseId, portfolioId, responseTimeMs, citations, feedbackText } = await request.json();
+    const { threadId, messageId, rating, courseId, portfolioId, responseTimeMs, feedbackText } = await request.json();
     
     if (!threadId || !messageId || !courseId || !portfolioId) {
       return handleValidationError('Thread ID, message ID, course ID, and portfolio ID are required');
@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
       courseId,
       portfolioId,
       responseTimeMs,
-      citations,
       feedbackText
     };
 

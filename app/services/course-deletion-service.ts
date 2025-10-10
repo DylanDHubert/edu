@@ -219,8 +219,7 @@ export class courseDeletionService {
       const vectorStoreIds = new Set<string>();
       
       // FROM course TABLE
-      if (course.data.general_vector_store_id) vectorStoreIds.add(course.data.general_vector_store_id);
-      if (course.data.general_knowledge_vector_store_id) vectorStoreIds.add(course.data.general_knowledge_vector_store_id);
+      // No vector store fields in courses table
 
       // FROM PORTFOLIOS
       portfolios.data?.forEach(portfolio => {
@@ -228,15 +227,10 @@ export class courseDeletionService {
       });
 
       // FROM ASSISTANTS
-      assistants.data?.forEach(assistant => {
-        if (assistant.general_vector_store_id) vectorStoreIds.add(assistant.general_vector_store_id);
-        if (assistant.account_portfolio_vector_store_id) vectorStoreIds.add(assistant.account_portfolio_vector_store_id);
-        if (assistant.portfolio_vector_store_id) vectorStoreIds.add(assistant.portfolio_vector_store_id);
-        if (assistant.consolidated_vector_store_id) vectorStoreIds.add(assistant.consolidated_vector_store_id);
-      });
+      // (Vector stores are now handled at portfolio level, not assistant level)
 
       // COLLECT ALL ASSISTANT IDs
-      const assistantIds = assistants.data?.map(a => a.assistant_id) || [];
+      const assistantIds = assistants.data?.map(a => a.openai_assistant_id) || [];
 
       // COLLECT ALL FILE IDs
       const fileIds = new Set<string>();

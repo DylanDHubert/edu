@@ -25,7 +25,6 @@ export interface RateMessageRequest {
   courseId: string;
   portfolioId: string;
   responseTimeMs?: number;
-  citations?: string[];
   feedbackText?: string;
 }
 
@@ -70,27 +69,3 @@ export interface StreamingUpdate {
   error?: string;
 }
 
-export interface CitationData {
-  citation_number: number;
-  file_id: string;
-  quote?: string;
-  full_chunk_content?: string;
-  file_name?: string;
-  relevance_score?: number;
-}
-
-export interface StoreCitationsRequest {
-  threadId: string;
-  openaiMessageId: string;
-  citations: CitationData[];
-}
-
-export interface GetCitationsRequest {
-  threadId: string;
-}
-
-export interface CitationsResult {
-  success: boolean;
-  citations?: Record<string, CitationData[]>;
-  error?: string;
-}

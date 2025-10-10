@@ -35,8 +35,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // VERIFY USER IS A MEMBER OF THIS course
-    const { data: courseMember, error: memberError } = await supabase
+    // VERIFY USER IS A MEMBER OF THIS course (USE SERVICE CLIENT TO BYPASS RLS)
+    const serviceClient = createServiceClient();
+    const { data: courseMember, error: memberError } = await serviceClient
       .from('course_members')
       .select('role')
       .eq('course_id', courseId)
@@ -51,23 +52,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // GET ASSISTANT INFO TO FIND VECTOR STORE ID (USE SERVICE CLIENT FOR RLS)
-    console.log('🔍 Looking for assistant:', assistantId);
-    const serviceClient = createServiceClient();
-    const { data: assistantData, error: assistantError } = await serviceClient
-      .from('course_assistants')
-      .select('portfolio_vector_store_id')
-      .eq('assistant_id', assistantId)
+    // GET PORTFOLIO INFO TO FIND VECTOR STORE ID (USE SERVICE CLIENT FOR RLS)
+    console.log('🔍 Looking for portfolio vector store:', portfolioId);
+    const { data: portfolioData, error: portfolioError } = await serviceClient
+      .from('course_portfolios')
+      .select('vector_store_id')
+      .eq('id', portfolioId)
       .single();
 
-    console.log('📋 Assistant query result:', { assistantData, assistantError });
+    console.log('📋 Portfolio query result:', { portfolioData, portfolioError });
 
-    if (assistantError || !assistantData?.portfolio_vector_store_id) {
-      console.log('❌ Assistant lookup failed:', { assistantError, assistantData });
+    if (portfolioError) {
+      console.log('❌ Portfolio lookup failed:', { portfolioError });
       return NextResponse.json(
-        { error: 'Assistant or vector store not found' },
+        { error: 'Portfolio not found' },
         { status: 404 }
       );
+    }
+
+    // Handle case where no vector store exists yet (documents still processing)
+    if (!portfolioData?.vector_store_id) {
+      console.log('⚠️ No vector store found - documents may still be processing');
+      // Continue without vector store - assistant will work but without file search
     }
 
     // Skip knowledge update - no manual knowledge system
@@ -89,8 +95,8 @@ export async function POST(request: NextRequest) {
       }
     });
     
-    // SAVE TO DATABASE - Using course-based schema
-    const { data: chatHistory, error: dbError } = await supabase
+    // SAVE TO DATABASE - Using service client to bypass RLS (we've already verified user access)
+    const { data: chatHistory, error: dbError } = await serviceClient
       .from('chat_history')
       .insert({
         user_id: user.id,

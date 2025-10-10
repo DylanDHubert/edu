@@ -253,29 +253,18 @@ export class PortfolioService {
       // GET course ASSISTANTS - EXTRACT ALL VECTOR STORE REFERENCES
       const { data: courseAssistants } = await serviceClient
         .from('course_assistants')
-        .select('assistant_id, consolidated_vector_store_id, general_vector_store_id, account_portfolio_vector_store_id, portfolio_vector_store_id')
+        .select('openai_assistant_id')
         .eq('portfolio_id', portfolioId);
 
       if (courseAssistants) {
         courseAssistants.forEach(assistant => {
           // COLLECT ASSISTANT ID
-          if (assistant.assistant_id) {
-            assistants.push(assistant.assistant_id);
+          if (assistant.openai_assistant_id) {
+            assistants.push(assistant.openai_assistant_id);
           }
           
-          // COLLECT ALL VECTOR STORE IDS (AVOID DUPLICATES)
-          const vectorStoreIds = [
-            assistant.consolidated_vector_store_id,
-            assistant.general_vector_store_id,
-            assistant.account_portfolio_vector_store_id,
-            assistant.portfolio_vector_store_id
-          ].filter(id => id && id.startsWith('vs_'));
-
-          vectorStoreIds.forEach(id => {
-            if (!vectorStores.includes(id)) {
-              vectorStores.push(id);
-            }
-          });
+          // VECTOR STORE IDS NOW COME FROM PORTFOLIO, NOT ASSISTANTS
+          // (Vector stores are handled at portfolio level)
         });
       }
 

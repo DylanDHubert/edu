@@ -322,8 +322,7 @@ export async function sendMessageStreaming(
                 relevance_score: citation.relevanceScore
               }));
               
-              // STORE CITATIONS IN DATABASE
-              await storeCitationsInDatabase(threadId, openaiMessageId, citationsForStorage, userId);
+              // CITATIONS FUNCTIONALITY REMOVED
               
               // EXTRACT SOURCES FOR PAGE CITATIONS
               console.log(`🚀 ABOUT TO START SOURCE EXTRACTION for thread ${threadId}, run ${runId}`);
@@ -524,29 +523,7 @@ export async function deleteVectorStore(vectorStoreId: string): Promise<{ succes
   }
 }
 
-// STORE CITATIONS IN DATABASE
-async function storeCitationsInDatabase(threadId: string, openaiMessageId: string, citations: any[], userId: string) {
-  try {
-    console.log(`📚 STORING ${citations.length} CITATIONS FOR MESSAGE ${openaiMessageId}`);
-    
-    // USE CHAT SERVICE DIRECTLY INSTEAD OF HTTP REQUEST
-    const chatService = new ChatService();
-    const result = await chatService.storeMessageCitations({
-      threadId,
-      openaiMessageId,
-      citations
-    }, userId);
-
-    if (!result.success) {
-      throw new Error(`Failed to store citations: ${result.error}`);
-    }
-
-    console.log(`✅ SUCCESSFULLY STORED CITATIONS FOR MESSAGE ${openaiMessageId}`);
-  } catch (error) {
-    console.error(`❌ ERROR STORING CITATIONS FOR MESSAGE ${openaiMessageId}:`, error);
-    throw error;
-  }
-}
+// CITATIONS FUNCTIONALITY REMOVED
 
 // STORE SOURCES IN DATABASE
 async function storeSourcesInDatabase(threadId: string, openaiMessageId: string, sources: any[]) {

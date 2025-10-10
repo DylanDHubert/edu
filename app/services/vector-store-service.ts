@@ -51,7 +51,11 @@ export class VectorStoreService {
       const documents = await this.gatherPortfolioDocuments(courseId, portfolioId);
       
       if (documents.length === 0) {
-        throw new Error('No documents found for this portfolio');
+        console.log('No completed documents found for this portfolio yet');
+        return {
+          vectorStoreId: null,
+          fileIds: []
+        };
       }
 
       // Create vector store

@@ -5,6 +5,7 @@ export interface ProcessingJob {
   document_id: string;
   course_id: string;
   portfolio_id: string | null;
+  processing_type: 'standard' | 'enhanced' | 'super';
   llamaparse_job_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
@@ -27,7 +28,8 @@ export class JobQueueService {
     documentId: string, 
     courseId: string, 
     portfolioId: string | null, 
-    llamaparseJobId: string
+    llamaparseJobId: string | null,
+    processingType: string = 'standard'
   ): Promise<string> {
     try {
       console.log(`CREATING PROCESSING JOB: ${documentId} -> LlamaParse Job: ${llamaparseJobId}`);
@@ -38,6 +40,7 @@ export class JobQueueService {
           document_id: documentId,
           course_id: courseId,
           portfolio_id: portfolioId,
+          processing_type: processingType,
           llamaparse_job_id: llamaparseJobId,
           status: 'pending',
           progress: 0,

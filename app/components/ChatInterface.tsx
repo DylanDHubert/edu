@@ -69,7 +69,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [messageRatings, setMessageRatings] = useState<Record<string, any>>({});
-  const [messageCitations, setMessageCitations] = useState<Record<string, any[]>>({});
   const [messageSources, setMessageSources] = useState<Record<string, any[]>>({});
   const [isRatingMessage, setIsRatingMessage] = useState<string | null>(null);
   const [responseStartTimes, setResponseStartTimes] = useState<Record<string, number>>({});
@@ -179,26 +178,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     }
   };
 
-  // LOAD MESSAGE CITATIONS FOR CURRENT THREAD
-  const loadMessageCitations = async () => {
-    if (!currentChat?.thread_id) return;
-    
-    try {
-      const response = await fetch(`/api/chat/citations?threadId=${currentChat.thread_id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (response.ok) {
-        const { citations } = await response.json();
-        setMessageCitations(citations || {});
-      }
-    } catch (error) {
-      console.error('ERROR LOADING CITATIONS:', error);
-    }
-  };
 
   const loadMessageSources = async () => {
     if (!currentChat?.thread_id) return;
@@ -229,19 +208,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     
     // FIND THE MESSAGE TO GET CITATIONS
     const message = messages.find(msg => msg.id === messageId);
-    const citations: string[] = [];
-    
-    if (message && message.role === 'assistant') {
-      message.content.forEach(content => {
-        if (content.type === 'text' && content.text.annotations) {
-          content.text.annotations.forEach(annotation => {
-            if (annotation.type === 'file_citation') {
-              citations.push('Source cited');
-            }
-          });
-        }
-      });
-    }
     
     try {
       const response = await fetch('/api/chat/rate', {
@@ -256,7 +222,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           courseId: activeAssistant?.courseId,
           portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
-          citations: citations,
           feedbackText: messageRatings[messageId]?.feedbackText || null
         }),
       });
@@ -270,7 +235,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
             courseId: activeAssistant?.courseId,
             portfolioId: activeAssistant?.portfolioId,
             responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
-            citations: citations,
             feedbackText: messageRatings[messageId]?.feedbackText || null
           }
         }));
@@ -297,19 +261,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
     
     // FIND THE MESSAGE TO GET CITATIONS
     const message = messages.find(msg => msg.id === messageId);
-    const citations: string[] = [];
-    
-    if (message && message.role === 'assistant') {
-      message.content.forEach(content => {
-        if (content.type === 'text' && content.text.annotations) {
-          content.text.annotations.forEach(annotation => {
-            if (annotation.type === 'file_citation') {
-              citations.push('Source cited');
-            }
-          });
-        }
-      });
-    }
     
     try {
       const response = await fetch('/api/chat/rate', {
@@ -324,7 +275,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           courseId: activeAssistant?.courseId,
           portfolioId: activeAssistant?.portfolioId,
           responseTimeMs: responseStartTimes[messageId] ? Date.now() - responseStartTimes[messageId] : null,
-          citations: citations,
           feedbackText: feedbackText
         }),
       });
@@ -429,9 +379,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       
       // LOAD RATINGS FOR THIS THREAD
       await loadMessageRatings();
-      
-      // LOAD CITATIONS FOR THIS THREAD
-      await loadMessageCitations();
       
       // LOAD SOURCES FOR THIS THREAD
       await loadMessageSources();
@@ -541,7 +488,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
           
           if (reader) {
             let assistantMessage = '';
-            let citations: string[] = [];
             let currentStep = '';
             let assistantMessageObj: Message | null = null;
             let jsonBuffer = ''; // BUFFER FOR INCOMPLETE JSON CHUNKS
@@ -571,7 +517,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                       
                       if (data.type === 'update') {
                         assistantMessage = data.content;
-                        citations = data.citations || [];
                         currentStep = data.step || '';
                         const citationData = data.citationData || [];
                         const sources = data.sources || [];
@@ -773,7 +718,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
       
       if (reader) {
         let assistantMessage = '';
-        let citations: string[] = [];
         let currentStep = '';
         let assistantMessageObj: Message | null = null;
         let jsonBuffer = ''; // BUFFER FOR INCOMPLETE JSON CHUNKS
@@ -803,7 +747,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                   
                   if (data.type === 'update') {
                     assistantMessage = data.content;
-                    citations = data.citations || [];
                     currentStep = data.step || '';
                     const citationData = data.citationData || [];
                     const openaiMessageId = data.openaiMessageId;
@@ -820,15 +763,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                           type: 'text', 
                           text: { 
                             value: assistantMessage,
-                            // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
-                            annotations: citations.length > 0 ? citations.map((citation, index) => ({
-                              type: 'file_citation',
-                              text: `[${index + 1}]`,
-                              file_citation: {
-                                file_id: `citation-${index}`,
-                                quote: citation.replace(`[${index + 1}] `, '')
-                              }
-                            })) : undefined
+                            annotations: undefined
                           } 
                         }],
                         created_at: Date.now() / 1000,
@@ -870,16 +805,7 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                                 content: [{ 
                                   type: 'text', 
                                   text: { 
-                                    value: assistantMessage,
-                                    // ADD CITATIONS AS ANNOTATIONS FOR DISPLAY
-                                    annotations: citations.length > 0 ? citations.map((citation, index) => ({
-                                      type: 'file_citation',
-                                      text: `[${index + 1}]`,
-                                      file_citation: {
-                                        file_id: `citation-${index}`,
-                                        quote: citation.replace(`[${index + 1}] `, '')
-                                      }
-                                    })) : undefined
+                                    value: assistantMessage
                                   } 
                                 }],
                                 // UPDATE CITATION DATA
@@ -1122,20 +1048,6 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                         )}
                       </div>
                       
-                      {/* OLD SOURCES BUTTON - Show only if no new sources */}
-                      {!(messageSources[message.id] && messageSources[message.id].length > 0) && ((message.citationData && message.citationData.length > 0) || (messageCitations[message.id] && messageCitations[message.id].length > 0)) && (
-                        <button
-                          onClick={() => {
-                            // OPEN SOURCES PAGE IN NEW TAB - CITATIONS WILL BE LOADED FROM DATABASE
-                            window.open(`/view-sources/${message.id}?threadId=${currentChat?.thread_id}`, '_blank');
-                          }}
-                          className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
-                          title="View Sources"
-                        >
-                          <FileText className="w-4 h-4" />
-                          See Sources ({message.citationData?.length || messageCitations[message.id]?.length || 0})
-                        </button>
-                      )}
                     </div>
                     
                     {/* NEW SOURCES DISPLAY - AFTER RATING BUTTONS */}

@@ -5,6 +5,7 @@ interface UploadedFile {
   originalName: string;
   uniqueFileName: string;
   fileSize: number;
+  processingType: 'standard' | 'enhanced' | 'super';
 }
 
 interface UploadProgress {
@@ -18,6 +19,7 @@ export async function uploadFilesToSupabase(
   files: File[],
   courseId: string,
   portfolioId: string,
+  processingTypes: ('standard' | 'enhanced' | 'super')[],
   onProgress?: (progress: UploadProgress[]) => void
 ): Promise<UploadedFile[]> {
   const uploadedFiles: UploadedFile[] = [];
@@ -103,7 +105,8 @@ export async function uploadFilesToSupabase(
         filePath,
         originalName: file.name,
         uniqueFileName,
-        fileSize: file.size
+        fileSize: file.size,
+        processingType: processingTypes[i] || 'standard'
       });
 
     } catch (error) {

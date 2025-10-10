@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse;
     }
 
-    const { courseId, portfolioId, uploadedFiles, processingType = 'standard' } = await request.json();
+    const { courseId, portfolioId, uploadedFiles } = await request.json();
 
     // Validate required fields
     if (!courseId || !portfolioId || !uploadedFiles || !Array.isArray(uploadedFiles)) {
@@ -29,12 +29,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate processing type
-    if (!['standard', 'enhanced', 'super'].includes(processingType)) {
-      return NextResponse.json(
-        { error: 'processingType must be standard, enhanced, or super' },
-        { status: 400 }
-      );
+    // Validate uploaded files structure
+    for (const file of uploadedFiles) {
+      if (!file.processingType || !['standard', 'enhanced', 'super'].includes(file.processingType)) {
+        return NextResponse.json(
+          { error: 'Each file must have a valid processingType (standard, enhanced, or super)' },
+          { status: 400 }
+        );
+      }
     }
 
     // Verify user authentication
@@ -87,18 +89,18 @@ export async function POST(request: NextRequest) {
     const uploadedDocuments = [];
     const openaiFileIds = [];
 
-    // Initialize services for enhanced/super processing
-    let jobQueueService: JobQueueService | null = null;
+    // Initialize services for ALL processing types (unified approach)
+    const jobQueueService = new JobQueueService();
     let llamaparseService: LlamaParseService | null = null;
-    
-    if (processingType === 'enhanced' || processingType === 'super') {
-      jobQueueService = new JobQueueService();
-      llamaparseService = new LlamaParseService();
-    }
 
     // Process uploaded files
     for (const uploadedFile of uploadedFiles) {
-      const { filePath, originalName, uniqueFileName, fileSize } = uploadedFile;
+      const { filePath, originalName, uniqueFileName, fileSize, processingType } = uploadedFile;
+
+      // Initialize LlamaParse service if needed for this file
+      if ((processingType === 'enhanced' || processingType === 'super') && !llamaparseService) {
+        llamaparseService = new LlamaParseService();
+      }
 
       // Download file from Supabase Storage
       const { data: fileData, error: downloadError } = await supabase.storage
@@ -132,111 +134,84 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // PROCESS BASED ON PROCESSING TYPE
-      if (processingType === 'standard') {
-        // STANDARD: Direct OpenAI upload
-        const fileType = originalName.toLowerCase().endsWith('.md') ? 'text/markdown' : 'application/pdf';
-        const openaiFile = await client.files.create({
-          file: new File([buffer], originalName, { type: fileType }),
-          purpose: 'assistants'
-        });
+      // UNIFIED PROCESSING: All modes use job queue system
+      // Save document record with pending status
+      const { data: document, error: docError } = await serviceClient
+        .from('course_documents')
+        .insert({
+          course_id: courseId,
+          portfolio_id: portfolioId,
+          name: originalName, // REQUIRED FIELD
+          filename: uniqueFileName,
+          original_name: originalName,
+          file_path: filePath,
+          file_size: fileSize,
+          openai_file_id: null, // Will be set when processing completes
+          processing_type: processingType,
+          status: 'pending', // REQUIRED FIELD - unified approach
+          uploaded_by: user.id
+        })
+        .select()
+        .single();
 
-        openaiFileIds.push(openaiFile.id);
+      if (docError) {
+        console.error('Error creating document record:', docError);
+        continue;
+      }
 
-        // Save document record with OpenAI file ID
-        const { data: document, error: docError } = await serviceClient
-          .from('course_documents')
-          .insert({
-            course_id: courseId,
-            portfolio_id: portfolioId,
-            name: originalName, // REQUIRED FIELD
-            filename: uniqueFileName,
-            original_name: originalName,
-            file_path: filePath,
-            file_size: fileSize,
-            openai_file_id: openaiFile.id,
-            processing_type: processingType,
-            status: 'completed', // REQUIRED FIELD
-            uploaded_by: user.id
-          })
-          .select()
-          .single();
-
-        if (docError) {
-          console.error('Error saving document record:', docError);
-          return NextResponse.json(
-            { error: 'Failed to save document record: ' + docError.message },
-            { status: 500 }
-          );
+      // CREATE PROCESSING JOB FOR ALL MODES
+      try {
+        if (processingType === 'standard') {
+          // STANDARD: Create job without LlamaParse
+          await jobQueueService.createJob(document.id, courseId, portfolioId, null, processingType);
+          console.log(`PROCESSING JOB CREATED FOR STANDARD: ${originalName}`);
         } else {
-          uploadedDocuments.push(document);
-        }
-
-      } else {
-        // ENHANCED/SUPER: LlamaParse processing
-        const { data: document, error: docError } = await serviceClient
-          .from('course_documents')
-          .insert({
-            course_id: courseId,
-            portfolio_id: portfolioId,
-            filename: uniqueFileName,
-            original_name: originalName,
-            file_path: filePath,
-            file_size: fileSize,
-            openai_file_id: null, // Will be set when processing completes
-            processing_type: processingType,
-            uploaded_by: user.id
-          })
-          .select()
-          .single();
-
-        if (docError) {
-          console.error('Error creating document record:', docError);
-          continue;
-        }
-
-        // SUBMIT TO LLAMAPARSE
-        try {
+          // ENHANCED/SUPER: Submit to LlamaParse first
           const llamaparseJobId = await llamaparseService!.submitDocument(buffer, originalName, processingType as 'enhanced' | 'super');
           console.log(`LLAMAPARSE JOB SUBMITTED: ${originalName} -> Job ID: ${llamaparseJobId}`);
 
           // CREATE PROCESSING JOB
-          await jobQueueService!.createJob(document.id, courseId, portfolioId, llamaparseJobId);
+          await jobQueueService.createJob(document.id, courseId, portfolioId, llamaparseJobId, processingType);
           console.log(`PROCESSING JOB CREATED FOR: ${originalName}`);
-
-          // UPDATE DOCUMENT STATUS TO PROCESSING
-          await serviceClient
-            .from('course_documents')
-            .update({ openai_file_id: 'processing' })
-            .eq('id', document.id);
-
-        } catch (jobError) {
-          console.error('ERROR CREATING PROCESSING JOB:', jobError);
-          // MARK DOCUMENT AS FAILED
-          await serviceClient
-            .from('course_documents')
-            .update({ openai_file_id: 'failed' })
-            .eq('id', document.id);
         }
 
-        uploadedDocuments.push({
-          id: document.id,
-          filename: document.filename,
-          originalName: document.original_name,
-          fileSize: document.file_size,
-          status: 'processing'
-        });
+        // UPDATE DOCUMENT STATUS TO PROCESSING
+        const { error: statusError } = await serviceClient
+          .from('course_documents')
+          .update({ status: 'processing' })
+          .eq('id', document.id);
+
+        if (statusError) {
+          console.error('ERROR UPDATING DOCUMENT STATUS:', statusError);
+          throw new Error(`Failed to update document status: ${statusError.message}`);
+        }
+
+      } catch (jobError) {
+        console.error('ERROR CREATING PROCESSING JOB:', jobError);
+        // MARK DOCUMENT AS FAILED
+        await serviceClient
+          .from('course_documents')
+          .update({ status: 'failed' })
+          .eq('id', document.id);
+        
+        // CONTINUE WITH NEXT FILE INSTEAD OF RETURNING ERROR
+        continue;
       }
+
+      uploadedDocuments.push({
+        id: document.id,
+        filename: document.filename,
+        originalName: document.original_name,
+        fileSize: document.file_size,
+        status: 'processing'
+      });
     }
 
-    const processingMessage = processingType === 'standard' 
-      ? `${uploadedFiles.length} file(s) uploaded and processed successfully.`
-      : `${uploadedFiles.length} file(s) uploaded. ${processingType === 'super' ? 'Super' : 'Enhanced'} processing started in background.`;
+    const processingMessage = `${uploadedFiles.length} file(s) uploaded. Processing started in background.`;
 
     return NextResponse.json({
       success: true,
       documents: uploadedDocuments,
-      processingType,
       message: processingMessage
     });
 

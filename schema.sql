@@ -126,19 +126,6 @@ CREATE TABLE public.courses (
   CONSTRAINT courses_pkey PRIMARY KEY (id),
   CONSTRAINT courses_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
-CREATE TABLE public.message_citations (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  thread_id text NOT NULL,
-  openai_message_id text NOT NULL,
-  citation_number integer NOT NULL,
-  file_id text NOT NULL,
-  quote text,
-  full_chunk_content text,
-  file_name text,
-  relevance_score numeric,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT message_citations_pkey PRIMARY KEY (id)
-);
 CREATE TABLE public.message_ratings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
@@ -147,7 +134,6 @@ CREATE TABLE public.message_ratings (
   rating integer CHECK (rating = ANY (ARRAY[1, '-1'::integer])),
   created_at timestamp with time zone DEFAULT now(),
   response_time_ms integer,
-  citations text[],
   feedback_text text,
   course_id uuid,
   portfolio_id uuid,

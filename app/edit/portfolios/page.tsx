@@ -18,6 +18,7 @@ interface Portfolio {
   name: string;
   description: string;
   files: File[];
+  fileProcessingTypes: ('standard' | 'enhanced' | 'super')[];
   existingDocuments?: Array<{ id: string; filename: string; original_name: string; file_size?: number | null }>;
 }
 
@@ -178,7 +179,7 @@ function EditPortfoliosContent() {
   };
 
   const addPortfolio = () => {
-    setPortfolios([...portfolios, { id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
+    setPortfolios([...portfolios, { id: undefined, name: '', description: '', files: [], fileProcessingTypes: [], existingDocuments: [] }]);
   };
 
   // HELPER FUNCTION TO SHOW CONFIRMATION MODAL
@@ -295,7 +296,7 @@ function EditPortfoliosContent() {
             if (result.success) {
               // ONLY REMOVE FROM STATE AFTER CONFIRMED SUCCESSFUL DELETION
               const newPortfolios = portfolios.filter((_, i) => i !== index);
-              setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
+              setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [], fileProcessingTypes: [] }]);
               
               // RELOAD DATA TO ENSURE CONSISTENCY
               await loadExistingData();
@@ -318,7 +319,7 @@ function EditPortfoliosContent() {
     } else {
       // REMOVE NEW PORTFOLIO DIRECTLY (NO CONFIRMATION NEEDED)
       const newPortfolios = portfolios.filter((_, i) => i !== index);
-      setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [] }]);
+      setPortfolios(newPortfolios.length > 0 ? newPortfolios : [{ id: undefined, name: '', description: '', files: [], existingDocuments: [], fileProcessingTypes: [] }]);
     }
   };
 
@@ -331,7 +332,10 @@ function EditPortfoliosContent() {
   const handleFileUpload = (index: number, files: FileList | null) => {
     if (files && files.length > 0) {
       const newPortfolios = [...portfolios];
-      newPortfolios[index].files = [...newPortfolios[index].files, ...Array.from(files)];
+      const newFiles = Array.from(files);
+      newPortfolios[index].files = [...newPortfolios[index].files, ...newFiles];
+      // Initialize processing types as 'standard' for new files
+      newPortfolios[index].fileProcessingTypes = [...(newPortfolios[index].fileProcessingTypes || []), ...newFiles.map(() => 'standard' as const)];
       setPortfolios(newPortfolios);
     }
   };
@@ -339,6 +343,13 @@ function EditPortfoliosContent() {
   const removeFile = (portfolioIndex: number, fileIndex: number) => {
     const newPortfolios = [...portfolios];
     newPortfolios[portfolioIndex].files = newPortfolios[portfolioIndex].files.filter((_, i) => i !== fileIndex);
+    newPortfolios[portfolioIndex].fileProcessingTypes = newPortfolios[portfolioIndex].fileProcessingTypes.filter((_, i) => i !== fileIndex);
+    setPortfolios(newPortfolios);
+  };
+
+  const handleProcessingTypeChange = (portfolioIndex: number, fileIndex: number, processingType: 'standard' | 'enhanced' | 'super') => {
+    const newPortfolios = [...portfolios];
+    newPortfolios[portfolioIndex].fileProcessingTypes[fileIndex] = processingType;
     setPortfolios(newPortfolios);
   };
 
@@ -474,17 +485,18 @@ function EditPortfoliosContent() {
           }
         }
 
-        // Handle new file uploads using LlamaParse processing
+        // Handle new file uploads using per-document processing types
         if (portfolio.files.length > 0 && portfolio.id) {
           try {
-            // UPLOAD FILES DIRECTLY TO SUPABASE
+            // UPLOAD FILES DIRECTLY TO SUPABASE WITH PROCESSING TYPES
             const uploadedFiles = await uploadFilesToSupabase(
               portfolio.files,
               courseId!,
-              portfolio.id
+              portfolio.id,
+              portfolio.fileProcessingTypes || []
             );
 
-            // PROCESS UPLOADED FILES WITH STANDARD PROCESSING
+            // PROCESS UPLOADED FILES WITH PER-DOCUMENT PROCESSING TYPES
             await processUploadedFiles(
               uploadedFiles,
               courseId!,
@@ -780,17 +792,29 @@ function EditPortfoliosContent() {
                     <h5 className="text-sm font-medium text-slate-300 mb-2">New Files to Upload:</h5>
                     <div className="space-y-2">
                       {portfolio.files.map((file, fileIndex) => (
-                        <div key={fileIndex} className="flex items-center justify-between p-2 bg-slate-700 rounded">
-                          <div className="flex flex-col">
+                        <div key={fileIndex} className="flex items-center justify-between p-3 bg-slate-700 rounded">
+                          <div className="flex flex-col flex-1">
                             <span className="text-slate-300 text-sm">{file.name}</span>
                             <span className="text-slate-500 text-xs">{formatFileSize(file.size)}</span>
                           </div>
-                          <button
-                            onClick={() => removeFile(index, fileIndex)}
-                            className="text-red-400 hover:text-red-300 text-sm"
-                          >
-                            Remove
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={portfolio.fileProcessingTypes?.[fileIndex] || 'standard'}
+                              onChange={(e) => handleProcessingTypeChange(index, fileIndex, e.target.value as 'standard' | 'enhanced' | 'super')}
+                              className="bg-slate-600 text-slate-200 text-xs px-2 py-1 rounded border border-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+                              style={{ backgroundImage: 'none' }}
+                            >
+                              <option value="standard">Standard</option>
+                              <option value="enhanced">Enhanced</option>
+                              <option value="super">Super</option>
+                            </select>
+                            <button
+                              onClick={() => removeFile(index, fileIndex)}
+                              className="text-red-400 hover:text-red-300 text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

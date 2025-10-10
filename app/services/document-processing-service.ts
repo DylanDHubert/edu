@@ -255,28 +255,14 @@ export class DocumentProcessingService {
           return null;
         }
 
-        // IF DOCUMENT HAS OPENAI FILE ID, IT'S COMPLETED (LEGACY)
-        if (document.openai_file_id && document.openai_file_id.startsWith('file-')) {
-          return {
-            id: documentId,
-            courseId: document.course_id,
-            portfolioId: document.portfolio_id,
-            documentId: document.id,
-            status: 'completed',
-            progress: 100,
-            createdAt: document.created_at,
-            updatedAt: document.updated_at,
-          };
-        }
-
-        // NO JOB AND NO COMPLETED STATUS = PENDING
+        // USE DOCUMENT STATUS FIELD (NEW APPROACH)
         return {
           id: documentId,
           courseId: document.course_id,
           portfolioId: document.portfolio_id,
           documentId: document.id,
-          status: 'pending',
-          progress: 0,
+          status: document.status || 'pending',
+          progress: document.status === 'completed' ? 100 : 0,
           createdAt: document.created_at,
           updatedAt: document.updated_at,
         };

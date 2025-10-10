@@ -32,6 +32,21 @@ SUPER: Upload → Supabase → LlamaParse → Job Queue → OpenAI → Save (✅
 7. Status: 'completed' ✅
 ```
 
+## CLEAN STATUS TRACKING DESIGN
+
+### Status Field Usage:
+- **`course_documents.status`**: Processing status (pending/processing/completed/failed)
+- **`course_documents.openai_file_id`**: Actual OpenAI file ID when completed (null otherwise)
+- **`processing_jobs`**: Detailed job tracking (progress, steps, errors, timing)
+
+### Status Flow:
+```
+1. Document created: status='pending', openai_file_id=null
+2. Job starts: status='processing', openai_file_id=null
+3. Job completes: status='completed', openai_file_id='file-xxxxx'
+4. Job fails: status='failed', openai_file_id=null
+```
+
 ## DATABASE SCHEMA CHANGES
 
 ### Added Table: `processing_jobs`
@@ -73,21 +88,28 @@ CREATE INDEX idx_processing_jobs_llamaparse_job_id ON public.processing_jobs(lla
 **File:** `app/api/courses/documents/upload/route.ts`
 - Remove direct OpenAI upload for standard mode
 - Always create `processing_jobs` record for ALL processing types
-- Always set `status: 'pending'` initially
+- Always set `course_documents.status: 'pending'` initially
 - Remove conditional logic between standard/enhanced/super
+- Use proper status field instead of openai_file_id for status tracking
 
 ### 2. Cron Job Updates
 **File:** `app/api/cron/process-documents/route.ts`
 - Add handling for `processing_type: 'standard'`
 - Route to appropriate processing logic based on `processing_type`
-- Update progress and status throughout processing
+- Update `course_documents.status` field throughout processing
 - Handle all three processing types in unified flow
 
 ### 3. Job Queue Service Updates
 **File:** `app/services/job-queue-service.ts`
 - Add `processing_type` parameter to job creation
 - Update job processing logic to handle standard mode
-- Ensure proper status updates for all processing types
+- Ensure proper status updates using `course_documents.status` field
+
+### 4. Status Service Updates
+**File:** `app/services/document-processing-service.ts`
+- Update status tracking to use `course_documents.status` field
+- Remove reliance on `openai_file_id` for status tracking
+- Ensure consistent status updates across all processing types
 
 ## UI COMPATIBILITY (NO CHANGES NEEDED)
 
@@ -134,8 +156,9 @@ CREATE INDEX idx_processing_jobs_llamaparse_job_id ON public.processing_jobs(lla
 1. ✅ **Schema updated** (processing_jobs table + citations fix)
 2. **Update upload endpoint** to always create jobs (remove direct OpenAI)
 3. **Update cron job** to handle standard mode
-4. **Test unified flow** with all three processing types
-5. **Verify UI compatibility** (should work unchanged)
+4. **Update status tracking** to use proper status field
+5. **Test unified flow** with all three processing types
+6. **Verify UI compatibility** (should work unchanged)
 
 ## FILES REQUIRING CONTEXT
 
@@ -173,6 +196,7 @@ CREATE INDEX idx_processing_jobs_llamaparse_job_id ON public.processing_jobs(lla
 4. **Scalable:** Can handle large files without hitting request limits
 5. **UI Compatible:** No changes needed to existing UI components
 6. **Flexible:** Easy to add new processing types in the future
+7. **Clean Design:** Proper separation of concerns with dedicated status field
 
 ## TESTING STRATEGY
 
@@ -186,7 +210,8 @@ CREATE INDEX idx_processing_jobs_llamaparse_job_id ON public.processing_jobs(lla
 ## NOTES
 
 - All existing UI components will work unchanged
-- Processing status is already tracked in `course_documents.status`
+- Processing status is tracked in `course_documents.status` field (clean design)
 - Job progress is tracked in `processing_jobs.progress`
 - Error handling is centralized in job queue system
 - File size limits are now handled by Supabase Storage (50MB) instead of Vercel (4.5MB)
+- `openai_file_id` field is used only for actual OpenAI file IDs, not status tracking

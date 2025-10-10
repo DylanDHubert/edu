@@ -73,6 +73,6 @@ export interface CacheStalenessResult {
 }
 
 export interface VectorStoreResult {
-  vectorStoreId: string;
+  vectorStoreId: string | null;
   fileIds: string[];
 }
