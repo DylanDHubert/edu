@@ -5,7 +5,7 @@
 
 ## Summary
 
-AI-powered course collaboration platform designed for medical device sales representatives and field operations courses.
+AI-powered course collaboration platform designed for educational courses and learning materials.
 
 ## Features
 

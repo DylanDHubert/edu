@@ -80,11 +80,11 @@ export async function POST(request: NextRequest) {
 
 
     // CREATE NEW THREAD WITH INITIAL CONTEXT TO PRIME FILE SEARCH BEHAVIOR
-    const initialContext = `I am ready to help with surgical procedures. I will ALWAYS use file search to find relevant information from documents and knowledge sources before responding. This ensures I provide accurate, evidence-based responses.`;
+    const initialContext = `I am ready to help with course topics and materials. I will ALWAYS use file search to find relevant information from documents and knowledge sources before responding. This ensures I provide accurate, evidence-based responses.`;
     const thread = await createThread(initialContext);
     
     // ADD VISIBLE WELCOME MESSAGE TO THE THREAD
-    const welcomeMessage = `Hello! I'm your HHB Assistant specializing in surgical procedures. I'm ready to help you with any questions about procedures, equipment, or protocols. I'll search through our knowledge base to provide you with accurate, evidence-based information. What would you like to know?`;
+    const welcomeMessage = `Hello! I'm your HHB Assistant specializing in educational content. I'm ready to help you with any questions about course topics, materials, or concepts. I'll search through our knowledge base to provide you with accurate information. What would you like to know?`;
     
     await client.beta.threads.messages.create(thread.id, {
       role: 'assistant',

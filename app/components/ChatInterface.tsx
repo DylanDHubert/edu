@@ -941,9 +941,9 @@ export default function ChatInterface({ onMenuClick }: { onMenuClick?: () => voi
                     <span className="text-slate-300 text-sm font-medium">HHB Assistant</span>
                   </div>
                   <p className="text-slate-100">
-                    Hello! I'm your HHB Assistant specializing in <strong>{activeAssistant?.portfolioName}</strong> procedures. 
-                    I'm ready to help you with any questions about surgical procedures, equipment, or protocols. 
-                    I'll search through our knowledge base to provide you with accurate, evidence-based information.
+                    Hello! I'm your HHB Assistant specializing in <strong>{activeAssistant?.portfolioName}</strong>. 
+                    I'm ready to help you with any questions about course topics, materials, or concepts. 
+                    I'll search through our knowledge base to provide you with accurate information.
                   </p>
                   <p className="text-slate-400 text-sm mt-2">
                     What would you like to know?

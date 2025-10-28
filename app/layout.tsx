@@ -21,7 +21,7 @@ const coda = Coda({
 });
 
 export const metadata: Metadata = {
-  title: "HHB Stryker Assistant",
+  title: "HHB Assistant",
   description: "AI-powered RAG application with Supabase authentication",
   manifest: "/manifest.json",
   appleWebApp: {

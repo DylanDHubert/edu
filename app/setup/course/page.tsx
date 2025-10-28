@@ -114,7 +114,7 @@ export default function courseSetupPage() {
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-100 mb-2">Course Information</h2>
             <p className="text-slate-400 text-sm">
-              Provide basic information about your course. You'll be able to manage portfolios, accounts, and course members from your course dashboard.
+              Provide basic information about your course. You'll be able to manage material collections and course members from your course dashboard.
             </p>
           </div>
 
@@ -169,7 +169,7 @@ export default function courseSetupPage() {
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="Brief description of your course's territory or focus"
+                placeholder="Brief description of your course's focus area or subject"
                 rows={3}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -180,7 +180,7 @@ export default function courseSetupPage() {
               <h3 className="text-sm font-medium text-blue-400 mb-2">What's Next:</h3>
               <ul className="text-blue-300 text-sm space-y-1">
                 <li>• You'll be taken back to the course selection page</li>
-                <li>• From there you can manage portfolios, accounts, and members</li>
+                <li>• From there you can manage material collections and members</li>
                 <li>• Upload documents and create course knowledge</li>
                 <li>• Invite course members and start using your AI assistant</li>
               </ul>

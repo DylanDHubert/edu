@@ -254,7 +254,7 @@ function PortfolioSelectContent() {
         <div className="text-center max-w-md">
           <h1 className="text-4xl font-bold text-slate-400 mb-4">No Portfolios Found</h1>
           <p className="text-slate-400 mb-6">
-            This course doesn't have any portfolios set up yet. Please contact your course instructor.
+            This course doesn't have any material collections set up yet. Please contact your course instructor.
           </p>
           <button
             onClick={() => router.push(`/launcher/course?courseId=${courseId}`)}
@@ -285,7 +285,7 @@ function PortfolioSelectContent() {
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
             <h2 className="text-xl font-semibold text-slate-100 mb-4">Select Portfolio</h2>
             <p className="text-slate-400 text-sm mb-6">
-              Choose the type of procedure or specialty you're working with.
+              Choose the topic area or subject you want to work with.
             </p>
             
             <div className="space-y-3">
