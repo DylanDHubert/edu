@@ -31,8 +31,7 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.0.1",
-    "supabase": "^2.33.9",
-    "tiktoken": "^1.0.22"
+    "supabase": "^2.33.9"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
